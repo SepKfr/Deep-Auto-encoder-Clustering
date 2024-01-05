@@ -15,7 +15,6 @@
 
 # Lint as: python3
 
-from forecastblurdenoise.Utils.base import DataTypes, InputTypes
 from data_formatters.electricity import ElectricityFormatter
 
 DataFormatter = ElectricityFormatter

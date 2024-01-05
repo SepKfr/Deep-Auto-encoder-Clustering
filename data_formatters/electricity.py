@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Lint as: python3
-import abc
-import itertools
 import pandas as pd
 import sklearn.preprocessing
 

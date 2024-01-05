@@ -17,7 +17,6 @@
 
 import sklearn.preprocessing
 
-
 class TrafficFormatter:
 
     @property
