@@ -2,8 +2,7 @@ import argparse
 import numpy as np
 import ruptures as rpt
 import pandas as pd
-
-from data_formatters import solar, traffic, watershed, exchange, air_quality, electricity
+from .data_formatters import solar, traffic, watershed, exchange, air_quality, electricity
 
 
 parser = argparse.ArgumentParser(description="data segmenter")
