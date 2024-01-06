@@ -22,7 +22,7 @@ class TrafficFormatter:
     @property
     def _column_definition(self):
         """Defines order, input type and data_set type of each column."""
-        return {'id': 'id', 'target': 'power_usage', 'covariates': []}
+        return {'id': 'id', 'target': 'values', 'covariates': []}
 
     def __init__(self):
 
