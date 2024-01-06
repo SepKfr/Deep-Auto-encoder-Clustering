@@ -2,26 +2,26 @@ import argparse
 import numpy as np
 import ruptures as rpt
 import pandas as pd
-from data_formatters import solar, traffic, watershed, exchange, air_quality, electricity
-
+import dataforemater
 
 parser = argparse.ArgumentParser(description="data segmenter")
 parser.add_argument("--exp_name", type=str, default="exchange")
 parser.add_argument("--data_path", type=str, required=True)
 args = parser.parse_args()
 
-data_formatter = {"traffic": traffic.TrafficFormatter,
-                  "electricity": electricity.ElectricityFormatter,
-                  "solar": solar.SolarFormatter,
-                  "air_quality": air_quality.AirQualityFormatter,
-                  "watershed": watershed.WatershedFormatter,
-                  "exchange": exchange.ExchangeFormatter}
+col_def = {"traffic": {'id': 'id', 'target': 'values', 'covariates': []},
+           "electricity": {'id': 'id', 'target': 'power_usage', 'covariates': []},
+           "solar": {'id': 'id', 'target': 'Power(MW)', 'covariates': []},
+           "air_quality": {'id': 'id', 'target':'NO2', 'covariates': ['CO', 'TEMP']},
+           "watershed": {'id': 'id', 'target': 'Conductivity', 'covariates': ['Q', 'temp']},
+           "exchange": {'id': 'id', 'target': 'OT', 'covariates': ['0', '1', '2', '3', '4', '5']}}
+
+data_formatter = dataforemater.DataFormatter(column_definition=col_def[args.exp_name])
 
 data = pd.read_csv(args.data_path, dtype={'date': str})
 data.sort_values(by=["id", "hours_from_start"], inplace=True)
-data_format = data_formatter[args.exp_name]()
-data = data_format.transform_data(data)
-data = data[data_format.real_inputs].values
+data = data_formatter.transform_data(data)
+data = data[data_formatter.real_inputs].values
 
 print(data.shape)
 

@@ -17,7 +17,7 @@ import pandas as pd
 import sklearn.preprocessing
 
 
-class ElectricityFormatter:
+class DataFormatter:
     """Defines and formats data_set for the electricity dataset.
     Note that per-entity z-score normalization is used here, and is implemented
     across functions.
@@ -32,19 +32,20 @@ class ElectricityFormatter:
         """Defines order, input type and data_set type of each column."""
         return {'id': 'id', 'target': 'power_usage', 'covariates': []}
 
-    def __init__(self):
+    def __init__(self, column_definition: dict):
         """Initialises formatter."""
 
         self.identifiers = None
         self.real_scalers = None
         self.target_scaler = None
 
-        self.id_column = self._column_definition['id']
-        self.target_column = self._column_definition['target']
+        self.column_definition = column_definition
+        self.id_column = self.column_definition['id']
+        self.target_column = self.column_definition['target']
 
         self.real_inputs = []
         self.real_inputs.append(self.target_column)
-        for covar in self._column_definition["covariates"]:
+        for covar in self.column_definition["covariates"]:
             self.real_inputs.append(covar)
 
         print(self.real_inputs)
