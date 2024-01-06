@@ -13,7 +13,7 @@ col_def = {"traffic": {'id': 'id', 'target': 'values', 'covariates': []},
            "electricity": {'id': 'id', 'target': 'power_usage', 'covariates': []},
            "solar": {'id': 'id', 'target': 'Power(MW)', 'covariates': []},
            "air_quality": {'id': 'id', 'target':'NO2', 'covariates': ['CO', 'TEMP']},
-           "watershed": {'id': 'id', 'target': 'Conductivity', 'covariates': ['Q', 'temp']},
+           "watershed": {'id': 'id', 'target': 'Conductivity', 'covariates': ['Q']},
            "exchange": {'id': 'id', 'target': 'OT', 'covariates': ['0', '1', '2', '3', '4', '5']}}
 
 data_formatter = dataforemater.DataFormatter(column_definition=col_def[args.exp_name])
