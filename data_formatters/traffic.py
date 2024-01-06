@@ -17,6 +17,7 @@
 
 import sklearn.preprocessing
 
+
 class TrafficFormatter:
 
     @property
@@ -65,9 +66,15 @@ class TrafficFormatter:
         self.identifiers = list(df[self.id_column].unique())
 
         data = df[self.real_inputs].values
+        targets = df[self.target_column].values
+
+        if len(data.shape) == 1:
+            data = data.reshape(-1, 1)
+        if len(targets.shape) == 1:
+            targets = targets.reshape(-1, 1)
+
         self.real_scalers = sklearn.preprocessing.StandardScaler().fit(data)
-        self.target_scaler = sklearn.preprocessing.StandardScaler().fit(
-            df[[self.target_column]].values)  # used for predictions
+        self.target_scaler = sklearn.preprocessing.StandardScaler().fit(targets)  # used for predictions
 
     def transform_inputs(self, df):
         """Performs feature transformations.

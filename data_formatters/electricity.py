@@ -47,6 +47,8 @@ class ElectricityFormatter:
         for covar in self._column_definition["covariates"]:
             self.real_inputs.append(covar)
 
+        print(self.real_inputs)
+
     def transform_data(self, df):
 
         print('Formatting data.')

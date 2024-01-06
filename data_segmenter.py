@@ -23,6 +23,8 @@ data_format = data_formatter[args.exp_name]()
 data = data_format.transform_data(data)
 data = data[data_format.real_inputs].values
 
+print(data.shape)
+
 print("start segmenting...")
 algo = rpt.BottomUp().fit(data)
 change_indices = algo.predict(pen=0.5)
