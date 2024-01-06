@@ -33,6 +33,6 @@ change_indices[-1] = change_indices[-1] - 1
 change_indices_array = np.zeros(len(data))
 change_indices_array[change_indices] = 1
 result_array = np.zeros((len(data), data.shape[1]+1))
-result_array[:, len(data.shape)] = change_indices_array
+result_array[:, data.shape[1]] = change_indices_array
 np.save("{}.npy".format(args.exp_name), result_array)
 
