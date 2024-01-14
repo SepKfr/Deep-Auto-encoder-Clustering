@@ -1,11 +1,8 @@
-import itertools
 import random
 import numpy as np
 import pandas as pd
 import torch
-from torch import nn
 from torch.utils.data import BatchSampler, TensorDataset, DataLoader
-from pytorch_forecasting.data import TimeSeriesDataSet
 from torch.nn.utils.rnn import pad_sequence
 
 
