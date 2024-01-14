@@ -17,6 +17,32 @@ import pandas as pd
 import sklearn.preprocessing
 
 
+class DataAttributes:
+
+    @property
+    def _data_def(self):
+
+        return {"traffic": {'id': 'id', 'target': 'values',
+                    'covariates': []},
+                "electricity": {'id': 'id', 'target': 'power_usage',
+                       'covariates': []},
+                "solar": {'id': 'id', 'target': 'Power(MW)',
+                 'covariates': [], 'time': 'hours_from_start'},
+                "air_quality": {'id': 'id', 'target': 'NO2',
+                       'covariates': ['CO', 'TEMP']},
+                "watershed": {'id': 'id', 'target': 'Conductivity',
+                     'covariates': ['Q']},
+                "exchange": {'id': 'id', 'target': 'OT',
+                    'covariates': ['0', '1', '2', '3', '4', '5']}}
+
+    def __init__(self, exp_name):
+
+        col_def = self._data_def[exp_name]
+        self.id = col_def['id']
+        self.target = col_def['target']
+        self.covariates = col_def['covariates']
+
+
 class DataFormatter:
     """Defines and formats data_set for the electricity dataset.
     Note that per-entity z-score normalization is used here, and is implemented
@@ -27,25 +53,20 @@ class DataFormatter:
     identifiers: Entity identifiers used in experiments.
     """
 
-    @property
-    def _column_definition(self):
-        """Defines order, input type and data_set type of each column."""
-        return {'id': 'id', 'target': 'power_usage', 'covariates': []}
-
-    def __init__(self, column_definition: dict):
+    def __init__(self, exp_name: str):
         """Initialises formatter."""
 
         self.identifiers = None
         self.real_scalers = None
         self.target_scaler = None
 
-        self.column_definition = column_definition
-        self.id_column = self.column_definition['id']
-        self.target_column = self.column_definition['target']
+        self.column_definition = DataAttributes(exp_name)
+        self.id_column = self.column_definition.id
+        self.target_column = self.column_definition.target
 
         self.real_inputs = []
         self.real_inputs.append(self.target_column)
-        for covar in self.column_definition["covariates"]:
+        for covar in self.column_definition.covariates:
             self.real_inputs.append(covar)
 
         print(self.real_inputs)

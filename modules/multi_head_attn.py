@@ -13,7 +13,7 @@ from forecasting_models.Autoformer import AutoCorrelation
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model, n_heads, attn_type, seed):
+    def __init__(self, d_model, n_heads, attn_type, seed, batch_first=False):
 
         super(MultiHeadAttention, self).__init__()
 
@@ -35,13 +35,26 @@ class MultiHeadAttention(nn.Module):
         self.n_heads = n_heads
         self.attn_type = attn_type
         self.seed = seed
+        self.batch_first = batch_first
 
     def forward(self, Q, K, V, attn_mask=None, key_padding_mask=None, need_weights=False, is_causal=False):
 
         batch_size = Q.shape[0]
-        q_s = self.WQ(Q).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        k_s = self.WK(K).view(batch_size, -1, self.n_heads, self.d_k).transpose(1, 2)
-        v_s = self.WV(V).view(batch_size, -1, self.n_heads, self.d_v).transpose(1, 2)
+        other_dims_K = tuple(K.shape[1:-1])
+
+        sizes_q = [batch_size, self.n_heads]
+        for s in Q.shape[1:-1]:
+            sizes_q.append(s)
+        sizes_q.append(self.d_model)
+
+        sizes_k = [batch_size, self.n_heads]
+        for s in K.shape[1:-1]:
+            sizes_k.append(s)
+        sizes_k.append(self.d_model)
+
+        q_s = self.WQ(Q).reshape(torch.Size(sizes_q))
+        k_s = self.WK(K).reshape(torch.Size(sizes_k))
+        v_s = self.WV(V).reshape(torch.Size(sizes_k))
 
         # ATA forecasting model
 
@@ -72,7 +85,7 @@ class MultiHeadAttention(nn.Module):
             context, attn = ProbAttention(mask_flag=False, seed=self.seed)(q_s, k_s, v_s)
 
         else:
-            context, attn = BasicAttn(d_k=self.d_k, seed=self.seed)(Q=q_s, K=k_s, V=v_s)
+            context, attn = BasicAttn(d_k=self.d_k)(Q=q_s, K=k_s, V=v_s)
 
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         outputs = self.fc(context)

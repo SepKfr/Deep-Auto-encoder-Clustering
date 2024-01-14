@@ -6,15 +6,10 @@ import random
 
 class BasicAttn(nn.Module):
 
-    def __init__(self, d_k, device, seed):
+    def __init__(self, d_k):
 
         super(BasicAttn, self).__init__()
 
-        torch.manual_seed(seed)
-        random.seed(seed)
-        np.random.seed(seed)
-
-        self.device = device
         self.d_k = d_k
 
     def forward(self, Q, K, V):
