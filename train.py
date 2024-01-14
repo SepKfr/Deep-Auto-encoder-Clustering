@@ -47,7 +47,6 @@ class Train:
         data = pd.read_csv(os.path.join("data_CP", "{}.csv".format(self.exp_name)))
 
         data_formatter = dataforemater.DataFormatter(args.exp_name)
-        data = data[:1600]
 
         # Data loader configuration (replace with your own dataloader)
         self.data_loader = CustomDataLoader(real_inputs=[],
