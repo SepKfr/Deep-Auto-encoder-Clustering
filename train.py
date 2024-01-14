@@ -3,7 +3,6 @@ import os
 import optuna
 from torch import nn
 from torch.optim import Adam
-
 import dataforemater
 import pandas as pd
 import torch
@@ -141,7 +140,7 @@ class Train:
                                        pred_len=96,
                                        seq_length=self.data_loader.seq_length,
                                        num_seg=self.data_loader.num_seg,
-                                       batch_size=self.batch_size)
+                                       batch_size=self.batch_size).to(self.device)
         else:
             model = Forecasting(input_size=self.data_loader.input_size,
                                 output_size=self.data_loader.output_size,
@@ -152,7 +151,7 @@ class Train:
                                 seed=1234,
                                 device="cpu",
                                 pred_len=96,
-                                batch_size=self.batch_size)
+                                batch_size=self.batch_size).to(self.device)
 
         optimizer = Adam(model.parameters())
         best_trial_valid_loss = 1e10
