@@ -27,8 +27,8 @@ pr_len = 0
 for id, df in data.groupby("id"):
 
     df_real = df[data_formatter.real_inputs].values
-    algo = rpt.KernelCPD().fit(df_real)
-    change_indices = algo.predict(pen=5)
+    algo = rpt.Pelt().fit(df_real)
+    change_indices = algo.predict(pen=3)
     change_indices = [ind+pr_len for ind in change_indices]
     change_indices[-1] = change_indices[-1] - 1
     cp_array[change_indices] = 1
