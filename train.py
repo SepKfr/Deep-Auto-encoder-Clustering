@@ -67,6 +67,7 @@ class Train:
         self.best_overall_valid_loss = 1e10
         self.best_model = nn.Module()
         self.run_optuna(args)
+        self.evaluate()
 
     def run_optuna(self, args):
         study = optuna.create_study(study_name=args.model_name,
