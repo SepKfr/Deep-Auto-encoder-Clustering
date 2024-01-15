@@ -148,6 +148,8 @@ class CustomDataLoader:
         max_size_2 = max(tensor.size(1) for tensor in x_list)
         tensors_final = torch.zeros(len(x_list), max_size_1, max_size_2, self.num_features)
 
+        print(len(x_list))
+
         Y = Y[:len(x_list)]
         X = X[:len(x_list)]
 

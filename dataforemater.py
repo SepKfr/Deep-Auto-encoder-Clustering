@@ -22,10 +22,8 @@ class DataAttributes:
     @property
     def _data_def(self):
 
-        return {"traffic": {'id': 'id', 'target': 'values',
-                    'covariates': []},
-                "electricity": {'id': 'id', 'target': 'power_usage',
-                       'covariates': []},
+        return {"traffic": {'id': 'id', 'target': 'values', 'covariates': []},
+                "electricity": {'id': 'id', 'target': 'power_usage', 'covariates': []},
                 "solar": {'id': 'id', 'target': 'Power(MW)',
                  'covariates': [], 'time': 'hours_from_start'},
                 "air_quality": {'id': 'id', 'target': 'NO2',

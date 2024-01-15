@@ -190,12 +190,11 @@ class Train:
 
         predictions = predictions.reshape(-1, 1)
         test_y = test_y_tot.reshape(-1, 1)
-        normaliser = test_y.abs().mean()
 
-        test_loss = F.mse_loss(predictions, test_y).item() / normaliser
+        test_loss = F.mse_loss(predictions, test_y).item()
         mse_loss = test_loss
 
-        mae_loss = F.l1_loss(predictions, test_y).item() / normaliser
+        mae_loss = F.l1_loss(predictions, test_y).item()
         mae_loss = mae_loss
 
         errors = {self.model_name: {'MSE': f"{mse_loss:.3f}", 'MAE': f"{mae_loss: .3f}"}}
