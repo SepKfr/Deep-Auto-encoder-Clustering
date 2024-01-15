@@ -31,6 +31,7 @@ class Forecasting(nn.Module):
 
     def forward(self, x_1, x_2=None, y=None):
 
+        loss = 0
         x_1 = self.embedding(x_1)
 
         x = torch.split(x_1, split_size_or_sections=int(x_1.shape[1] / 2), dim=1)
@@ -45,6 +46,8 @@ class Forecasting(nn.Module):
 
         final_output = self.fc_dec(output[:, -self.pred_len:, :])
 
-        loss = nn.MSELoss()(y, final_output)
+        if y is not None:
 
-        return loss
+            loss = nn.MSELoss()(y, final_output)
+
+        return final_output, loss

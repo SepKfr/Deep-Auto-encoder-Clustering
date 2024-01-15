@@ -95,10 +95,11 @@ class Train:
 
         model.train()
         train_loss = 0
+        print(len(self.data_loader.train_loader))
 
         for x_1, x_2, y in self.data_loader.train_loader:
 
-            loss = model(x_1.to(self.device), x_2.to(self.device), y.to(self.device))
+            output, loss = model(x_1.to(self.device), x_2.to(self.device), y.to(self.device))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -112,7 +113,7 @@ class Train:
         valid_loss = 0
 
         for valid_enc, valid_dec, valid_y in self.data_loader.valid_loader:
-            loss = model(valid_enc.to(self.device),
+            output, loss = model(valid_enc.to(self.device),
                          valid_dec.to(self.device),
                          valid_y.to(self.device))
             valid_loss += loss.item()

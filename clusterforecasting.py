@@ -40,6 +40,7 @@ class ClusterForecasting(nn.Module):
 
     def forward(self, x_1, x_2, y=None):
 
+        loss = 0
         x_1 = self.embedding_2(x_1)
         x = x_2.permute(0, 2, 1, 3)
         x = self.embedding_1(x)
@@ -78,4 +79,4 @@ class ClusterForecasting(nn.Module):
         loss = nn.MSELoss()(y, forecast_out)
         tot_loss = loss + torch.clamp(self.lam, min=0, max=0.1)
 
-        return tot_loss
+        return forecast_out, tot_loss
