@@ -34,6 +34,7 @@ class Train:
         args = parser.parse_args()
 
         self.device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
+        print("using {}".format(self.device))
         self.exp_name = args.exp_name
         self.max_encoder_length = args.max_encoder_length
 
