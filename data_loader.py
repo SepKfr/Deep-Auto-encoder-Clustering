@@ -139,6 +139,7 @@ class CustomDataLoader:
                         Y[i] = y
                         X[i] = x_df
                     else:
+                        x_df = x_df.unsqueeze(2)
                         x_list.append(x_df)
                         Y[i] = y
                         X[i] = x_df
@@ -146,11 +147,12 @@ class CustomDataLoader:
         max_size_1 = max(tensor.size(0) for tensor in x_list)
         max_size_2 = max(tensor.size(1) for tensor in x_list)
         tensors_final = torch.zeros(len(x_list), max_size_1, max_size_2, self.num_features)
-        print(tensors_final.shape)
+
         Y = Y[:len(x_list)]
         X = X[:len(x_list)]
 
         for i, tensor in enumerate(x_list):
+
             tensors_final[i, :tensor.shape[0], :tensor.shape[1], :] = tensor
 
         dataset = TensorDataset(X,
