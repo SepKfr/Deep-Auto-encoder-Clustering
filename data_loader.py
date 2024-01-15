@@ -148,7 +148,9 @@ class CustomDataLoader:
         for i, tensor in enumerate(x_list):
             tensors_final[i, :tensor.shape[0], :tensor.shape[1], :] = tensor
 
-        dataset = TensorDataset(X, tensors_final, Y)
+        dataset = TensorDataset(X.to(self.device),
+                                tensors_final.to(self.device),
+                                Y.to(self.device))
         dataloader = DataLoader(dataset, batch_sampler=BatchSampler(range(sample),
                                                                     batch_size=self.batch_size,
                                                                     drop_last=False))
