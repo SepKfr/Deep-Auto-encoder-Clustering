@@ -98,7 +98,7 @@ class Train:
 
         for x_1, x_2, y in self.data_loader.train_loader:
 
-            loss = model(x_1, x_2, y)
+            loss = model(x_1.to(self.device), x_2.to(self.device), y.to(self.device))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -112,7 +112,9 @@ class Train:
         valid_loss = 0
 
         for valid_enc, valid_dec, valid_y in self.data_loader.valid_loader:
-            loss = model(valid_enc, valid_dec, valid_y)
+            loss = model(valid_enc.to(self.device),
+                         valid_dec.to(self.device),
+                         valid_y.to(self.device))
             valid_loss += loss.item()
 
             if valid_loss < best_trial_valid_loss:
@@ -181,7 +183,7 @@ class Train:
         j = 0
 
         for test_enc, test_dec, test_y in self.data_loader.test_loader:
-            output, _ = self.best_model(test_enc, test_dec)
+            output, _ = self.best_model(test_enc.to(self.device), test_dec.to(self.device))
             predictions[j] = output.squeeze(-1).cpu().detach()
             test_y_tot[j] = test_y[:, -self.pred_len:, :].squeeze(-1).cpu().detach()
             j += 1
