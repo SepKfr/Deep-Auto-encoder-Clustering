@@ -95,7 +95,6 @@ class Train:
 
         model.train()
         train_loss = 0
-        print(len(self.data_loader.train_loader))
 
         for x_1, x_2, y in self.data_loader.train_loader:
 
