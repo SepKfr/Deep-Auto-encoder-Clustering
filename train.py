@@ -6,6 +6,7 @@ from torch.optim import Adam
 import dataforemater
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from optuna.trial import TrialState
 from clusterforecasting import ClusterForecasting
 from data_loader import CustomDataLoader
@@ -43,6 +44,7 @@ class Train:
         self.model_name = "{}_{}".format(args.model_name, args.pred_len)
         self.model_path = model_dir
         self.cluster = args.cluster
+        self.pred_len = args.pred_len
 
         data = pd.read_csv(os.path.join("data_CP", "{}.csv".format(self.exp_name)))
 
@@ -126,13 +128,16 @@ class Train:
 
     def objective(self, trial):
 
+        d_model = trial.suggest_categorical("d_model", [16, 32])
+        num_layers = trial.suggest_categorical("num_layers", [16, 32])
+
         if self.cluster == "yes":
             model = ClusterForecasting(input_size=self.data_loader.input_size,
                                        output_size=self.data_loader.output_size,
                                        num_clusters=3,
-                                       d_model=8,
+                                       d_model=d_model,
                                        nheads=1,
-                                       num_layers=1,
+                                       num_layers=num_layers,
                                        attn_type="basic_attn",
                                        seed=1234,
                                        device=self.device,
@@ -143,9 +148,9 @@ class Train:
         else:
             model = Forecasting(input_size=self.data_loader.input_size,
                                 output_size=self.data_loader.output_size,
-                                d_model=8,
+                                d_model=d_model,
                                 nheads=1,
-                                num_layers=1,
+                                num_layers=num_layers,
                                 attn_type="basic_attn",
                                 seed=1234,
                                 device=self.device,
@@ -155,6 +160,52 @@ class Train:
         optimizer = Adam(model.parameters())
         best_trial_valid_loss = 1e10
         for epoch in range(self.num_epochs):
-            self.run_epoch(trial, model, optimizer, epoch, best_trial_valid_loss)
+            best_trial_valid_loss = self.run_epoch(trial, model, optimizer, epoch, best_trial_valid_loss)
+
+        return best_trial_valid_loss
+
+    def evaluate(self):
+        """
+        Evaluate the performance of the best ForecastDenoising model on the test set.
+        """
+        self.best_model.eval()
+
+        _, _, test_y = next(iter(self.data_loader.test_loader))
+        total_b = len(list(iter(self.data_loader.test_loader)))
+
+        predictions = torch.zeros(total_b, test_y.shape[0], self.pred_len)
+        test_y_tot = torch.zeros(total_b, test_y.shape[0], self.pred_len)
+
+        j = 0
+
+        for test_enc, test_dec, test_y in self.data_loader.test_loader:
+            output, _ = self.best_model(test_enc, test_dec)
+            predictions[j] = output.squeeze(-1).cpu().detach()
+            test_y_tot[j] = test_y[:, -self.pred_len:, :].squeeze(-1).cpu().detach()
+            j += 1
+
+        predictions = predictions.reshape(-1, 1)
+        test_y = test_y_tot.reshape(-1, 1)
+        normaliser = test_y.abs().mean()
+
+        test_loss = F.mse_loss(predictions, test_y).item() / normaliser
+        mse_loss = test_loss
+
+        mae_loss = F.l1_loss(predictions, test_y).item() / normaliser
+        mae_loss = mae_loss
+
+        errors = {self.model_name: {'MSE': f"{mse_loss:.3f}", 'MAE': f"{mae_loss: .3f}"}}
+        print(errors)
+
+        error_path = "reported_errors_{}.csv".format(self.exp_name)
+
+        df = pd.DataFrame.from_dict(errors, orient='index')
+
+        if os.path.exists(error_path):
+            df_old = pd.read_csv(error_path)
+            df_new = pd.concat([df_old, df], axis=0)
+            df_new.to_csv(error_path)
+        else:
+            df.to_csv(error_path)
 
 Train()
