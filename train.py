@@ -129,8 +129,9 @@ class Train:
                     torch.save({'model_state_dict': self.best_model.state_dict()},
                                os.path.join(self.model_path, "{}".format(self.model_name)))
 
-        print("train loss: {:.3f} epoch: {}".format(train_loss, epoch))
-        print("valid loss: {:.3f} epoch: {}".format(valid_loss, epoch))
+        if epoch % 5 == 0:
+            print("train loss: {:.3f} epoch: {}".format(train_loss, epoch))
+            print("valid loss: {:.3f}:".format(valid_loss))
 
         return best_trial_valid_loss
 
