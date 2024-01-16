@@ -17,12 +17,12 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="exchange")
-        parser.add_argument("--model_name", type=str, default="clusterforecast")
+        parser.add_argument("--exp_name", type=str, default="traffic")
+        parser.add_argument("--model_name", type=str, default="autformer_cluster_forecast")
         parser.add_argument("--num_epochs", type=int, default=50)
         parser.add_argument("--n_trials", type=int, default=2)
         parser.add_argument("--cuda", type=str, default='cuda:0')
-        parser.add_argument("--attn_type", type=str, default='basic_attn')
+        parser.add_argument("--attn_type", type=str, default='autoformer')
         parser.add_argument("--pred_len", type=int, default=96)
         parser.add_argument("--max_encoder_length", type=int, default=32000)
         parser.add_argument("--max_train_sample", type=int, default=3840)
