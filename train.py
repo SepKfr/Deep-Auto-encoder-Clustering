@@ -27,11 +27,17 @@ class Train:
         parser.add_argument("--max_train_sample", type=int, default=32000)
         parser.add_argument("--max_test_sample", type=int, default=3840)
         parser.add_argument("--batch_size", type=int, default=256)
-        parser.add_argument("--data_path", type=str, default='')
+        parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
 
         args = parser.parse_args()
+
+        data_formatter = dataforemater.DataFormatter(args.exp_name)
+
+        df = pd.read_csv(args.data_path, dtype={'date': str})
+        df.sort_values(by=["id", "hours_from_start"], inplace=True)
+        data = data_formatter.transform_data(df)
 
         self.device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
         print("using {}".format(self.device))
@@ -46,10 +52,6 @@ class Train:
         self.model_path = model_dir
         self.cluster = args.cluster
         self.pred_len = args.pred_len
-
-        data = pd.read_csv(os.path.join("data_CP", "{}.csv".format(self.exp_name)))
-
-        data_formatter = dataforemater.DataFormatter(args.exp_name)
 
         # Data loader configuration (replace with your own dataloader)
         self.data_loader = CustomDataLoader(real_inputs=[],
