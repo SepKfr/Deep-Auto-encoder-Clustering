@@ -131,7 +131,7 @@ class Train:
 
         if epoch % 5 == 0:
             print("train loss: {:.3f} epoch: {}".format(train_loss, epoch))
-            print("valid loss: {:.3f}:".format(valid_loss))
+            print("valid loss: {:.3f}".format(valid_loss))
 
         return best_trial_valid_loss
 
