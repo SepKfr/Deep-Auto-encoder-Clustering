@@ -15,11 +15,14 @@ class ClusterForecasting(nn.Module):
 
         super(ClusterForecasting, self).__init__()
 
+        self.device = device
+
         self.embedding_1 = nn.Linear(input_size, d_model, bias=False)
         self.embedding_2 = nn.Linear(input_size, d_model)
 
         self.zero_inflated = ZeroInflatedGaussian(num_clusters, batch_size,
-                                                  num_seg, seq_length, d_model)
+                                                  num_seg, seq_length,
+                                                  d_model)
 
         self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
                                              attn_type=attn_type, seed=seed)
@@ -29,7 +32,7 @@ class ClusterForecasting(nn.Module):
                                  nn.Linear(d_model*4, d_model))
 
         self.lam = nn.Parameter(torch.randn(1), requires_grad=True)
-        self.device = device
+
         self.pred_len = pred_len
         self.num_clusters = num_clusters
         self.nheads = nheads
