@@ -24,7 +24,7 @@ class ZeroInflatedGaussian(nn.Module):
         self.weights = nn.Parameter(torch.ones(num_clusters) / num_clusters, requires_grad=True)
         self.means = nn.Parameter(torch.randn(num_clusters, d_model), requires_grad=True)
 
-        self.covariances = [nn.Parameter(torch.randn(d_model, d_model), requires_grad=True) for _ in range(self.num_clusters)]
+        self.covariances = nn.Parameter(torch.randn(num_clusters, num_clusters, d_model), requires_grad=True)
 
         self.p = nn.Parameter(torch.randn(1), requires_grad=True)
 
