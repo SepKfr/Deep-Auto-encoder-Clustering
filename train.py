@@ -22,6 +22,7 @@ class Train:
         parser.add_argument("--num_epochs", type=int, default=50)
         parser.add_argument("--n_trials", type=int, default=2)
         parser.add_argument("--cuda", type=str, default='cuda:0')
+        parser.add_argument("--attn_type", type=str, default='basic_attn')
         parser.add_argument("--pred_len", type=int, default=96)
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--max_train_sample", type=int, default=32000)
@@ -42,6 +43,7 @@ class Train:
         self.device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
         print("using {}".format(self.device))
         self.exp_name = args.exp_name
+        self.attn_type = args.attn_type
         self.max_encoder_length = args.max_encoder_length
 
         model_dir = "forecasting_models_dir"
@@ -144,7 +146,7 @@ class Train:
                                        d_model=d_model,
                                        nheads=1,
                                        num_layers=num_layers,
-                                       attn_type="basic_attn",
+                                       attn_type=self.attn_type,
                                        seed=1234,
                                        device=self.device,
                                        pred_len=96,
@@ -157,7 +159,7 @@ class Train:
                                 d_model=d_model,
                                 nheads=1,
                                 num_layers=num_layers,
-                                attn_type="basic_attn",
+                                attn_type=self.attn_type,
                                 seed=1234,
                                 device=self.device,
                                 pred_len=96,
