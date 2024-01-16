@@ -26,15 +26,12 @@ class ZeroInflatedGaussian(nn.Module):
 
         self.covariances = nn.Parameter(torch.randn(num_clusters, d_model, d_model), requires_grad=True)
 
-        self.p = nn.Parameter(torch.randn(1), requires_grad=True)
-
     def forward(self, x):
 
         # Calculate the likelihood of each data point for the zero-inflated multivariate normal distribution
         log_likelihoods = []
         samples = []
-
-        x_mean = x[:, :, :, 0]
+        x_mean = x.mean(dim=-1)
 
         for i in range(self.num_clusters):
 
@@ -47,21 +44,11 @@ class ZeroInflatedGaussian(nn.Module):
             sample = x * self.means[i] + covar.diagonal()
             samples.append(sample)
 
-            # Point mass at zero
-            point_mass_at_zero = (x_mean == 0).float() * (1 - self.p)
+            mask = x_mean != 0
 
-            # Gaussian distribution
-            non_zero_mask = x != 0
+            gaussian_prob = normal.log_prob(x)
 
-            # Apply the mask to the data
-            masked_data = torch.masked_select(x, non_zero_mask)
-
-            gaussian_prob = normal.log_prob(masked_data)
-
-            # Combine components
-            log_prob = torch.logsumexp(torch.stack([torch.log(1 - self.p) + torch.log(point_mass_at_zero),
-                                                    gaussian_prob],
-                                                   dim=0), dim=0)
+            log_prob = gaussian_prob[mask]
 
             # log likelihood
 
