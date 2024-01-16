@@ -28,8 +28,8 @@ class Train:
         parser.add_argument("--max_train_sample", type=int, default=32000)
         parser.add_argument("--max_test_sample", type=int, default=3840)
         parser.add_argument("--batch_size", type=int, default=64)
-        parser.add_argument("--data_path", type=str, default='')
-        parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
+        parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
+        parser.add_argument('--cluster', choices=['yes', 'no'], default='yes',
                             help='Enable or disable a feature (choices: yes, no)')
 
         args = parser.parse_args()
@@ -160,7 +160,7 @@ class Train:
                                 d_model=d_model,
                                 nheads=1,
                                 num_layers=num_layers,
-                                attn_type=self.attn_type,
+                                attn_type=self.batch_size,
                                 seed=1234,
                                 device=self.device,
                                 pred_len=96,

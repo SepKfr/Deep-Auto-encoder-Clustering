@@ -82,6 +82,6 @@ class ClusterForecasting(nn.Module):
         if y is not None:
 
             loss = nn.MSELoss()(y, forecast_out)
-            tot_loss = loss + torch.clamp(self.lam, min=0, max=0.1)
+            tot_loss = loss + torch.clamp(self.lam, min=0, max=0.001)
 
         return forecast_out, tot_loss

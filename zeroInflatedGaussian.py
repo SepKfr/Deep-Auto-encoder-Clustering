@@ -51,7 +51,12 @@ class ZeroInflatedGaussian(nn.Module):
             point_mass_at_zero = (x_mean == 0).float() * (1 - self.p)
 
             # Gaussian distribution
-            gaussian_prob = (1 - self.p) * normal.log_prob(x)
+            non_zero_mask = x != 0
+
+            # Apply the mask to the data
+            masked_data = torch.masked_select(x, non_zero_mask)
+
+            gaussian_prob = normal.log_prob(masked_data)
 
             # Combine components
             log_prob = torch.logsumexp(torch.stack([torch.log(1 - self.p) + torch.log(point_mass_at_zero),
