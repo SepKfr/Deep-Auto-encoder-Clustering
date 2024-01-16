@@ -40,7 +40,7 @@ class ZeroInflatedGaussian(nn.Module):
 
             covar = self.covariances[i]
             covar = torch.mm(covar, covar.t())
-            covar.add_(torch.eye(self.d_model))
+            covar.add_(torch.eye(self.d_model, device=covar.device))
 
             normal = MultivariateNormal(self.means[i], covar)
 
