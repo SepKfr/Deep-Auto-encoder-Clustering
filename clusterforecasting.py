@@ -60,9 +60,9 @@ class ClusterForecasting(nn.Module):
         one_hot_encoding.scatter_(-1, cluster_indices.unsqueeze(-1), 1)
 
         # Sum along the 'S' and 'D' dimension using broadcasting
-        sum_by_cluster = (sample * one_hot_encoding).mean(dim=-1)
 
-        tensor = (sum_by_cluster + x).mean(1)
+        tensor = (sample * one_hot_encoding +
+                  x.unsqueeze(-1).repeat(1, 1, 1, 1, self.num_clusters)).mean(dim=[1, -1])
 
         tensor = tensor.reshape(self.batch_size, -1, self.d_model)
 
@@ -75,6 +75,7 @@ class ClusterForecasting(nn.Module):
         x_dec = torch.cat([x_dec, x_app], dim=1)
 
         forecast_enc, forecast_dec = self.forecasting_model(x_enc, x_dec)
+
         output_dec = x_1[:, -self.pred_len:, :] + self.ffn(forecast_dec[:, -self.pred_len:, :])
 
         forecast_out = self.fc_dec(output_dec)
