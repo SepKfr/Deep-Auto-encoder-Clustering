@@ -15,21 +15,23 @@ class Transformer(nn.Module):
         self.encoder_layer = TransformerEncoderLayer(d_model=d_model, nhead=nheads)
         self.decoder_layer = TransformerDecoderLayer(d_model=d_model, nhead=nheads)
 
-        self.encoder_layer.self_attn = MultiHeadAttention(attn_type=attn_type,
-                                                          d_model=d_model,
-                                                          n_heads=nheads,
-                                                          seed=seed,
-                                                          batch_first=False)
-        self.decoder_layer.self_attn = MultiHeadAttention(attn_type=attn_type,
-                                                          d_model=d_model,
-                                                          n_heads=nheads,
-                                                          seed=seed,
-                                                          batch_first=False)
-        self.decoder_layer.multihead_attn = MultiHeadAttention(attn_type=attn_type,
-                                                               d_model=d_model,
-                                                               n_heads=nheads,
-                                                               seed=seed,
-                                                               batch_first=False)
+        if attn_type != "basic_attn":
+
+            self.encoder_layer.self_attn = MultiHeadAttention(attn_type=attn_type,
+                                                              d_model=d_model,
+                                                              n_heads=nheads,
+                                                              seed=seed,
+                                                              batch_first=False)
+            self.decoder_layer.self_attn = MultiHeadAttention(attn_type=attn_type,
+                                                              d_model=d_model,
+                                                              n_heads=nheads,
+                                                              seed=seed,
+                                                              batch_first=False)
+            self.decoder_layer.multihead_attn = MultiHeadAttention(attn_type=attn_type,
+                                                                   d_model=d_model,
+                                                                   n_heads=nheads,
+                                                                   seed=seed,
+                                                                   batch_first=False)
 
         self.encoder = TransformerEncoder(self.encoder_layer, num_layers=num_layers)
         self.decoder = TransformerDecoder(self.decoder_layer, num_layers=num_layers)

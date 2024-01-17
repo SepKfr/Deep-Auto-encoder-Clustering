@@ -32,27 +32,28 @@ class MultiHeadAttention(nn.Module):
         self.d_model = d_model
         self.d_k = d_k
         self.d_v = d_v
-        self.n_heads = n_heads
+        self.num_heads = n_heads
         self.attn_type = attn_type
         self.seed = seed
+        self.enable_nested_tensor = False
         self.batch_first = batch_first
 
     def forward(self, Q, K, V, attn_mask=None, key_padding_mask=None, need_weights=False, is_causal=False):
 
         batch_size = Q.shape[0]
 
-        q_s = self.WQ(Q).reshape(batch_size, self.n_heads, -1, self.d_k)
-        k_s = self.WK(K).reshape(batch_size, self.n_heads, -1, self.d_k)
-        v_s = self.WV(V).reshape(batch_size, self.n_heads, -1, self.d_k)
+        q_s = self.WQ(Q).reshape(batch_size, self.num_heads, -1, self.d_k)
+        k_s = self.WK(K).reshape(batch_size, self.num_heads, -1, self.d_k)
+        v_s = self.WV(V).reshape(batch_size, self.num_heads, -1, self.d_k)
 
         # ATA forecasting model
 
         if self.attn_type == "ATA":
-            context, attn = ATA(d_k=self.d_k, h=self.n_heads, seed=self.seed)(
+            context, attn = ATA(d_k=self.d_k, h=self.num_heads, seed=self.seed)(
             Q=q_s, K=k_s, V=v_s)
 
         elif self.attn_type == "ACAT":
-            context, attn = ACAT(d_k=self.d_k, h=self.n_heads, seed=self.seed)(
+            context, attn = ACAT(d_k=self.d_k, h=self.num_heads, seed=self.seed)(
             Q=q_s, K=k_s, V=v_s)
 
         # Autoformer forecasting model
@@ -65,7 +66,7 @@ class MultiHeadAttention(nn.Module):
         # CNN-trans forecasting model
 
         elif self.attn_type == "conv_attn":
-            context, attn = ConvAttn(d_k=self.d_k, seed=self.seed, kernel=9, h=self.n_heads)(
+            context, attn = ConvAttn(d_k=self.d_k, seed=self.seed, kernel=9, h=self.num_heads)(
             Q=q_s, K=k_s, V=v_s)
 
         # Informer forecasting model
@@ -76,6 +77,6 @@ class MultiHeadAttention(nn.Module):
         else:
             context, attn = BasicAttn(d_k=self.d_k)(Q=q_s, K=k_s, V=v_s)
 
-        context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
+        context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.num_heads * self.d_v)
         outputs = self.fc(context)
         return outputs, attn
