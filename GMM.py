@@ -1,9 +1,6 @@
-import numpy as np
-import torch
 import torch.nn as nn
-from torch.distributions import MultivariateNormal, Categorical, Independent, Normal, MixtureSameFamily
-
 import torch
+from torch.distributions import Categorical, Independent, Normal, MixtureSameFamily
 
 
 class GMM(nn.Module):
@@ -21,29 +18,20 @@ class GMM(nn.Module):
 
     def forward(self, x):
 
-        log_likelihoods = []
+        mixture = Categorical(self.weights)
 
-        for i in range(self.num_clusters):
+        covar_init = self.covariances
 
-            covar = self.covariances[i]
-            covar = torch.mm(covar, covar.t())
-            covar.add_(torch.eye(self.d_model, device=x.device))
-            dist = torch.distributions.MultivariateNormal(self.means[i], covar)
-            log_likelihoods.append(dist.log_prob(x))
+        covar_init_trans = torch.transpose(covar_init, 1, 2)
+        covar = torch.einsum('cdb, cbd -> cd', covar_init, covar_init_trans)
 
-        log_likelihood = torch.stack(log_likelihoods, dim=-1)
+        components = Independent(Normal(self.means, covar), 1)
+        mixture_model = MixtureSameFamily(mixture, components)
+        sample = mixture_model.sample(x.shape[:-1])
 
-        weighted_log_prob = log_likelihood + torch.log(self.weights)
+        loss = - mixture_model.log_prob(x).mean()
 
-        p_k = torch.argmax(torch.exp(weighted_log_prob), dim=-1)
-
-        one_hot = torch.nn.functional.one_hot(p_k, num_classes=self.num_clusters).float()
-        x = x.unsqueeze(-1).repeat(1, 1, 1, self.num_clusters)
-        one_hot = one_hot.unsqueeze(2).repeat(1, 1, self.d_model, 1)
-        x = (x * one_hot).mean(dim=1)
-        x = x.permute(0, 2, 1)
-
-        loss = - weighted_log_prob.mean()
+        x = x + sample
 
         return x, loss
 
