@@ -139,7 +139,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        num_clusters = trial.suggest_categorical("num_layers", [3, 5])
+        num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
 
         if self.cluster == "yes":
             model = ClusterForecasting(input_size=self.data_loader.input_size,
