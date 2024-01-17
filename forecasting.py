@@ -44,7 +44,7 @@ class Forecasting(nn.Module):
 
         _, output = self.forecasting_model(x_enc, x_dec)
 
-        final_output = self.fc_dec(output[:, -self.pred_len:, :])
+        final_output = self.fc_dec(output)[:, -self.pred_len:, :]
 
         if y is not None:
 
