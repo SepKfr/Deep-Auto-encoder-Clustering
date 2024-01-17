@@ -23,10 +23,10 @@ class MultiHeadAttention(nn.Module):
 
         d_k = int(d_model / n_heads)
         d_v = d_k
-        self.WQ = nn.Linear(d_model, d_k * n_heads, bias=False)
-        self.WK = nn.Linear(d_model, d_k * n_heads, bias=False)
-        self.WV = nn.Linear(d_model, d_v * n_heads, bias=False)
-        self.fc = nn.Linear(n_heads * d_v, d_model, bias=False)
+        self.WQ = nn.Linear(d_model, d_k * n_heads)
+        self.WK = nn.Linear(d_model, d_k * n_heads)
+        self.WV = nn.Linear(d_model, d_v * n_heads)
+        self.fc = nn.Linear(n_heads * d_v, d_model)
 
         self.d_model = d_model
         self.d_k = d_k
@@ -36,7 +36,7 @@ class MultiHeadAttention(nn.Module):
         self.seed = seed
         self.batch_first = batch_first
 
-    def forward(self, Q, K, V):
+    def forward(self, Q, K, V, attn_mask=None, key_padding_mask=None, need_weights=False, is_causal=False):
 
         batch_size = Q.shape[0]
         other_dims_K = tuple(K.shape[1:-1])
@@ -88,4 +88,4 @@ class MultiHeadAttention(nn.Module):
 
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         outputs = self.fc(context)
-        return outputs
+        return outputs, attn
