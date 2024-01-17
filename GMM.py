@@ -12,7 +12,7 @@ class GMM(nn.Module):
         self.num_clusters = num_clusters
         self.d_model = d_model
 
-        self.weights = nn.Parameter(torch.ones(num_clusters) / num_clusters, requires_grad=True)
+        self.weights = nn.Parameter(torch.ones(num_clusters), requires_grad=True)
         self.means = nn.Parameter(torch.randn(num_clusters, d_model), requires_grad=True)
         self.covariances = nn.Parameter(torch.randn(num_clusters, d_model, d_model), requires_grad=True)
 
