@@ -24,7 +24,7 @@ class Train:
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='autoformer')
         parser.add_argument("--pred_len", type=int, default=96)
-        parser.add_argument("--max_encoder_length", type=int, default=96)
+        parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--max_train_sample", type=int, default=32000)
         parser.add_argument("--max_test_sample", type=int, default=3840)
         parser.add_argument("--batch_size", type=int, default=256)
@@ -99,6 +99,8 @@ class Train:
 
         model.train()
         train_loss = 0
+        tot_train = len(self.data_loader.train_loader)
+        tot_valid = len(self.data_loader.valid_loader)
 
         for train_enc, y in self.data_loader.train_loader:
 
@@ -130,8 +132,8 @@ class Train:
                                os.path.join(self.model_path, "{}".format(self.model_name)))
 
         if epoch % 5 == 0:
-            print("train loss: {:.3f} epoch: {}".format(train_loss, epoch))
-            print("valid loss: {:.3f}".format(valid_loss))
+            print("train loss: {:.3f} epoch: {}".format(train_loss/tot_train, epoch))
+            print("valid loss: {:.3f}".format(valid_loss/tot_valid))
 
         return best_trial_valid_loss
 
