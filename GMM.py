@@ -18,7 +18,9 @@ class GMM(nn.Module):
 
     def forward(self, x):
 
-        mixture = Categorical(self.weights)
+        probs = torch.nn.functional.relu(self.weights)
+        probs = probs / probs.sum()
+        mixture = Categorical(probs)
 
         covar_init = self.covariances
 
