@@ -21,6 +21,7 @@ class MultiHeadAttention(nn.Module):
         random.seed(seed)
         torch.manual_seed(seed)
 
+        assert d_model % n_heads == 0
         d_k = int(d_model / n_heads)
         d_v = d_k
         self.WQ = nn.Linear(d_model, d_k * n_heads)
@@ -39,21 +40,10 @@ class MultiHeadAttention(nn.Module):
     def forward(self, Q, K, V, attn_mask=None, key_padding_mask=None, need_weights=False, is_causal=False):
 
         batch_size = Q.shape[0]
-        other_dims_K = tuple(K.shape[1:-1])
 
-        sizes_q = [batch_size, self.n_heads]
-        for s in Q.shape[1:-1]:
-            sizes_q.append(s)
-        sizes_q.append(self.d_model)
-
-        sizes_k = [batch_size, self.n_heads]
-        for s in K.shape[1:-1]:
-            sizes_k.append(s)
-        sizes_k.append(self.d_model)
-
-        q_s = self.WQ(Q).reshape(torch.Size(sizes_q))
-        k_s = self.WK(K).reshape(torch.Size(sizes_k))
-        v_s = self.WV(V).reshape(torch.Size(sizes_k))
+        q_s = self.WQ(Q).reshape(batch_size, self.n_heads, -1, self.d_k)
+        k_s = self.WK(K).reshape(batch_size, self.n_heads, -1, self.d_k)
+        v_s = self.WV(V).reshape(batch_size, self.n_heads, -1, self.d_k)
 
         # ATA forecasting model
 
