@@ -12,8 +12,8 @@ class Transformer(nn.Module):
 
         self.enc_embedding = Linear(input_size, d_model)
         self.dec_embedding = Linear(input_size, d_model)
-        self.encoder_layer = TransformerEncoderLayer(d_model=d_model, nhead=nheads)
-        self.decoder_layer = TransformerDecoderLayer(d_model=d_model, nhead=nheads)
+        self.encoder_layer = TransformerEncoderLayer(d_model=d_model, nhead=nheads, batch_first=True)
+        self.decoder_layer = TransformerDecoderLayer(d_model=d_model, nhead=nheads, batch_first=True)
 
         if attn_type != "basic_attn":
 
