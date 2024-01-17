@@ -70,6 +70,7 @@ class Train:
         self.batch_size = args.batch_size
         self.best_overall_valid_loss = 1e10
         self.best_model = nn.Module()
+        self.list_explored_params = []
         self.run_optuna(args)
         self.evaluate()
 
@@ -95,51 +96,19 @@ class Train:
         for key, value in trial.params.items():
             print("    {}: {}".format(key, value))
 
-    def run_epoch(self, trial, model, optimizer, epoch, best_trial_valid_loss):
-
-        model.train()
-        train_loss = 0
-        tot_train = len(self.data_loader.train_loader)
-        tot_valid = len(self.data_loader.valid_loader)
-
-        for train_enc, y in self.data_loader.train_loader:
-
-            output, loss = model(train_enc.to(self.device), y.to(self.device))
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            train_loss += loss.item()
-
-        trial.report(loss, epoch)
-        if trial.should_prune():
-            raise optuna.TrialPruned()
-
-        model.eval()
-        valid_loss = 0
-
-        for valid_enc, valid_y in self.data_loader.valid_loader:
-            output, loss = model(valid_enc.to(self.device), valid_y.to(self.device))
-            valid_loss += loss.item()
-
-            if valid_loss < best_trial_valid_loss:
-                best_trial_valid_loss = valid_loss
-                if best_trial_valid_loss < self.best_overall_valid_loss:
-                    self.best_overall_valid_loss = best_trial_valid_loss
-                    self.best_model = model
-                    torch.save({'model_state_dict': self.best_model.state_dict()},
-                               os.path.join(self.model_path, "{}".format(self.model_name)))
-
-        if epoch % 5 == 0:
-            print("train loss: {:.3f} epoch: {}".format(train_loss/tot_train, epoch))
-            print("valid loss: {:.3f}".format(valid_loss/tot_valid))
-
-        return best_trial_valid_loss
-
     def objective(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
+        lr = trial.suggest_categorical("lr", [0.01, 0.001])
+        num_clusters = trial.suggest_categorical("num_clusters", [3, 5] if
+        self.cluster == "yes" else [1])
+
+        tup_params = [d_model, num_layers, num_clusters]
+        if tup_params in self.list_explored_params:
+            raise optuna.TrialPruned()
+        else:
+            self.list_explored_params.append(tup_params)
 
         if self.cluster == "yes":
             model = ClusterForecasting(input_size=self.data_loader.input_size,
@@ -165,12 +134,45 @@ class Train:
                                 pred_len=96,
                                 batch_size=self.batch_size).to(self.device)
 
-        optimizer = Adam(model.parameters())
+        optimizer = Adam(model.parameters(), lr=lr)
         best_trial_valid_loss = 1e10
         for epoch in range(self.num_epochs):
-            best_trial_valid_loss = self.run_epoch(trial, model, optimizer, epoch, best_trial_valid_loss)
+
+            model.train()
+            train_loss = 0
+
+            for train_enc, y in self.data_loader.train_loader:
+                output, loss = model(train_enc.to(self.device), y.to(self.device))
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                train_loss += loss.item()
+
+            trial.report(loss, epoch)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
+
+            model.eval()
+            valid_loss = 0
+
+            for valid_enc, valid_y in self.data_loader.valid_loader:
+                output, loss = model(valid_enc.to(self.device), valid_y.to(self.device))
+                valid_loss += loss.item()
+
+                if valid_loss < best_trial_valid_loss:
+                    best_trial_valid_loss = valid_loss
+                    if best_trial_valid_loss < self.best_overall_valid_loss:
+                        self.best_overall_valid_loss = best_trial_valid_loss
+                        self.best_model = model
+                        torch.save({'model_state_dict': self.best_model.state_dict()},
+                                   os.path.join(self.model_path, "{}".format(self.model_name)))
+
+            if epoch % 5 == 0:
+                print("train loss: {:.3f} epoch: {}".format(train_loss, epoch))
+                print("valid loss: {:.3f}".format(valid_loss))
 
         return best_trial_valid_loss
+
 
     def evaluate(self):
         """
