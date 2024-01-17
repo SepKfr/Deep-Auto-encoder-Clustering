@@ -177,7 +177,7 @@ class Train:
         """
         self.best_model.eval()
 
-        _, _, test_y = next(iter(self.data_loader.test_loader))
+        _, test_y = next(iter(self.data_loader.test_loader))
         total_b = len(list(iter(self.data_loader.test_loader)))
 
         predictions = torch.zeros(total_b, test_y.shape[0], self.pred_len)
