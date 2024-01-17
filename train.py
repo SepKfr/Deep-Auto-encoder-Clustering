@@ -25,8 +25,8 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='autoformer')
         parser.add_argument("--pred_len", type=int, default=96)
         parser.add_argument("--max_encoder_length", type=int, default=96)
-        parser.add_argument("--max_train_sample", type=int, default=32000)
-        parser.add_argument("--max_test_sample", type=int, default=3840)
+        parser.add_argument("--max_train_sample", type=int, default=64)
+        parser.add_argument("--max_test_sample", type=int, default=64)
         parser.add_argument("--batch_size", type=int, default=64)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='yes',
@@ -100,9 +100,10 @@ class Train:
         model.train()
         train_loss = 0
 
-        for x_1, x_2, y in self.data_loader.train_loader:
+        for train_enc, y in self.data_loader.train_loader:
 
-            output, loss = model(x_1.to(self.device), x_2.to(self.device), y.to(self.device))
+            output, loss = model(train_enc.to(self.device),
+                                 y.to(self.device))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -115,9 +116,8 @@ class Train:
         model.eval()
         valid_loss = 0
 
-        for valid_enc, valid_dec, valid_y in self.data_loader.valid_loader:
+        for valid_enc, valid_y in self.data_loader.valid_loader:
             output, loss = model(valid_enc.to(self.device),
-                         valid_dec.to(self.device),
                          valid_y.to(self.device))
             valid_loss += loss.item()
 
@@ -151,8 +151,6 @@ class Train:
                                        seed=1234,
                                        device=self.device,
                                        pred_len=96,
-                                       seq_length=self.data_loader.seq_length,
-                                       num_seg=self.data_loader.num_seg,
                                        batch_size=self.batch_size).to(self.device)
         else:
             model = Forecasting(input_size=self.data_loader.input_size,
@@ -187,8 +185,8 @@ class Train:
 
         j = 0
 
-        for test_enc, test_dec, test_y in self.data_loader.test_loader:
-            output, _ = self.best_model(test_enc.to(self.device), test_dec.to(self.device))
+        for test_enc, test_y in self.data_loader.test_loader:
+            output, _ = self.best_model(test_enc.to(self.device))
             predictions[j] = output.squeeze(-1).cpu().detach()
             test_y_tot[j] = test_y[:, -self.pred_len:, :].squeeze(-1).cpu().detach()
             j += 1

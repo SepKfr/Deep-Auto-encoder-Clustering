@@ -74,11 +74,9 @@ class CustomDataLoader:
         self.valid_loader = self.create_dataloader(valid_data, max_test_sample)
         self.test_loader = self.create_dataloader(test_data, max_test_sample)
 
-        train_x_1, train_x_2, train_y = next(iter(self.train_loader))
-        self.input_size = train_x_2.shape[3]
+        train_x, train_y = next(iter(self.train_loader))
+        self.input_size = train_x.shape[2]
         self.output_size = train_y.shape[2]
-        self.seq_length = train_x_2.shape[1]
-        self.num_seg = train_x_2.shape[2]
 
     def create_dataloader(self, data, max_samples):
 
@@ -102,7 +100,7 @@ class CustomDataLoader:
             valid_sampling_locations[i] for i in np.random.choice(
                 len(valid_sampling_locations), max_samples, replace=False)
         ]
-        X = torch.zeros(max_samples, self.max_encoder_length, self.num_features)
+        X = torch.zeros(max_samples, self.max_encoder_length, self.num_features+1)
         Y = torch.zeros(max_samples, self.pred_len, self.num_features)
 
         for i, tup in enumerate(ranges):
@@ -114,45 +112,15 @@ class CustomDataLoader:
             cp = algo.predict(pen=1)
             cp[-1] = cp[-1] - 1
             cp = torch.tensor(cp)
+            val = torch.tensor(val)
 
-            change_indices = torch.where(torch.diff(cp) != 0)[0]
-            tensor = torch.from_numpy(val)
+            one_hot_encoding = torch.zeros_like(val)
+            sep = one_hot_encoding.scatter_(-1, cp, 1)
+            val = torch.cat([val.unsqueeze(-1), sep.unsqueeze(-1)], dim=-1)
+            X[i] = val[:self.max_encoder_length, :]
+            Y[i] = val[-self.pred_len:, 0:1]
 
-            if len(change_indices) > 0:
-
-                last_one = len(tensor) - change_indices[-1]
-                change_indices = torch.cat([torch.zeros(1), change_indices])
-                change_indices = torch.diff(change_indices)
-
-                change_indices = change_indices.tolist()
-                change_indices.append(last_one)
-                change_indices = [int(x) for x in change_indices]
-                tensors = torch.split(tensor, change_indices)
-                padded_tensor = pad_sequence(tensors, padding_value=0)
-
-                x_list.append(padded_tensor[:self.max_encoder_length, :])
-                Y[i] = tensor[-self.pred_len:].unsqueeze(-1)
-                X[i] = tensor[:self.max_encoder_length].unsqueeze(-1)
-
-            else:
-                Y[i] = tensor[-self.pred_len:].unsqueeze(-1)
-                x_list.append(tensor[:self.max_encoder_length].unsqueeze(-1))
-                X[i] = tensor[:self.max_encoder_length].unsqueeze(-1)
-
-        max_size_1 = max(tensor.size(0) for tensor in x_list)
-        max_size_2 = max(tensor.size(1) for tensor in x_list)
-        tensors_final = torch.zeros(len(x_list), max_size_1, max_size_2, self.num_features)
-
-        Y = Y[:len(x_list)]
-        X = X[:len(x_list)]
-
-        for i, tensor in enumerate(x_list):
-
-            tensors_final[i, :tensor.shape[0], :tensor.shape[1], :] = tensor.unsqueeze(-1)
-
-        dataset = TensorDataset(X,
-                                tensors_final,
-                                Y)
+        dataset = TensorDataset(X, Y)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
         return dataloader

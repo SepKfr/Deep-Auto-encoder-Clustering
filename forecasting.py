@@ -29,7 +29,7 @@ class Forecasting(nn.Module):
         self.batch_size = batch_size
         self.device = device
 
-    def forward(self, x_1, x_2=None, y=None):
+    def forward(self, x_1, y=None):
 
         loss = 0
         x_1 = self.embedding(x_1)
