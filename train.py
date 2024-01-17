@@ -104,8 +104,7 @@ class Train:
 
         for train_enc, y in self.data_loader.train_loader:
 
-            output, loss = model(train_enc.to(self.device),
-                                 y.to(self.device))
+            output, loss = model(train_enc.to(self.device), y.to(self.device))
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -119,8 +118,7 @@ class Train:
         valid_loss = 0
 
         for valid_enc, valid_y in self.data_loader.valid_loader:
-            output, loss = model(valid_enc.to(self.device),
-                         valid_y.to(self.device))
+            output, loss = model(valid_enc.to(self.device), valid_y.to(self.device))
             valid_loss += loss.item()
 
             if valid_loss < best_trial_valid_loss:
@@ -141,13 +139,14 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
+        num_clusters = trial.suggest_categorical("num_layers", [3, 5])
 
         if self.cluster == "yes":
             model = ClusterForecasting(input_size=self.data_loader.input_size,
                                        output_size=self.data_loader.output_size,
-                                       num_clusters=3,
+                                       num_clusters=num_clusters,
                                        d_model=d_model,
-                                       nheads=1,
+                                       nheads=8,
                                        num_layers=num_layers,
                                        attn_type=self.attn_type,
                                        seed=1234,
@@ -158,7 +157,7 @@ class Train:
             model = Forecasting(input_size=self.data_loader.input_size,
                                 output_size=self.data_loader.output_size,
                                 d_model=d_model,
-                                nheads=1,
+                                nheads=8,
                                 num_layers=num_layers,
                                 attn_type=self.batch_size,
                                 seed=1234,

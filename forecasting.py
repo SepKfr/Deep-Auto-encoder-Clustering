@@ -5,16 +5,10 @@ from modules.transformer import Transformer
 
 
 class Forecasting(nn.Module):
-    def __init__(self, input_size,
-                 output_size,
-                 d_model,
-                 nheads,
-                 num_layers,
-                 attn_type,
-                 seed,
-                 device,
-                 pred_len,
-                 batch_size
+    def __init__(self, input_size, output_size,
+                 d_model, nheads, num_layers,
+                 attn_type, seed, device,
+                 pred_len, batch_size
                  ):
         super(Forecasting, self).__init__()
 
@@ -29,12 +23,12 @@ class Forecasting(nn.Module):
         self.batch_size = batch_size
         self.device = device
 
-    def forward(self, x_1, y=None):
+    def forward(self, x, y=None):
 
         loss = 0
-        x_1 = self.embedding(x_1)
+        x = self.embedding(x)
 
-        x = torch.split(x_1, split_size_or_sections=int(x_1.shape[1] / 2), dim=1)
+        x = torch.split(x, split_size_or_sections=int(x.shape[1] / 2), dim=1)
 
         x_enc = x[0]
         x_dec = x[1]
@@ -42,12 +36,12 @@ class Forecasting(nn.Module):
         x_app = torch.zeros((self.batch_size, self.pred_len, self.d_model), device=self.device)
         x_dec = torch.cat([x_dec, x_app], dim=1)
 
-        _, output = self.forecasting_model(x_enc, x_dec)
+        forecast_enc, forecast_dec = self.forecasting_model(x_enc, x_dec)
 
-        final_output = self.fc_dec(output)[:, -self.pred_len:, :]
+        forecast_out = self.fc_dec(forecast_dec)[:, -self.pred_len:, :]
 
         if y is not None:
 
-            loss = nn.MSELoss()(y, final_output)
+            loss = nn.MSELoss()(y, forecast_out)
 
-        return final_output, loss
+        return forecast_out, loss
