@@ -13,7 +13,7 @@ from forecasting_models.Autoformer import AutoCorrelation
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model, n_heads, attn_type, seed, batch_first=False):
+    def __init__(self, d_model, n_heads, attn_type, seed):
 
         super(MultiHeadAttention, self).__init__()
 
@@ -35,10 +35,8 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = n_heads
         self.attn_type = attn_type
         self.seed = seed
-        self.enable_nested_tensor = False
-        self.batch_first = batch_first
 
-    def forward(self, Q, K, V, attn_mask=None, key_padding_mask=None, need_weights=False, is_causal=False):
+    def forward(self, Q, K, V):
 
         batch_size = Q.shape[0]
 
@@ -79,4 +77,5 @@ class MultiHeadAttention(nn.Module):
 
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.num_heads * self.d_v)
         outputs = self.fc(context)
-        return outputs, attn
+
+        return outputs
