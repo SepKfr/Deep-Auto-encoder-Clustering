@@ -16,7 +16,7 @@ class GMM(nn.Module):
 
         self.weights = nn.Parameter(torch.ones(num_clusters), requires_grad=True)
         self.means = nn.Parameter(torch.randn(num_clusters, d_model), requires_grad=True)
-        self.covariances = nn.Parameter(torch.randn(num_clusters, d_model, d_model), requires_grad=True)
+        self.covariances = nn.Parameter(torch.randn(num_clusters, d_model), requires_grad=True)
 
     def forward(self, x, y=None, x_gmm=False):
 
@@ -25,10 +25,7 @@ class GMM(nn.Module):
         probs = probs / probs.sum()
         mixture = Categorical(probs)
 
-        covar_init = self.covariances
-
-        covar_init_trans = torch.transpose(covar_init, 1, 2)
-        covar = torch.einsum('cdb, cbd -> cd', covar_init, covar_init_trans)
+        covar = nn.Softplus()(self.covariances)
 
         components = Independent(Normal(self.means, covar), 1)
         mixture_model = MixtureSameFamily(mixture, components)
