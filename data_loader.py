@@ -4,7 +4,6 @@ import pandas as pd
 import torch
 import ruptures as rpt
 from torch.utils.data import TensorDataset, DataLoader
-from torch.nn.utils.rnn import pad_sequence
 
 
 class CustomDataLoader:
@@ -70,17 +69,16 @@ class CustomDataLoader:
         )
         self.total_time_steps = self.max_encoder_length + self.pred_len
 
-        self.train_loader = self.create_dataloader(train_data, max_train_sample)
-        self.valid_loader = self.create_dataloader(valid_data, max_test_sample)
-        self.test_loader = self.create_dataloader(test_data, max_test_sample)
+        self.train_loader, train_unique = self.create_dataloader(train_data, max_train_sample)
+        self.valid_loader, valid_unique = self.create_dataloader(valid_data, max_test_sample)
+        self.test_loader, test_unique = self.create_dataloader(test_data, max_test_sample)
 
         train_x, train_y = next(iter(self.train_loader))
         self.input_size = train_x.shape[2]
         self.output_size = train_y.shape[2]
+        self.n_uniques = max(train_unique, valid_unique, test_unique)
 
     def create_dataloader(self, data, max_samples):
-
-        x_list = []
 
         valid_sampling_locations, split_data_map = zip(
             *[
@@ -113,14 +111,17 @@ class CustomDataLoader:
             cp[-1] = cp[-1] - 1
             cp = torch.tensor(cp)
             val = torch.tensor(val)
-
             one_hot_encoding = torch.zeros_like(val)
             sep = one_hot_encoding.scatter_(-1, cp, 1)
-            val = torch.cat([val.unsqueeze(-1), sep.unsqueeze(-1)], dim=-1)
+            categories = torch.cumsum(sep, dim=0, dtype=torch.int)
+
+            val = torch.cat([val.unsqueeze(-1), categories.unsqueeze(-1)], dim=-1)
             X[i] = val[:self.max_encoder_length, :]
             Y[i] = val[-self.pred_len:, 0:1]
+
+        n_unique = int(max(torch.unique(X[:, :, -1])))
 
         dataset = TensorDataset(X, Y)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        return dataloader
+        return dataloader, n_unique

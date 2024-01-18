@@ -8,8 +8,8 @@ class Forecasting(nn.Module):
     def __init__(self, input_size, output_size,
                  d_model, nheads, num_layers,
                  attn_type, seed, device,
-                 pred_len, batch_size
-                 ):
+                 pred_len, batch_size):
+
         super(Forecasting, self).__init__()
 
         self.embedding = nn.Linear(input_size, d_model)

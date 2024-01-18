@@ -114,6 +114,7 @@ class Train:
             model = ClusterForecasting(input_size=self.data_loader.input_size,
                                        output_size=self.data_loader.output_size,
                                        num_clusters=num_clusters,
+                                       n_uniques=self.data_loader.n_uniques,
                                        d_model=d_model,
                                        nheads=8,
                                        num_layers=num_layers,
@@ -172,7 +173,6 @@ class Train:
                 print("valid loss: {:.3f}".format(valid_loss))
 
         return best_trial_valid_loss
-
 
     def evaluate(self):
         """

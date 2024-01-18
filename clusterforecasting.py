@@ -10,14 +10,15 @@ class ClusterForecasting(nn.Module):
     def __init__(self, input_size, output_size,
                  num_clusters, d_model, nheads,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size):
+                 device, pred_len, batch_size,
+                 n_uniques):
 
         super(ClusterForecasting, self).__init__()
 
         self.device = device
 
-        self.embedding_1 = nn.Linear(input_size, d_model, bias=False)
-        self.embedding_2 = nn.Linear(input_size, d_model)
+        self.embedding = nn.Linear(input_size, d_model, bias=False)
+        self.cat_emb = nn.Embedding(n_uniques+1, d_model)
 
         self.gmm = GMM(num_clusters, d_model)
 
@@ -39,7 +40,10 @@ class ClusterForecasting(nn.Module):
     def forward(self, x, y=None):
 
         tot_loss = 0
-        x = self.embedding_2(x)
+        x_cat = self.cat_emb(x[:, :, -1].to(dtype=torch.int))
+        x = self.embedding(x)
+        x = x + x_cat
+
         x, loss_gmm = self.gmm(x)
 
         x = torch.split(x, split_size_or_sections=int(x.shape[1]/2), dim=1)
