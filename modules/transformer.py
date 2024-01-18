@@ -15,7 +15,7 @@ class Transformer(nn.Module):
         self.encoder_layer = TransformerEncoderLayer(d_model=d_model, nhead=nheads, batch_first=True)
         self.decoder_layer = TransformerDecoderLayer(d_model=d_model, nhead=nheads, batch_first=True)
 
-        if attn_type == "basic_attn":
+        if attn_type != "basic_attn":
 
             self.encoder_layer.self_attn = MultiHeadAttention(attn_type=attn_type,
                                                               d_model=d_model,
