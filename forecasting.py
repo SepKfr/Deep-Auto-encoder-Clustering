@@ -15,7 +15,7 @@ class Forecasting(nn.Module):
         self.embedding = nn.Linear(input_size, d_model)
 
         self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
-                                             attn_type=attn_type, seed=seed)
+                                             attn_type=attn_type, seed=seed, device=device)
         self.fc_dec = nn.Linear(d_model, output_size)
 
         self.d_model = d_model

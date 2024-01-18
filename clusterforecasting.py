@@ -23,7 +23,7 @@ class ClusterForecasting(nn.Module):
         self.gmm = GMM(num_clusters, d_model)
 
         self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
-                                             attn_type=attn_type, seed=seed)
+                                             attn_type=attn_type, seed=seed, device=self.device)
         self.fc_dec = Linear(d_model, output_size)
         self.ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
                                  nn.ReLU(),
