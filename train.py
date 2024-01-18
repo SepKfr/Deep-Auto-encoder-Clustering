@@ -189,6 +189,11 @@ class Train:
                 else:
                     x_gmm = None
                 output, loss = model(x.to(self.device), y.to(self.device), x_gmm)
+                if loss < 0:
+
+                    trial.report(loss, epoch)
+                    raise optuna.TrialPruned()
+
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step_and_update_lr()
@@ -209,7 +214,7 @@ class Train:
                 output, loss = model(x.to(self.device), valid_y.to(self.device), x_gmm)
                 valid_loss += loss.item()
 
-                if valid_loss < best_trial_valid_loss:
+                if 0 < valid_loss < best_trial_valid_loss:
                     best_trial_valid_loss = valid_loss
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
