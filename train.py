@@ -13,6 +13,38 @@ from data_loader import CustomDataLoader
 from forecasting import Forecasting
 
 
+class NoamOpt:
+
+    def __init__(self, optimizer, lr_mul, d_model, n_warmup_steps):
+        self._optimizer = optimizer
+        self.lr_mul = lr_mul
+        self.d_model = d_model
+        self.n_warmup_steps = n_warmup_steps
+        self.n_steps = 0
+
+    def step_and_update_lr(self):
+        "Step with the inner optimizer"
+        self._update_learning_rate()
+        self._optimizer.step()
+
+    def zero_grad(self):
+        "Zero out the gradients with the inner optimizer"
+        self._optimizer.zero_grad()
+
+    def _get_lr_scale(self):
+        d_model = self.d_model
+        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
+        return (d_model ** -0.5) * min(n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5))
+
+    def _update_learning_rate(self):
+        ''' Learning rate scheduling per step '''
+
+        self.n_steps += 1
+        lr = self.lr_mul * self._get_lr_scale()
+
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = lr
+
 class Train:
     def __init__(self):
 
@@ -100,9 +132,9 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        lr = trial.suggest_categorical("lr", [0.01, 0.001])
         num_clusters = trial.suggest_categorical("num_clusters", [3, 5] if
-        self.cluster == "yes" else [1])
+                                                 self.cluster == "yes" else [1])
+        w_steps = 4000
 
         tup_params = [d_model, num_layers, num_clusters]
         if tup_params in self.list_explored_params:
@@ -135,7 +167,7 @@ class Train:
                                 pred_len=96,
                                 batch_size=self.batch_size).to(self.device)
 
-        optimizer = Adam(model.parameters(), lr=lr)
+        optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
         best_trial_valid_loss = 1e10
         for epoch in range(self.num_epochs):
 
@@ -146,7 +178,7 @@ class Train:
                 output, loss = model(train_enc.to(self.device), y.to(self.device))
                 optimizer.zero_grad()
                 loss.backward()
-                optimizer.step()
+                optimizer.step_and_update_lr()
                 train_loss += loss.item()
 
             trial.report(loss, epoch)
