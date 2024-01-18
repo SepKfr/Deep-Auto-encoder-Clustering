@@ -167,7 +167,7 @@ class Train:
                                 pred_len=96,
                                 batch_size=self.batch_size).to(self.device)
 
-        max_norm = 1.0
+        max_norm = 0.1
 
         optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
         best_trial_valid_loss = 1e10
