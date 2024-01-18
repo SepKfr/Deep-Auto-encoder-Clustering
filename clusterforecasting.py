@@ -31,13 +31,6 @@ class ClusterForecasting(nn.Module):
 
         self.lam = nn.Parameter(torch.randn(1), requires_grad=True)
 
-        for module in self.modules():
-            if isinstance(module, nn.Module):
-                for name, parameter in module.named_parameters():
-                    if len(parameter.shape) >= 2:
-                        if 'weight' in name:
-                            nn.init.xavier_uniform_(parameter)
-
         self.pred_len = pred_len
         self.num_clusters = num_clusters
         self.nheads = nheads
