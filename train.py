@@ -157,7 +157,7 @@ class Train:
 
         if self.cluster == "yes":
 
-            model = GMM(d_model=d_model, input_size=self.data_loader.input_size, num_clusters=num_clusters)
+            model = GMM(d_model=d_model, input_size=self.data_loader.input_size, num_clusters=num_clusters).to(self.device)
 
         else:
             d_model_gmm = 1 if self.GMM_best_model is None else self.GMM_best_model.d_model
