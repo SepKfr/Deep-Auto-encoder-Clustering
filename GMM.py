@@ -31,8 +31,10 @@ class GMM(nn.Module):
         mixture_model = MixtureSameFamily(mixture, components)
         sample = mixture_model.sample(x.shape[:-1])
 
+        x = x.permute(1, 0, 2)
         log_porb = mixture_model.log_prob(x)
-        loss = - torch.log(torch.sum(torch.exp(log_porb))).mean()
+
+        loss = - log_porb.mean()
 
         return sample, loss
 
