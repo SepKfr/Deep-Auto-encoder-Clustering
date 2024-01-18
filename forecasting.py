@@ -8,9 +8,11 @@ class Forecasting(nn.Module):
     def __init__(self, input_size, output_size,
                  d_model, nheads, num_layers,
                  attn_type, seed, device,
-                 pred_len, batch_size):
+                 pred_len, batch_size, d_model_gmm):
 
         super(Forecasting, self).__init__()
+
+        self.embedding_gmm = nn.Linear(d_model_gmm, d_model)
 
         self.embedding = nn.Linear(input_size, d_model)
 
@@ -23,11 +25,16 @@ class Forecasting(nn.Module):
         self.batch_size = batch_size
         self.device = device
 
-    def forward(self, x, y=None):
+    def forward(self, x, y=None, x_gmm=None):
 
         loss = 0
-        x = self.embedding(x)
 
+        if x_gmm is not None:
+            s = self.embedding_gmm(x_gmm)
+            x = self.embedding(x)
+            x = x + s
+        else:
+            x = self.embedding(x)
         x = torch.split(x, split_size_or_sections=int(x.shape[1] / 2), dim=1)
 
         x_enc = x[0]

@@ -8,6 +8,8 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from optuna.trial import TrialState
+
+from GMM import GMM
 from clusterforecasting import ClusterForecasting
 from data_loader import CustomDataLoader
 from forecasting import Forecasting
@@ -51,7 +53,7 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="traffic")
         parser.add_argument("--model_name", type=str, default="basic_attn_forecast")
-        parser.add_argument("--num_epochs", type=int, default=50)
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='autoformer')
@@ -103,7 +105,18 @@ class Train:
         self.best_overall_valid_loss = 1e10
         self.best_model = nn.Module()
         self.list_explored_params = []
-        self.run_optuna(args)
+        self.num_optuna_run = 1
+        if self.cluster == "yes":
+            self.GMM_best_model = nn.Module()
+            self.run_optuna(args)
+            self.num_optuna_run = 2
+            self.cluster = "no"
+            self.best_overall_valid_loss = 1e10
+            self.run_optuna(args)
+        else:
+            self.GMM_best_model = None
+            self.run_optuna(args)
+
         self.evaluate()
 
     def run_optuna(self, args):
@@ -131,7 +144,7 @@ class Train:
     def objective(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
-        num_layers = trial.suggest_categorical("num_layers", [1, 2])
+        num_layers = trial.suggest_categorical("num_layers", [1, 2] if self.cluster == "no" else [1])
         num_clusters = trial.suggest_categorical("num_clusters", [3, 5] if
                                                  self.cluster == "yes" else [1])
         w_steps = trial.suggest_categorical("w_steps", [4000, 8000])
@@ -143,19 +156,12 @@ class Train:
             self.list_explored_params.append(tup_params)
 
         if self.cluster == "yes":
-            model = ClusterForecasting(input_size=self.data_loader.input_size,
-                                       output_size=self.data_loader.output_size,
-                                       num_clusters=num_clusters,
-                                       n_uniques=self.data_loader.n_uniques,
-                                       d_model=d_model,
-                                       nheads=8,
-                                       num_layers=num_layers,
-                                       attn_type=self.attn_type,
-                                       seed=1234,
-                                       device=self.device,
-                                       pred_len=96,
-                                       batch_size=self.batch_size).to(self.device)
+
+            model = GMM(d_model=d_model, input_size=self.data_loader.input_size, num_clusters=num_clusters)
+
         else:
+            d_model_gmm = 1 if self.GMM_best_model is None else self.GMM_best_model.d_model
+
             model = Forecasting(input_size=self.data_loader.input_size,
                                 output_size=self.data_loader.output_size,
                                 d_model=d_model,
@@ -165,9 +171,9 @@ class Train:
                                 seed=1234,
                                 device=self.device,
                                 pred_len=96,
-                                batch_size=self.batch_size).to(self.device)
-
-        max_norm = 0.1
+                                batch_size=self.batch_size,
+                                d_model_gmm=d_model_gmm
+                                ).to(self.device)
 
         optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
         best_trial_valid_loss = 1e10
@@ -176,11 +182,15 @@ class Train:
             model.train()
             train_loss = 0
 
-            for train_enc, y in self.data_loader.train_loader:
-                output, loss = model(train_enc.to(self.device), y.to(self.device))
+            for x, y in self.data_loader.train_loader:
+
+                if self.num_optuna_run == 2:
+                    x_gmm, _ = self.GMM_best_model(x.to(self.device))
+                else:
+                    x_gmm = None
+                output, loss = model(x.to(self.device), y.to(self.device), x_gmm)
                 optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
                 optimizer.step_and_update_lr()
                 train_loss += loss.item()
 
@@ -191,16 +201,25 @@ class Train:
             model.eval()
             valid_loss = 0
 
-            for valid_enc, valid_y in self.data_loader.valid_loader:
-                output, loss = model(valid_enc.to(self.device), valid_y.to(self.device))
+            for x, valid_y in self.data_loader.valid_loader:
+                if self.num_optuna_run == 2:
+                    x_gmm, _ = self.GMM_best_model(x.to(self.device))
+                else:
+                    x_gmm = None
+                output, loss = model(x.to(self.device), valid_y.to(self.device), x_gmm)
                 valid_loss += loss.item()
 
                 if valid_loss < best_trial_valid_loss:
                     best_trial_valid_loss = valid_loss
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
-                        self.best_model = model
-                        torch.save({'model_state_dict': self.best_model.state_dict()},
+                        if self.cluster == "yes":
+                            self.GMM_best_model = model
+                            torch.save({'model_state_dict': self.GMM_best_model.state_dict()},
+                                       os.path.join(self.model_path, "{}".format(self.model_name)))
+                        else:
+                            self.best_model = model
+                            torch.save({'model_state_dict': self.best_model.state_dict()},
                                    os.path.join(self.model_path, "{}".format(self.model_name)))
 
             if epoch % 5 == 0:
@@ -223,8 +242,12 @@ class Train:
 
         j = 0
 
-        for test_enc, test_y in self.data_loader.test_loader:
-            output, _ = self.best_model(test_enc.to(self.device))
+        for x, test_y in self.data_loader.test_loader:
+            if self.num_optuna_run == 2:
+                x_gmm, _ = self.GMM_best_model(x.to(self.device))
+            else:
+                x_gmm = None
+            output, _ = self.best_model(x=x.to(self.device), x_gmm=x_gmm)
             predictions[j] = output.squeeze(-1).cpu().detach()
             test_y_tot[j] = test_y[:, -self.pred_len:, :].squeeze(-1).cpu().detach()
             j += 1

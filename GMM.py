@@ -6,19 +6,21 @@ from torch.distributions import Categorical, Independent, Normal, MixtureSameFam
 
 class GMM(nn.Module):
 
-    def __init__(self, num_clusters,
-                 d_model):
+    def __init__(self, num_clusters, input_size, d_model):
         super(GMM, self).__init__()
 
         self.num_clusters = num_clusters
         self.d_model = d_model
 
+        self.embedding = nn.Linear(input_size, d_model)
+
         self.weights = nn.Parameter(torch.ones(num_clusters), requires_grad=True)
         self.means = nn.Parameter(torch.randn(num_clusters, d_model), requires_grad=True)
         self.covariances = nn.Parameter(torch.randn(num_clusters, d_model, d_model), requires_grad=True)
 
-    def forward(self, x):
+    def forward(self, x, y=None, x_gmm=False):
 
+        x = self.embedding(x)
         probs = torch.nn.functional.relu(self.weights)
         probs = probs / probs.sum()
         mixture = Categorical(probs)
@@ -34,8 +36,6 @@ class GMM(nn.Module):
 
         loss = - mixture_model.log_prob(x).mean()
 
-        x = x + sample
-
-        return x, loss
+        return sample, loss
 
 
