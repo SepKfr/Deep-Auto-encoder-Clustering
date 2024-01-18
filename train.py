@@ -129,7 +129,7 @@ class Train:
                                 d_model=d_model,
                                 nheads=8,
                                 num_layers=num_layers,
-                                attn_type=self.batch_size,
+                                attn_type=self.attn_type,
                                 seed=1234,
                                 device=self.device,
                                 pred_len=96,
