@@ -134,7 +134,7 @@ class Train:
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
         num_clusters = trial.suggest_categorical("num_clusters", [3, 5] if
                                                  self.cluster == "yes" else [1])
-        w_steps = 4000
+        w_steps = trial.suggest_categorical("w_steps", [4000, 8000])
 
         tup_params = [d_model, num_layers, num_clusters]
         if tup_params in self.list_explored_params:
