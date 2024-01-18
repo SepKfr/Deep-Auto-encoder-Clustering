@@ -36,7 +36,7 @@ class ClusterForecasting(nn.Module):
                 for name, parameter in module.named_parameters():
                     if len(parameter.shape) >= 2:
                         if 'weight' in name:
-                            nn.init.xavier_uniform_(parameter, gain=nn.init.calculate_gain('relu'))
+                            nn.init.xavier_uniform_(parameter)
 
         self.pred_len = pred_len
         self.num_clusters = num_clusters
