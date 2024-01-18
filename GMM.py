@@ -1,3 +1,4 @@
+import numpy as np
 import torch.nn as nn
 import torch
 from torch.distributions import Categorical, Independent, Normal, MixtureSameFamily
@@ -31,7 +32,7 @@ class GMM(nn.Module):
         mixture_model = MixtureSameFamily(mixture, components)
         sample = mixture_model.sample(x.shape[:-1])
 
-        loss = - mixture_model.log_prob(x).mean()
+        loss = - mixture_model.log_prob(x).mean() / np.sqrt(self.d_model)
 
         x = x + sample
 
