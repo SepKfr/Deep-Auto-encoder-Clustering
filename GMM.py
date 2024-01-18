@@ -32,7 +32,7 @@ class GMM(nn.Module):
         sample = mixture_model.sample(x.shape[:-1])
 
         log_porb = mixture_model.log_prob(x)
-        loss = - torch.logsumexp(log_porb, dim=-1).mean()
+        loss = - torch.log(torch.sum(torch.exp(log_porb))).mean()
 
         return sample, loss
 
