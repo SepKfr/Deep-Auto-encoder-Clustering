@@ -167,6 +167,8 @@ class Train:
                                 pred_len=96,
                                 batch_size=self.batch_size).to(self.device)
 
+        max_norm = 1.0
+
         optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
         best_trial_valid_loss = 1e10
         for epoch in range(self.num_epochs):
@@ -178,6 +180,7 @@ class Train:
                 output, loss = model(train_enc.to(self.device), y.to(self.device))
                 optimizer.zero_grad()
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
                 optimizer.step_and_update_lr()
                 train_loss += loss.item()
 

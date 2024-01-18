@@ -31,6 +31,9 @@ class ClusterForecasting(nn.Module):
 
         self.lam = nn.Parameter(torch.randn(1), requires_grad=True)
 
+        for p in self.parameters():
+            nn.init.xavier_uniform_(p, gain=nn.init.calculate_gain('relu'))
+
         self.pred_len = pred_len
         self.num_clusters = num_clusters
         self.nheads = nheads
