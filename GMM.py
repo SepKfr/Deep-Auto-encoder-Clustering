@@ -32,7 +32,7 @@ class GMM(nn.Module):
         mixture_model = MixtureSameFamily(mixture, components)
         sample = mixture_model.sample(x.shape[:-1])
 
-        loss = - mixture_model.log_prob(x).mean() / np.sqrt(self.d_model)
+        loss = - mixture_model.log_prob(x).mean()
 
         x = x + sample
 

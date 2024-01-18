@@ -17,8 +17,7 @@ class ClusterForecasting(nn.Module):
 
         self.device = device
 
-        self.embedding = nn.Linear(input_size, d_model, bias=False)
-        self.cat_emb = nn.Embedding(n_uniques+1, d_model)
+        self.embedding = nn.Linear(input_size, d_model)
 
         self.gmm = GMM(num_clusters, d_model)
 
@@ -40,9 +39,7 @@ class ClusterForecasting(nn.Module):
     def forward(self, x, y=None):
 
         tot_loss = 0
-        x_cat = self.cat_emb(x[:, :, -1].to(dtype=torch.int))
         x = self.embedding(x)
-        x = x + x_cat
 
         x, loss_gmm = self.gmm(x)
 
@@ -62,7 +59,7 @@ class ClusterForecasting(nn.Module):
 
             loss = nn.MSELoss()(y, forecast_out)
             if self.training:
-                tot_loss = loss + torch.clamp(self.lam, min=0.001, max=0.005) * loss_gmm
+                tot_loss = loss + torch.clamp(self.lam, min=0, max=0.005) * loss_gmm
             else:
                 tot_loss = loss
 
