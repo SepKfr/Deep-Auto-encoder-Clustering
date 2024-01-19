@@ -189,11 +189,6 @@ class Train:
                 else:
                     x_gmm = None
                 output, loss = model(x.to(self.device), y.to(self.device), x_gmm)
-                if loss < 0:
-
-                    trial.report(loss, epoch)
-                    raise optuna.TrialPruned()
-
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step_and_update_lr()
@@ -214,18 +209,21 @@ class Train:
                 output, loss = model(x.to(self.device), valid_y.to(self.device), x_gmm)
                 valid_loss += loss.item()
 
-                if 0 < valid_loss < best_trial_valid_loss:
-                    best_trial_valid_loss = valid_loss
-                    if best_trial_valid_loss < self.best_overall_valid_loss:
-                        self.best_overall_valid_loss = best_trial_valid_loss
-                        if self.cluster == "yes":
-                            self.GMM_best_model = model
-                            torch.save({'model_state_dict': self.GMM_best_model.state_dict()},
+                if valid_loss < best_trial_valid_loss:
+                    if loss < 0:
+                        return best_trial_valid_loss
+                    elif valid_loss > 0:
+                        best_trial_valid_loss = valid_loss
+                        if best_trial_valid_loss < self.best_overall_valid_loss:
+                            self.best_overall_valid_loss = best_trial_valid_loss
+                            if self.cluster == "yes":
+                                self.GMM_best_model = model
+                                torch.save({'model_state_dict': self.GMM_best_model.state_dict()},
+                                           os.path.join(self.model_path, "{}".format(self.model_name)))
+                            else:
+                                self.best_model = model
+                                torch.save({'model_state_dict': self.best_model.state_dict()},
                                        os.path.join(self.model_path, "{}".format(self.model_name)))
-                        else:
-                            self.best_model = model
-                            torch.save({'model_state_dict': self.best_model.state_dict()},
-                                   os.path.join(self.model_path, "{}".format(self.model_name)))
 
             if epoch % 5 == 0:
                 print("train loss: {:.3f} epoch: {}".format(train_loss, epoch))
