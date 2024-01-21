@@ -8,7 +8,7 @@ import pandas as pd
 import torch
 import torch.nn.functional as F
 from optuna.trial import TrialState
-
+from torch.nn.utils import clip_grad_norm_
 from GMM import GmmFull
 from clusterforecasting import ClusterForecasting
 from data_loader import CustomDataLoader
@@ -178,6 +178,10 @@ class Train:
         if self.cluster == "yes":
             component_optimizer = NoamOpt(Adam(model.gmm.component_parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
             mixture_optimizer = NoamOpt(Adam(model.gmm.mixture_parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
+
+            clip_grad_norm_(model.gmm.component_parameters(), max_norm=0.1)
+            clip_grad_norm_(model.gmm.mixture_parameters(), max_norm=0.1)
+
         best_trial_valid_loss = 1e10
         for epoch in range(self.num_epochs):
 
@@ -195,7 +199,9 @@ class Train:
                     component_optimizer.zero_grad()
                     mixture_optimizer.zero_grad()
 
-                    (loss+gmm_loss).backward()
+                    tot_loss = loss + torch.clip(gmm_loss, min=0, max=0.01)
+
+                    tot_loss.backward()
 
                     forecast_optimizer.step_and_update_lr()
                     component_optimizer.step_and_update_lr()
