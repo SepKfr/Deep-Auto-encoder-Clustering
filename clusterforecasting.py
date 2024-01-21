@@ -9,17 +9,21 @@ from modules.transformer import Transformer
 class ClusterForecasting(nn.Module):
 
     def __init__(self, input_size, output_size,
-                 num_clusters, d_model, nheads,
+                 d_model, nheads,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size):
+                 device, pred_len, batch_size,
+                 gmm_model):
 
         super(ClusterForecasting, self).__init__()
 
         self.device = device
 
         self.embedding = nn.Linear(input_size, d_model)
+        self.gmm_model = gmm_model
 
-        self.gmm = GmmDiagonal(num_components=num_clusters, num_dims=d_model)
+        if self.gmm_model is not None:
+
+            self.gmm_embedding = nn.Linear(self.gmm_model.num_dims, d_model)
 
         self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
                                              attn_type=attn_type, seed=seed, device=self.device)
@@ -32,7 +36,6 @@ class ClusterForecasting(nn.Module):
         self.lam = nn.Parameter(torch.randn(1), requires_grad=True)
 
         self.pred_len = pred_len
-        self.num_clusters = num_clusters
         self.nheads = nheads
         self.batch_size = batch_size
         self.d_model = d_model
@@ -40,13 +43,15 @@ class ClusterForecasting(nn.Module):
     def forward(self, x, y=None):
 
         mse_loss = 0
-        x = self.embedding(x)
 
-        with torch.no_grad():
-
-            loss_gmm, sample = self.gmm(x)
-
-        x = self.norm(x + self.ffn(sample))
+        if self.gmm_model is not None:
+            with torch.no_grad():
+                _, sample = self.gmm_model(x)
+            sample = self.gmm_embedding(sample)
+            x = self.embedding(x)
+            x = x + sample
+        else:
+            x = self.embedding(x)
 
         x = torch.split(x, split_size_or_sections=int(x.shape[1]/2), dim=1)
 
@@ -64,4 +69,4 @@ class ClusterForecasting(nn.Module):
 
             mse_loss = nn.MSELoss()(y, forecast_out)
 
-        return forecast_out, mse_loss, loss_gmm
+        return forecast_out, mse_loss

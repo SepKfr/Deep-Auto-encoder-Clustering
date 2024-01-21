@@ -8,7 +8,7 @@ class Forecasting(nn.Module):
     def __init__(self, input_size, output_size,
                  d_model, nheads, num_layers,
                  attn_type, seed, device,
-                 pred_len, batch_size):
+                 pred_len, batch_size, gmm_d_model):
 
         super(Forecasting, self).__init__()
 

@@ -139,6 +139,7 @@ class GmmFull(MixtureModel):
             self,
             num_components: int,
             num_dims: int,
+            num_feat: int,
             init_radius: float = 1.0,
             init_mus: List[List[float]] = None
     ):
@@ -149,6 +150,7 @@ class GmmFull(MixtureModel):
             if self.init_mus is not None
             else torch.rand(num_components, num_dims).uniform_(-init_radius, init_radius)
         )
+        self.embed = torch.nn.Linear(num_feat, num_dims, bias=False)
         self.mus = torch.nn.Parameter(init_mus)
 
         # lower triangle representation of (symmetric) covariance matrix
@@ -156,6 +158,7 @@ class GmmFull(MixtureModel):
 
     def forward(self, x: torch.Tensor):
 
+        x = self.embed(x)
         mixture = Categorical(logits=self.logits)
         components = MultivariateNormal(self.mus, scale_tril=self.scale_tril)
         mixture_model = MixtureSameFamily(mixture, components)
@@ -192,6 +195,7 @@ class GmmDiagonal(MixtureModel):
             self,
             num_components: int,
             num_dims: int,
+            num_feat: int,
             init_radius: float = 1.0,
             init_mus: List[List[float]] = None
     ):
@@ -202,12 +206,15 @@ class GmmDiagonal(MixtureModel):
             if self.init_mus is not None
             else torch.rand(num_components, num_dims).uniform_(-init_radius, init_radius)
         )
+        self.embed = torch.nn.Linear(num_feat, num_dims, bias=False)
         self.mus = torch.nn.Parameter(init_mus)
 
         # represente covariance matrix as diagonals
         self.sigmas_diag = torch.nn.Parameter(torch.rand(num_components, num_dims))
 
     def forward(self, x: torch.Tensor):
+
+        x = self.embed(x)
         mixture = Categorical(logits=self.logits)
         components = Independent(Normal(self.mus, self.sigmas_diag), 1)
         mixture_model = MixtureSameFamily(mixture, components)
