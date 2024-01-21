@@ -118,7 +118,7 @@ class MixtureModel(ABC, torch.nn.Module):
         return logits_to_probs(self.logits)
 
     @abstractmethod
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor):
         raise NotImplementedError()
 
     @abstractmethod
@@ -154,7 +154,7 @@ class GmmFull(MixtureModel):
         # lower triangle representation of (symmetric) covariance matrix
         self.scale_tril = torch.nn.Parameter(make_random_scale_trils(num_components, num_dims))
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor):
 
         mixture = Categorical(logits=self.logits)
         components = MultivariateNormal(self.mus, scale_tril=self.scale_tril)
