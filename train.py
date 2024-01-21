@@ -106,16 +106,7 @@ class Train:
         self.best_model = nn.Module()
         self.list_explored_params = []
         self.num_optuna_run = 1
-        if self.cluster == "yes":
-            self.GMM_best_model = nn.Module()
-            self.run_optuna(args)
-            self.num_optuna_run = 2
-            self.cluster = "no"
-            self.best_overall_valid_loss = 1e10
-            self.run_optuna(args)
-        else:
-            self.GMM_best_model = None
-            self.run_optuna(args)
+        self.run_optuna(args)
 
         self.evaluate()
 
