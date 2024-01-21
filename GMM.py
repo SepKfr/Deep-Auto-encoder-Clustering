@@ -207,14 +207,16 @@ class GmmDiagonal(MixtureModel):
         # represente covariance matrix as diagonals
         self.sigmas_diag = torch.nn.Parameter(torch.rand(num_components, num_dims))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor):
         mixture = Categorical(logits=self.logits)
         components = Independent(Normal(self.mus, self.sigmas_diag), 1)
         mixture_model = MixtureSameFamily(mixture, components)
 
+        sample = mixture_model.sample(x.shape[:-1])
+
         nll_loss = -1 * mixture_model.log_prob(x).mean()
 
-        return nll_loss
+        return nll_loss, sample
 
     def constrain_parameters(self, epsilon: float = 1e-6):
         with torch.no_grad():

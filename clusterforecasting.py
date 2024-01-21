@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 from torch.nn import Linear
 
-from GMM import GmmFull
+from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 
 
@@ -19,7 +19,7 @@ class ClusterForecasting(nn.Module):
 
         self.embedding = nn.Linear(input_size, d_model)
 
-        self.gmm = GmmFull(num_components=num_clusters, num_dims=d_model)
+        self.gmm = GmmDiagonal(num_components=num_clusters, num_dims=d_model)
 
         self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
                                              attn_type=attn_type, seed=seed, device=self.device)
