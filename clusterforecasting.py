@@ -1,8 +1,9 @@
 import torch.nn as nn
 import torch
 from torch.nn import Linear
+
+from GMM import GmmFull
 from modules.transformer import Transformer
-from GMM import GMM
 
 
 class ClusterForecasting(nn.Module):
@@ -10,8 +11,7 @@ class ClusterForecasting(nn.Module):
     def __init__(self, input_size, output_size,
                  num_clusters, d_model, nheads,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size,
-                 gmm_model=None):
+                 device, pred_len, batch_size):
 
         super(ClusterForecasting, self).__init__()
 
@@ -19,12 +19,15 @@ class ClusterForecasting(nn.Module):
 
         self.embedding = nn.Linear(input_size, d_model)
 
+        self.gmm = GmmFull(num_components=num_clusters, num_dims=d_model)
+
         self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
                                              attn_type=attn_type, seed=seed, device=self.device)
         self.fc_dec = Linear(d_model, output_size)
         self.ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
                                  nn.ReLU(),
                                  nn.Linear(d_model*4, d_model))
+        self.norm = nn.LayerNorm(d_model)
 
         self.lam = nn.Parameter(torch.randn(1), requires_grad=True)
 
@@ -36,8 +39,12 @@ class ClusterForecasting(nn.Module):
 
     def forward(self, x, y=None):
 
-        loss = 0
+        mse_loss = 0
         x = self.embedding(x)
+
+        loss_gmm, sample = self.gmm(x)
+
+        x = self.norm(x + self.ffn(sample))
 
         x = torch.split(x, split_size_or_sections=int(x.shape[1]/2), dim=1)
 
@@ -53,6 +60,6 @@ class ClusterForecasting(nn.Module):
 
         if y is not None:
 
-            loss = nn.MSELoss()(y, forecast_out)
+            mse_loss = nn.MSELoss()(y, forecast_out)
 
-        return forecast_out, loss
+        return forecast_out, mse_loss, loss_gmm
