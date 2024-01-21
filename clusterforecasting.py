@@ -42,7 +42,9 @@ class ClusterForecasting(nn.Module):
         mse_loss = 0
         x = self.embedding(x)
 
-        loss_gmm, sample = self.gmm(x)
+        with torch.no_grad():
+
+            loss_gmm, sample = self.gmm(x)
 
         x = self.norm(x + self.ffn(sample))
 
