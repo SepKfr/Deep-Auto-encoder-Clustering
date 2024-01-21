@@ -45,8 +45,7 @@ class ClusterForecasting(nn.Module):
         mse_loss = 0
 
         if self.gmm_model is not None:
-            with torch.no_grad():
-                _, sample = self.gmm_model(x)
+            _, sample = self.gmm_model(x)
             sample = self.gmm_embedding(sample)
             x = self.embedding(x)
             x = x + sample

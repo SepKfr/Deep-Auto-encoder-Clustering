@@ -208,7 +208,6 @@ class GmmDiagonal(MixtureModel):
         )
         self.embed = torch.nn.Linear(num_feat, num_dims, bias=False)
         self.mus = torch.nn.Parameter(init_mus)
-
         # represente covariance matrix as diagonals
         self.sigmas_diag = torch.nn.Parameter(torch.rand(num_components, num_dims))
 
