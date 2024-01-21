@@ -170,7 +170,7 @@ class Train:
         clip_grad_norm_(model.mixture_parameters(), max_norm=0.1)
 
         best_trial_valid_loss = 1e10
-        for epoch in range(self.num_epochs):
+        for epoch in range(100):
             model.train()
             train_nll = 0
 
