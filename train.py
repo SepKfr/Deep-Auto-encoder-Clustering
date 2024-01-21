@@ -158,7 +158,7 @@ class Train:
         else:
             self.list_explored_params.append(tup_params)
 
-        model = GmmFull(num_components=num_clusters, num_dims=d_model, num_feat=self.data_loader.input_size).to(self.device)
+        model = GmmDiagonal(num_components=num_clusters, num_dims=d_model, num_feat=self.data_loader.input_size).to(self.device)
 
         component_optimizer = Adam(model.component_parameters())
         mixture_optimizer = Adam(model.mixture_parameters())

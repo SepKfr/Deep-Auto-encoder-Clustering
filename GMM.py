@@ -25,6 +25,8 @@ def make_random_scale_trils(num_sigmas: int, num_dims: int) -> torch.Tensor:
     :param num_dims: covariance matrix size
     :return: random lower triangular scale matrices
     """
+
+
     return torch.tensor(numpy.array([
         numpy.tril(make_random_cov_matrix(num_dims))
         for _ in range(num_sigmas)
