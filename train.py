@@ -166,11 +166,13 @@ class Train:
         mixture_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(mixture_optimizer, self.num_iteration)
         component_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(component_optimizer, self.num_iteration)
 
-        clip_grad_norm_(model.component_parameters(), max_norm=0.1)
-        clip_grad_norm_(model.mixture_parameters(), max_norm=0.1)
+        clip_grad_norm_(model.component_parameters(), max_norm=1.0)
+        clip_grad_norm_(model.mixture_parameters(), max_norm=1.0)
 
         best_trial_valid_loss = 1e10
-        for epoch in range(100):
+
+        for epoch in range(self.num_epochs):
+
             model.train()
             train_nll = 0
 
