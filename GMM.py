@@ -26,7 +26,6 @@ def make_random_scale_trils(num_sigmas: int, num_dims: int) -> torch.Tensor:
     :return: random lower triangular scale matrices
     """
 
-
     return torch.tensor(numpy.array([
         numpy.tril(make_random_cov_matrix(num_dims))
         for _ in range(num_sigmas)
@@ -156,13 +155,25 @@ class GmmFull(MixtureModel):
         self.mus = torch.nn.Parameter(init_mus)
 
         # lower triangle representation of (symmetric) covariance matrix
-        self.scale_tril = torch.nn.Parameter(make_random_scale_trils(num_components, num_dims))
+
+        lower_triangular = torch.tril(torch.rand(num_dims, num_dims))
+
+        # Step 2: Make it positive definite
+        diagonal_matrix = torch.diag(torch.ones(num_dims))  # Identity matrix
+
+        epsilon = 1e-6  # Small constant to ensure positive definiteness
+
+        positive_definite_matrix = lower_triangular @ lower_triangular.t() + diagonal_matrix
+        sigmas = [positive_definite_matrix for i in range(self.num_components)]
+        sigmas = torch.stack(sigmas)
+
+        self.scale_tril = torch.nn.Parameter(sigmas)
 
     def forward(self, x: torch.Tensor):
 
         x = self.embed(x)
         mixture = Categorical(logits=self.logits)
-        components = MultivariateNormal(self.mus, scale_tril=self.scale_tril)
+        components = MultivariateNormal(self.mus, self.scale_tril)
         mixture_model = MixtureSameFamily(mixture, components)
         sample = mixture_model.sample(x.shape[:-1])
 
