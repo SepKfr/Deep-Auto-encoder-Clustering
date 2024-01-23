@@ -12,7 +12,7 @@ from torch.nn.utils import clip_grad_norm_
 from GMM import GmmFull, GmmDiagonal
 from clusterforecasting import ClusterForecasting
 from data_loader import CustomDataLoader
-
+from Kmeans import TrainableKMeans
 
 class NoamOpt:
 
@@ -105,20 +105,22 @@ class Train:
         self.batch_size = args.batch_size
         self.best_overall_valid_loss = 1e10
         self.list_explored_params = []
+        self.cluster_type = "kmeans"
 
         if self.cluster == "yes":
 
             self.best_forecasting_model = nn.Module()
-            self.best_gmm_model = nn.Module()
+            self.best_cluster_model = nn.Module()
 
             self.run_optuna(args)
             self.best_overall_valid_loss = 1e10
+            self.list_explored_params = []
             self.cluster = "no"
             self.run_optuna(args)
 
         else:
             self.best_forecasting_model = nn.Module()
-            self.best_gmm_model = None
+            self.best_cluster_model = None
             self.run_optuna(args)
 
         self.evaluate()
@@ -146,6 +148,67 @@ class Train:
         for key, value in trial.params.items():
             print("    {}: {}".format(key, value))
 
+    def train_kmeans(self, trial):
+
+        d_model = trial.suggest_categorical("d_model", [16, 32])
+        num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
+        w_steps = trial.suggest_categorical("w_steps", [4000, 8000])
+        tup_params = [d_model, num_clusters, w_steps]
+
+        if tup_params in self.list_explored_params:
+            raise optuna.TrialPruned()
+        else:
+            self.list_explored_params.append(tup_params)
+
+        model = TrainableKMeans(num_clusters=num_clusters,
+                                input_size=self.data_loader.input_size,
+                                num_dim=d_model,
+                                pred_len=self.pred_len).to(self.device)
+
+        optimizer = Adam(model.parameters())
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, self.num_iteration)
+
+        best_trial_valid_loss = 1e10
+
+        for epoch in range(self.num_epochs):
+
+            model.train()
+            train_mse = 0
+
+            for x, y in self.data_loader.train_loader:
+                output, loss = model(x.to(self.device), y.to(self.device))
+
+                optimizer.zero_grad()
+                loss.backward()
+                scheduler.step()
+                train_mse += loss.item()
+
+            trial.report(loss, epoch)
+            if trial.should_prune():
+                raise optuna.TrialPruned()
+
+            model.eval()
+            valid_loss = 0
+
+            for x, y in self.data_loader.valid_loader:
+
+                output, loss = model(x.to(self.device), y.to(self.device))
+                valid_loss += loss.item()
+
+                if valid_loss < best_trial_valid_loss:
+                    best_trial_valid_loss = valid_loss
+                    if best_trial_valid_loss < self.best_overall_valid_loss:
+                        self.best_overall_valid_loss = best_trial_valid_loss
+                        self.best_cluster_model = model
+                        torch.save({'model_state_dict': self.best_cluster_model.state_dict()},
+                                   os.path.join(self.model_path, "{}".format(self.model_name)))
+
+            if epoch % 5 == 0:
+                print("train MSE loss: {:.3f} epoch: {}".format(train_mse, epoch))
+                print("valid loss: {:.3f}".format(valid_loss))
+
+        return best_trial_valid_loss
+
     def train_gmm(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
@@ -159,7 +222,6 @@ class Train:
             self.list_explored_params.append(tup_params)
 
         model = GmmFull(num_components=num_clusters, num_dims=d_model, num_feat=self.data_loader.input_size).to(self.device)
-
         component_optimizer = Adam(model.component_parameters())
         mixture_optimizer = Adam(model.mixture_parameters())
 
@@ -206,8 +268,8 @@ class Train:
                     best_trial_valid_loss = valid_loss
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
-                        self.best_gmm_model = model
-                        torch.save({'model_state_dict': self.best_gmm_model.state_dict()},
+                        self.best_cluster_model = model
+                        torch.save({'model_state_dict': self.best_cluster_model.state_dict()},
                                    os.path.join(self.model_path, "{}".format(self.model_name)))
 
             if epoch % 5 == 0:
@@ -240,7 +302,7 @@ class Train:
                                    device=self.device,
                                    pred_len=96,
                                    batch_size=self.batch_size,
-                                   gmm_model=self.best_gmm_model).to(self.device)
+                                   cluster_model=self.best_cluster_model).to(self.device)
 
         forecast_optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
 
@@ -251,6 +313,7 @@ class Train:
             train_mse_loss = 0
 
             for x, y in self.data_loader.train_loader:
+
                 output, loss = model(x.to(self.device), y.to(self.device))
 
                 forecast_optimizer.zero_grad()
@@ -288,7 +351,7 @@ class Train:
     def objective(self, trial):
 
         if self.cluster == "yes":
-            return self.train_gmm(trial)
+            return self.train_kmeans(trial)
         else:
             return self.train_forecasting(trial)
 
@@ -309,6 +372,7 @@ class Train:
         for x, test_y in self.data_loader.test_loader:
 
             output, _ = self.best_forecasting_model(x=x.to(self.device))
+            output = output[:, -self.pred_len:, :]
             predictions[j] = output.squeeze(-1).cpu().detach()
             test_y_tot[j] = test_y[:, -self.pred_len:, :].squeeze(-1).cpu().detach()
             j += 1

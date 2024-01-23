@@ -163,7 +163,7 @@ class GmmFull(MixtureModel):
 
         epsilon = 1e-6  # Small constant to ensure positive definiteness
 
-        positive_definite_matrix = lower_triangular @ lower_triangular.t() + diagonal_matrix
+        positive_definite_matrix = lower_triangular @ lower_triangular.t() + diagonal_matrix * epsilon
         sigmas = [positive_definite_matrix for i in range(self.num_components)]
         sigmas = torch.stack(sigmas)
 
