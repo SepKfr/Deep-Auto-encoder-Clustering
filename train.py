@@ -180,6 +180,7 @@ class Train:
 
                 optimizer.zero_grad()
                 loss.backward()
+                optimizer.step()
                 scheduler.step()
                 train_mse += loss.item()
 
