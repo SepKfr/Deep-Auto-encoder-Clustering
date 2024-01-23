@@ -176,6 +176,7 @@ class Train:
             train_mse = 0
 
             for x, y in self.data_loader.train_loader:
+
                 output, loss = model(x.to(self.device), y.to(self.device))
 
                 optimizer.zero_grad()

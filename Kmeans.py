@@ -8,7 +8,7 @@ class TrainableKMeans(nn.Module):
 
         self.embed = nn.Linear(input_size, num_dim)
         self.centroids = nn.Parameter(torch.randn(num_clusters, num_dim))
-        self.embed2 = nn.Linear(num_clusters, input_size)
+        self.embed2 = nn.Linear(num_clusters, 1)
         self.pred_len = pred_len
 
     def forward(self, x, y=None):
@@ -29,3 +29,4 @@ class TrainableKMeans(nn.Module):
             loss = nn.MSELoss()(y, output[:, -self.pred_len:, :])
 
         return output, loss
+

@@ -24,7 +24,7 @@ class ClusterForecasting(nn.Module):
 
         if self.cluster_model is not None:
 
-            self.cluster_embedding = nn.Linear(input_size, d_model)
+            self.cluster_embedding = nn.Linear(1, d_model)
 
         self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
                                              attn_type=attn_type, seed=seed, device=self.device)
