@@ -1,5 +1,7 @@
 import argparse
 import os
+from itertools import product
+
 import optuna
 from torch import nn
 from torch.optim import Adam
@@ -52,8 +54,8 @@ class Train:
 
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="solar")
-        parser.add_argument("--model_name", type=str, default="basic_attn_forecast")
-        parser.add_argument("--num_epochs", type=int, default=50)
+        parser.add_argument("--model_name", type=str, default="basic_attn")
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='autoformer')
@@ -201,9 +203,10 @@ class Train:
                     best_trial_valid_loss = valid_loss
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
+
                         self.best_cluster_model = model
-                        torch.save({'model_state_dict': self.best_cluster_model.state_dict()},
-                                   os.path.join(self.model_path, "{}".format(self.model_name)))
+                        torch.save(self.best_cluster_model.state_dict(),
+                                   os.path.join(self.model_path, "{}_cluster.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
                 print("train MSE loss: {:.3f} epoch: {}".format(train_mse, epoch))
@@ -270,9 +273,10 @@ class Train:
                     best_trial_valid_loss = valid_loss
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
-                        self.best_cluster_model = model
-                        torch.save({'model_state_dict': self.best_cluster_model.state_dict()},
-                                   os.path.join(self.model_path, "{}".format(self.model_name)))
+                        with torch.no_grad():
+                            self.best_cluster_model = model
+                        torch.save(self.best_cluster_model.state_dict(),
+                                   os.path.join(self.model_path, "{}_cluster.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
                 print("train NLL loss: {:.3f} epoch: {}".format(train_nll, epoch))
@@ -289,10 +293,28 @@ class Train:
         tup_params = [d_model, num_layers, w_steps]
 
         if tup_params in self.list_explored_params:
-
             raise optuna.TrialPruned()
         else:
             self.list_explored_params.append(tup_params)
+
+        if self.best_cluster_model is not None:
+
+            combination = list(product([16, 32], [3, 5]))
+            for comb in combination:
+                num_dim, num_cluster = comb
+                try:
+                    clustermodel = TrainableKMeans(num_dim=num_dim,
+                                                   input_size=self.data_loader.input_size,
+                                                   num_clusters=num_cluster,
+                                                   pred_len=self.pred_len)
+                    clustermodel.load_state_dict(torch.load(os.path.join(self.model_path,
+                                                                         "{}_cluster.pth".format(self.model_name))))
+                    clustermodel.to(self.device)
+
+                except RuntimeError:
+                    pass
+            else:
+                clustermodel = None
 
         model = ClusterForecasting(input_size=self.data_loader.input_size,
                                    output_size=self.data_loader.output_size,
@@ -304,7 +326,7 @@ class Train:
                                    device=self.device,
                                    pred_len=96,
                                    batch_size=self.batch_size,
-                                   cluster_model=self.best_cluster_model).to(self.device)
+                                   cluster_model=clustermodel).to(self.device)
 
         forecast_optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
 
@@ -340,8 +362,8 @@ class Train:
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
                         self.best_forecasting_model = model
-                        torch.save({'model_state_dict': self.best_forecasting_model.state_dict()},
-                                   os.path.join(self.model_path, "{}".format(self.model_name)))
+                        torch.save(self.best_forecasting_model.state_dict(),
+                                   os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
                 print(

@@ -41,12 +41,10 @@ class ClusterForecasting(nn.Module):
 
         if self.cluster_model is not None:
 
-            with torch.no_grad():
-
-                output, _ = self.cluster_model(x)
-                output = self.cluster_embedding(output)
-                x = self.embedding(x)
-                x = x + output
+            output, _ = self.cluster_model(x)
+            output = self.cluster_embedding(output)
+            x = self.embedding(x)
+            x = x + output
         else:
             x = self.embedding(x)
 
