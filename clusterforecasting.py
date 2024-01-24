@@ -63,5 +63,6 @@ class ClusterForecasting(nn.Module):
         if y is not None:
 
             mse_loss = nn.MSELoss()(y, forecast_out)
+            mae_loss = nn.L1Loss()(y, forecast_out)
 
-        return forecast_out, mse_loss
+        return forecast_out, mse_loss, mae_loss

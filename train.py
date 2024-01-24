@@ -342,7 +342,7 @@ class Train:
 
             for x, y in self.data_loader.train_loader:
 
-                output, loss = model(x.to(self.device), y.to(self.device))
+                output, loss, _ = model(x.to(self.device), y.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
@@ -358,7 +358,7 @@ class Train:
 
             for x, valid_y in self.data_loader.valid_loader:
 
-                output, loss = model(x.to(self.device), valid_y.to(self.device))
+                output, loss, _ = model(x.to(self.device), valid_y.to(self.device))
                 valid_loss += loss.item()
 
                 if valid_loss < best_trial_valid_loss:
@@ -388,32 +388,18 @@ class Train:
         Evaluate the performance of the best ForecastDenoising model on the test set.
         """
         self.best_forecasting_model.eval()
-
-        _, test_y = next(iter(self.data_loader.test_loader))
-        total_b = len(list(iter(self.data_loader.test_loader)))
-
-        predictions = torch.zeros(total_b, test_y.shape[0], self.pred_len)
-        test_y_tot = torch.zeros(total_b, test_y.shape[0], self.pred_len)
-
-        j = 0
+        mse_loss = 0
+        mae_loss = 0
 
         for x, test_y in self.data_loader.test_loader:
 
-            output, _ = self.best_forecasting_model(x=x.to(self.device))
-            output = output[:, -self.pred_len:, :]
-            predictions[j] = output.squeeze(-1).cpu().detach()
-            test_y_tot[j] = test_y[:, -self.pred_len:, :].squeeze(-1).cpu().detach()
-            j += 1
+            output, mse_l, mae_l = self.best_forecasting_model(x=x.to(self.device),
+                                                               y=test_y.to(self.device))
+            mse_loss += mse_l
+            mae_loss += mae_l
 
-        predictions = predictions.reshape(-1, 1)
-        test_y = test_y_tot.reshape(-1, 1)
-
-        test_loss = F.mse_loss(predictions, test_y).item()
-        mse_loss = test_loss
-
-        mae_loss = F.l1_loss(predictions, test_y).item()
-        mae_loss = mae_loss
-
+        mse_loss = mse_loss / len(self.data_loader.test_loader)
+        mae_loss = mae_loss / len(self.data_loader.test_loader)
         errors = {self.model_name: {'MSE': f"{mse_loss:.3f}", 'MAE': f"{mae_loss: .3f}"}}
         print(errors)
 
