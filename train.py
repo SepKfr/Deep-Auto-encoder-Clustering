@@ -61,15 +61,15 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="solar")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=50)
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='autoformer')
         parser.add_argument("--pred_len", type=int, default=96)
         parser.add_argument("--max_encoder_length", type=int, default=192)
-        parser.add_argument("--max_train_sample", type=int, default=32768)
-        parser.add_argument("--max_test_sample", type=int, default=8192)
-        parser.add_argument("--batch_size", type=int, default=1024)
+        parser.add_argument("--max_train_sample", type=int, default=32000)
+        parser.add_argument("--max_test_sample", type=int, default=3840)
+        parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='yes',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -301,9 +301,10 @@ class Train:
         else:
             self.list_explored_params.append(tup_params)
 
+        opt_num_dim = 0
         if self.best_cluster_model is not None:
-
             combination = list(product([16, 32], [3, 5]))
+
             for comb in combination:
                 num_dim, num_cluster = comb
                 try:
@@ -314,6 +315,7 @@ class Train:
                     cluster_model.load_state_dict(torch.load(os.path.join(self.model_path,
                                                                          "{}_cluster.pth".format(self.model_name))))
                     cluster_model.to(self.device)
+                    opt_num_dim = num_dim
 
                 except RuntimeError:
                     pass
@@ -330,7 +332,8 @@ class Train:
                                    device=self.device,
                                    pred_len=96,
                                    batch_size=self.batch_size,
-                                   cluster_model=cluster_model).to(self.device)
+                                   cluster_model=cluster_model,
+                                   cluster_num_dim=opt_num_dim).to(self.device)
 
         forecast_optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
 

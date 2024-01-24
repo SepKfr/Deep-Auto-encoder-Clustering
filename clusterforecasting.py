@@ -13,7 +13,8 @@ class ClusterForecasting(nn.Module):
                  d_model, nheads,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
-                 cluster_model):
+                 cluster_model,
+                 cluster_num_dim):
 
         super(ClusterForecasting, self).__init__()
 
@@ -21,6 +22,9 @@ class ClusterForecasting(nn.Module):
 
         self.embedding = nn.Linear(input_size, d_model)
         self.cluster_model = cluster_model
+        if self.cluster_model is not None:
+
+            self.cluster_embed = nn.Linear(cluster_num_dim, d_model)
 
         self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
                                              attn_type=attn_type, seed=seed, device=self.device)
@@ -37,7 +41,8 @@ class ClusterForecasting(nn.Module):
 
         if self.cluster_model is not None:
 
-            output, _ = self.cluster_model.predict(x)
+            output = self.cluster_model.predict(x)
+            output = self.cluster_embed(output)
             x = self.embedding(x)
             x = x + output
         else:

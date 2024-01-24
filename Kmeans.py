@@ -42,7 +42,7 @@ class TrainableKMeans(nn.Module):
 
         output2 = self.embed2(output1)
 
-        output3 = self.embed2(output2)
+        output3 = self.embed3(output2)
 
         if y is not None:
 
