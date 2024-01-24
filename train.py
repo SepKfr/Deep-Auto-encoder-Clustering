@@ -160,7 +160,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
-        tup_params = [d_model, num_clusters, w_steps]
+        tup_params = [d_model, num_clusters]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
