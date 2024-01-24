@@ -5,13 +5,13 @@ import random
 
 
 class ATA(nn.Module):
-    def __init__(self, d_k, h, seed):
+    def __init__(self, d_k, h, seed, device):
 
         super(ATA, self).__init__()
 
-        torch.manual_seed(seed)
-        random.seed(seed)
         np.random.seed(seed)
+        random.seed(seed)
+        torch.manual_seed(seed)
 
         self.d_k = d_k
         self.filter_length = [1, 3, 7, 9]
@@ -20,7 +20,7 @@ class ATA(nn.Module):
             nn.Sequential(nn.Conv1d(
                 in_channels=d_k*h, out_channels=d_k*h, kernel_size=f, padding=int((f-1)/2)),
                           nn.BatchNorm1d(d_k*h),
-                          nn.ReLU())
+                          nn.ReLU()).to(device)
             for f in self.filter_length
             ])
 
@@ -29,7 +29,7 @@ class ATA(nn.Module):
                 nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h, kernel_size=f, padding=int((f-1)/2)),
                           nn.BatchNorm1d(d_k*h),
                           nn.ReLU())
-            for f in self.filter_length])
+            for f in self.filter_length]).to(device)
 
         self.proj_back_q = nn.Linear(d_k*len(self.filter_length), self.d_k)
         self.proj_back_k = nn.Linear(d_k*len(self.filter_length), self.d_k)

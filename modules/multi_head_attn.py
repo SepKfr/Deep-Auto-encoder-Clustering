@@ -13,7 +13,7 @@ from forecasting_models.Autoformer import AutoCorrelation
 
 class MultiHeadAttention(nn.Module):
 
-    def __init__(self, d_model, n_heads, attn_type, seed):
+    def __init__(self, d_model, n_heads, attn_type, seed, device):
 
         super(MultiHeadAttention, self).__init__()
 
@@ -35,6 +35,7 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = n_heads
         self.attn_type = attn_type
         self.seed = seed
+        self.device = device
 
     def forward(self, Q, K, V):
 
@@ -47,7 +48,7 @@ class MultiHeadAttention(nn.Module):
         # ATA forecasting model
 
         if self.attn_type == "ATA":
-            context, attn = ATA(d_k=self.d_k, h=self.num_heads, seed=self.seed)(
+            context, attn = ATA(d_k=self.d_k, h=self.num_heads, seed=self.seed, device=self.device)(
             Q=q_s, K=k_s, V=v_s)
 
         elif self.attn_type == "ACAT":

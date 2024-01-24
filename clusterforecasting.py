@@ -45,7 +45,9 @@ class ClusterForecasting(nn.Module):
             output = self.cluster_embed(output)
             x = self.embedding(x)
             x = x + output
+
         else:
+
             x = self.embedding(x)
 
         x = torch.split(x, split_size_or_sections=int(x.shape[1]/2), dim=1)

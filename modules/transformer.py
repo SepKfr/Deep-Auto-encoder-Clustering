@@ -70,13 +70,14 @@ class Decoder(nn.Module):
 
 class EncoderLayer(nn.Module):
 
-    def __init__(self, d_model, n_heads, attn_type, seed):
+    def __init__(self, d_model, n_heads, attn_type, seed, device):
 
         super(EncoderLayer, self).__init__()
 
         self.enc_self_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed)
+            attn_type=attn_type, seed=seed,
+            device=device)
 
         self.pos_ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
                                      nn.ReLU(),
@@ -122,9 +123,9 @@ class Transformer(nn.Module):
         self.enc_embedding = nn.Linear(input_size, d_model)
         self.dec_embedding = nn.Linear(input_size, d_model)
         self.encoder_layer = EncoderLayer(d_model=d_model, attn_type=attn_type,
-                                          n_heads=nheads, seed=seed)
+                                          n_heads=nheads, seed=seed, device=device)
         self.decoder_layer = DecoderLayer(d_model=d_model, attn_type=attn_type,
-                                          n_heads=nheads, seed=seed)
+                                          n_heads=nheads, seed=seed, device=device)
 
         self.encoder = Encoder(self.encoder_layer, num_layers=num_layers, d_model=d_model, device=device)
         self.decoder = Decoder(self.decoder_layer, num_layers=num_layers, d_model=d_model, device=device)
