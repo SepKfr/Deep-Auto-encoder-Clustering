@@ -20,15 +20,17 @@ class PositionalEncoding(nn.Module):
 
 class DecoderLayer(nn.Module):
 
-    def __init__(self, d_model, n_heads, attn_type, seed):
+    def __init__(self, d_model, n_heads, attn_type, seed, device):
 
         super(DecoderLayer, self).__init__()
         self.dec_self_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed)
+            attn_type=attn_type, seed=seed,
+            device=device)
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed)
+            attn_type=attn_type, seed=seed,
+            device=device)
 
         self.pos_ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
                                      nn.ReLU(),
