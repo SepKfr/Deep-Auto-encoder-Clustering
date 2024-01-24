@@ -317,8 +317,8 @@ class Train:
 
                 except RuntimeError:
                     pass
-            else:
-                cluster_model = None
+        else:
+            cluster_model = None
 
         model = ClusterForecasting(input_size=self.data_loader.input_size,
                                    output_size=self.data_loader.output_size,
