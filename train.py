@@ -1,13 +1,14 @@
 import argparse
 import os
 from itertools import product
-
+import random
 import optuna
 from torch import nn
 from torch.optim import Adam
 import dataforemater
 import pandas as pd
 import torch
+import numpy as np
 import torch.nn.functional as F
 from optuna.trial import TrialState
 from torch.nn.utils import clip_grad_norm_
@@ -15,6 +16,11 @@ from GMM import GmmFull, GmmDiagonal
 from clusterforecasting import ClusterForecasting
 from data_loader import CustomDataLoader
 from Kmeans import TrainableKMeans
+
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class NoamOpt:
 
@@ -61,9 +67,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='autoformer')
         parser.add_argument("--pred_len", type=int, default=96)
         parser.add_argument("--max_encoder_length", type=int, default=192)
-        parser.add_argument("--max_train_sample", type=int, default=32000)
-        parser.add_argument("--max_test_sample", type=int, default=3840)
-        parser.add_argument("--batch_size", type=int, default=256)
+        parser.add_argument("--max_train_sample", type=int, default=32768)
+        parser.add_argument("--max_test_sample", type=int, default=8192)
+        parser.add_argument("--batch_size", type=int, default=1024)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='yes',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -154,7 +160,6 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
-        w_steps = trial.suggest_categorical("w_steps", [4000, 8000])
         tup_params = [d_model, num_clusters, w_steps]
 
         if tup_params in self.list_explored_params:
@@ -273,8 +278,7 @@ class Train:
                     best_trial_valid_loss = valid_loss
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
-                        with torch.no_grad():
-                            self.best_cluster_model = model
+                        self.best_cluster_model = model
                         torch.save(self.best_cluster_model.state_dict(),
                                    os.path.join(self.model_path, "{}_cluster.pth".format(self.model_name)))
 
@@ -303,18 +307,18 @@ class Train:
             for comb in combination:
                 num_dim, num_cluster = comb
                 try:
-                    clustermodel = TrainableKMeans(num_dim=num_dim,
-                                                   input_size=self.data_loader.input_size,
-                                                   num_clusters=num_cluster,
-                                                   pred_len=self.pred_len)
-                    clustermodel.load_state_dict(torch.load(os.path.join(self.model_path,
+                    cluster_model = TrainableKMeans(num_dim=num_dim,
+                                                    input_size=self.data_loader.input_size,
+                                                    num_clusters=num_cluster,
+                                                    pred_len=self.pred_len)
+                    cluster_model.load_state_dict(torch.load(os.path.join(self.model_path,
                                                                          "{}_cluster.pth".format(self.model_name))))
-                    clustermodel.to(self.device)
+                    cluster_model.to(self.device)
 
                 except RuntimeError:
                     pass
             else:
-                clustermodel = None
+                cluster_model = None
 
         model = ClusterForecasting(input_size=self.data_loader.input_size,
                                    output_size=self.data_loader.output_size,
@@ -326,7 +330,7 @@ class Train:
                                    device=self.device,
                                    pred_len=96,
                                    batch_size=self.batch_size,
-                                   cluster_model=clustermodel).to(self.device)
+                                   cluster_model=cluster_model).to(self.device)
 
         forecast_optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
 
