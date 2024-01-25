@@ -78,7 +78,7 @@ class Train:
 
         data_formatter = dataforemater.DataFormatter(args.exp_name)
 
-        df = pd.read_csv(args.data_path, dtype={'date': str})
+        df = pd.read_csv("{}.csv".format(args.exp_name), dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
         data = data_formatter.transform_data(df)
 
