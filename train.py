@@ -68,7 +68,7 @@ class Train:
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--max_train_sample", type=int, default=32000)
         parser.add_argument("--max_test_sample", type=int, default=3840)
-        parser.add_argument("--batch_size", type=int, default=3840)
+        parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='yes',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -77,7 +77,8 @@ class Train:
 
         data_formatter = dataforemater.DataFormatter(args.exp_name)
 
-        df = pd.read_csv("{}.csv".format(args.exp_name), dtype={'date': str})
+        data_path = "{}.csv".format(args.exp_name) if args.data_path == "" else args.data_path
+        df = pd.read_csv(data_path, dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
         data = data_formatter.transform_data(df)
 
@@ -92,7 +93,7 @@ class Train:
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
 
-        self.model_name = "{}+{}_{}".format(args.model_name, args.exp_name, pred_len)
+        self.model_name = "{}_{}_{}".format(args.model_name, args.exp_name, pred_len)
         self.model_path = model_dir
         self.cluster = args.cluster
         self.pred_len = pred_len
@@ -330,7 +331,7 @@ class Train:
                                    attn_type=self.attn_type,
                                    seed=1234,
                                    device=self.device,
-                                   pred_len=96,
+                                   pred_len=self.pred_len,
                                    batch_size=self.batch_size,
                                    cluster_model=cluster_model,
                                    cluster_num_dim=opt_num_dim).to(self.device)
