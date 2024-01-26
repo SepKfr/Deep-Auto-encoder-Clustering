@@ -56,7 +56,7 @@ class NoamOpt:
 
 
 class Train:
-    def __init__(self, pred_len):
+    def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="solar")
@@ -66,6 +66,7 @@ class Train:
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='autoformer')
         parser.add_argument("--max_encoder_length", type=int, default=192)
+        parser.add_argument("--pred_len", type=int, default=96)
         parser.add_argument("--max_train_sample", type=int, default=32000)
         parser.add_argument("--max_test_sample", type=int, default=3840)
         parser.add_argument("--batch_size", type=int, default=256)
@@ -96,7 +97,7 @@ class Train:
         self.model_name = "{}_{}_{}".format(args.model_name, args.exp_name, pred_len)
         self.model_path = model_dir
         self.cluster = args.cluster
-        self.pred_len = pred_len
+        self.pred_len = args.pred_len
 
         # Data loader configuration (replace with your own dataloader)
         self.data_loader = CustomDataLoader(real_inputs=[],
@@ -418,5 +419,4 @@ class Train:
             df.to_csv(error_path)
 
 
-for pred_len in [24, 48, 72, 96]:
-    Train(pred_len=pred_len)
+Train()
