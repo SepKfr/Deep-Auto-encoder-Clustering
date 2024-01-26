@@ -292,7 +292,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2] if
-                                                self.cluster == "yes" else [1, 2, 3])
+                                                self.best_cluster_model is not None else [1, 2, 3])
         w_steps = trial.suggest_categorical("w_steps", [4000, 8000])
 
         tup_params = [d_model, num_layers, w_steps]
