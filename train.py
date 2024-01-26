@@ -94,10 +94,10 @@ class Train:
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
 
-        self.model_name = "{}_{}_{}".format(args.model_name, args.exp_name, pred_len)
+        self.pred_len = args.pred_len
+        self.model_name = "{}_{}_{}".format(args.model_name, args.exp_name, self.pred_len)
         self.model_path = model_dir
         self.cluster = args.cluster
-        self.pred_len = args.pred_len
 
         # Data loader configuration (replace with your own dataloader)
         self.data_loader = CustomDataLoader(real_inputs=[],
