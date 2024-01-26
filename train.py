@@ -291,8 +291,7 @@ class Train:
     def train_forecasting(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
-        num_layers = trial.suggest_categorical("num_layers", [1, 2] if
-                                                self.best_cluster_model is not None else [1, 2, 3])
+        num_layers = trial.suggest_categorical("num_layers", [1, 2])
         w_steps = trial.suggest_categorical("w_steps", [4000, 8000])
 
         tup_params = [d_model, num_layers, w_steps]
