@@ -16,6 +16,8 @@ class TrainableKMeans(nn.Module):
 
         self.pred_len = pred_len
 
+        self.num_dim = num_dim
+
     def predict(self, x):
 
         x = self.embed(x)
