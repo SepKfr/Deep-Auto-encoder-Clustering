@@ -41,7 +41,7 @@ class ClusterForecasting(nn.Module):
 
         if self.cluster_model is not None:
 
-            output = self.cluster_model.predict(x)
+            output, _ = self.cluster_model(x)
             output = self.cluster_embed(output)
             x = self.embedding(x)
             x = x + output

@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 
 class TrainableKMeans(nn.Module):
@@ -10,26 +11,11 @@ class TrainableKMeans(nn.Module):
 
         self.centroids = nn.Parameter(torch.randn(num_clusters, num_dim))
 
-        self.embed2 = nn.Linear(num_clusters, num_dim)
-
-        self.embed3 = nn.Linear(num_dim, 1)
+        self.embed2 = nn.Linear(num_dim, 1)
 
         self.pred_len = pred_len
 
         self.num_dim = num_dim
-
-    def predict(self, x):
-
-        x = self.embed(x)
-        # Calculate distances to centroids
-        distances = torch.cdist(x, self.centroids)
-
-        # Assign clusters based on minimum distances
-        output = torch.softmax(-distances, dim=-1)
-
-        output2 = self.embed2(output)
-
-        return output2
 
     def forward(self, x, y=None):
 
@@ -40,15 +26,15 @@ class TrainableKMeans(nn.Module):
         distances = torch.cdist(x, self.centroids)
 
         # Assign clusters based on minimum distances
-        output1 = torch.softmax(-distances, dim=-1)
+        dists = torch.softmax(-distances, dim=-1)
 
-        output2 = self.embed2(output1)
+        output = torch.einsum('bsc, cd-> bsd', dists, self.centroids) / np.sqrt(self.num_dim)
 
-        output3 = self.embed3(output2)
+        output2 = self.embed2(output)
 
         if y is not None:
 
-            loss = nn.MSELoss()(y, output3[:, -self.pred_len:, :])
+            loss = nn.MSELoss()(y, output2[:, -self.pred_len:, :])
 
-        return output3, loss
+        return output, loss
 

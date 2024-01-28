@@ -61,7 +61,7 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="solar")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=50)
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='autoformer')
@@ -77,8 +77,9 @@ class Train:
         args = parser.parse_args()
 
         data_formatter = dataforemater.DataFormatter(args.exp_name)
+        # "{}.csv".format(args.exp_name)
 
-        data_path = "{}.csv".format(args.exp_name)
+        data_path = args.data_path
         df = pd.read_csv(data_path, dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
         data = data_formatter.transform_data(df)
@@ -185,7 +186,7 @@ class Train:
 
             for x, y in self.data_loader.train_loader:
 
-                output, loss = model(x.to(self.device), y.to(self.device))
+                _, loss = model(x.to(self.device), y.to(self.device))
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -202,7 +203,7 @@ class Train:
 
             for x, y in self.data_loader.valid_loader:
 
-                output, loss = model(x.to(self.device), y.to(self.device))
+                _, loss = model(x.to(self.device), y.to(self.device))
                 valid_loss += loss.item()
 
                 if valid_loss < best_trial_valid_loss:
@@ -292,9 +293,8 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        w_steps = trial.suggest_categorical("w_steps", [4000, 8000])
 
-        tup_params = [d_model, num_layers, w_steps]
+        tup_params = [d_model, num_layers]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -336,7 +336,8 @@ class Train:
                                    cluster_model=cluster_model,
                                    cluster_num_dim=cluster_num_dim).to(self.device)
 
-        forecast_optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, w_steps)
+        forecast_optimizer = Adam(model.parameters())
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(forecast_optimizer, self.num_iteration)
 
         best_trial_valid_loss = 1e10
         for epoch in range(self.num_epochs):
@@ -350,7 +351,8 @@ class Train:
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
-                forecast_optimizer.step_and_update_lr()
+                forecast_optimizer.step()
+                scheduler.step()
                 train_mse_loss += loss.item()
 
             trial.report(loss, epoch)
