@@ -26,6 +26,7 @@ class TrainableKMeans(nn.Module):
         distances = torch.cdist(x, self.centroids)
 
         # Assign clusters based on minimum distances
+
         dists = torch.softmax(-distances, dim=-1)
 
         output = torch.einsum('bsc, cd-> bsd', dists, self.centroids) / np.sqrt(self.num_dim)
@@ -36,5 +37,5 @@ class TrainableKMeans(nn.Module):
 
             loss = nn.MSELoss()(y, output2[:, -self.pred_len:, :])
 
-        return output, loss
+        return output2, loss
 
