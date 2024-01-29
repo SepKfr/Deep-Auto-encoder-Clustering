@@ -22,7 +22,9 @@ class TrainableKMeans(nn.Module):
         loss = 0.0
 
         x = self.embed(x)
+
         # Calculate distances to centroids
+
         distances = torch.cdist(x, self.centroids)
 
         # Assign clusters based on minimum distances
