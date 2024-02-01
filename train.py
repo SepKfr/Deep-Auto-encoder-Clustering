@@ -79,7 +79,7 @@ class Train:
         data_formatter = dataforemater.DataFormatter(args.exp_name)
         # "{}.csv".format(args.exp_name)
 
-        data_path = "{}.csv".format(args.exp_name)
+        data_path = args.data_path
         df = pd.read_csv(data_path, dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
         data = data_formatter.transform_data(df)
@@ -172,7 +172,8 @@ class Train:
         model = TrainableKMeans(num_clusters=num_clusters,
                                 input_size=self.data_loader.input_size,
                                 num_dim=d_model,
-                                pred_len=self.pred_len).to(self.device)
+                                pred_len=self.pred_len,
+                                n_uniques=self.data_loader.n_uniques).to(self.device)
 
         optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, self.num_iteration)
@@ -312,7 +313,8 @@ class Train:
                     cluster_model = TrainableKMeans(num_dim=num_dim,
                                                     input_size=self.data_loader.input_size,
                                                     num_clusters=num_cluster,
-                                                    pred_len=self.pred_len)
+                                                    pred_len=self.pred_len,
+                                                    n_uniques=self.data_loader.n_uniques)
                     cluster_model.load_state_dict(torch.load(os.path.join(self.model_path,
                                                                          "{}_cluster.pth".format(self.model_name))))
                     cluster_model.to(self.device)

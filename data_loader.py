@@ -4,6 +4,8 @@ import pandas as pd
 import torch
 import ruptures as rpt
 from torch.utils.data import TensorDataset, DataLoader
+from scipy.signal import periodogram
+from statsmodels.tsa.seasonal import seasonal_decompose
 
 
 class CustomDataLoader:
