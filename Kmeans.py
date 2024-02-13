@@ -30,8 +30,7 @@ class TrainableKMeans(nn.Module):
 
         x = x + x_cat
 
-        # Calculate distances
-        # to centroids
+        # Calculate distances to centroids
 
         distances = torch.cdist(x, self.centroids)
 

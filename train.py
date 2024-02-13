@@ -16,43 +16,12 @@ from GMM import GmmFull, GmmDiagonal
 from clusterforecasting import ClusterForecasting
 from data_loader import CustomDataLoader
 from Kmeans import TrainableKMeans
+from transformers import Adafactor
+from transformers.optimization import AdafactorSchedule
 
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
-
-
-class NoamOpt:
-
-    def __init__(self, optimizer, lr_mul, d_model, n_warmup_steps):
-        self._optimizer = optimizer
-        self.lr_mul = lr_mul
-        self.d_model = d_model
-        self.n_warmup_steps = n_warmup_steps
-        self.n_steps = 0
-
-    def step_and_update_lr(self):
-        "Step with the inner optimizer"
-        self._update_learning_rate()
-        self._optimizer.step()
-
-    def zero_grad(self):
-        "Zero out the gradients with the inner optimizer"
-        self._optimizer.zero_grad()
-
-    def _get_lr_scale(self):
-        d_model = self.d_model
-        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
-        return (d_model ** -0.5) * min(n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5))
-
-    def _update_learning_rate(self):
-        ''' Learning rate scheduling per step '''
-
-        self.n_steps += 1
-        lr = self.lr_mul * self._get_lr_scale()
-
-        for param_group in self._optimizer.param_groups:
-            param_group['lr'] = lr
 
 
 class Train:
@@ -175,8 +144,8 @@ class Train:
                                 pred_len=self.pred_len,
                                 n_uniques=self.data_loader.n_uniques).to(self.device)
 
-        optimizer = Adam(model.parameters())
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, self.num_iteration)
+        optimizer = Adafactor(model.parameters(), scale_parameter=True, relative_step=True, warmup_init=True, lr=None)
+        lr_scheduler = AdafactorSchedule(optimizer)
 
         best_trial_valid_loss = 1e10
 
@@ -192,7 +161,7 @@ class Train:
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
-                scheduler.step()
+                lr_scheduler.step()
                 train_mse += loss.item()
 
             trial.report(loss, epoch)
