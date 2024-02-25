@@ -2,7 +2,6 @@ import numpy as np
 import torch.nn as nn
 import torch
 from torch.nn import Linear
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 torch.autograd.set_detect_anomaly(True)
