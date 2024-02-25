@@ -90,6 +90,9 @@ class ClusterForecasting(nn.Module):
 
             mse_loss = nn.MSELoss()(y, final_out)
 
-            loss_total = mse_loss + torch.clip(self.w[1], min=0, max=0.005) * cp_loss_total
+            if self.training:
+                loss_total = mse_loss + torch.clip(self.w[1], min=0, max=0.005) * cp_loss_total
+            else:
+                loss_total = mse_loss
 
         return final_out, loss_total
