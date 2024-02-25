@@ -8,19 +8,22 @@ torch.autograd.set_detect_anomaly(True)
 
 
 class Encoder(nn.Module):
-    def __init__(self, d_model, n_heads, num_layers, attn_type, seed):
+    def __init__(self, d_model, n_heads, num_layers, attn_type, seed, device):
         super(Encoder, self).__init__()
 
-        self.encoder = Transformer(input_size=d_model, d_model=d_model*2, nheads=n_heads, num_layers=num_layers,
-                                   attn_type=attn_type, seed=seed)
+        self.encoder = Transformer(input_size=d_model, d_model=d_model*2,
+                                   nheads=n_heads, num_layers=num_layers,
+                                   attn_type=attn_type, seed=seed, device=device)
         self.d_model = d_model
 
     def reparameterize(self, mean, logvar):
+
         std = torch.exp(0.5 * logvar)
         eps = torch.randn_like(std)
         return mean + eps * std
 
     def forward(self, x):
+
         enc_output, dec_output = self.encoder(x)
         output = torch.cat([enc_output, dec_output], dim=1)
         mean = output[:, :, :self.d_model]
@@ -44,7 +47,7 @@ class ClusterForecasting(nn.Module):
         self.enc_embedding = nn.Linear(input_size, d_model)
 
         self.encoder = Encoder(d_model=d_model, n_heads=nheads, num_layers=num_layers,
-                               attn_type=attn_type, seed=seed)
+                               attn_type=attn_type, seed=seed, device=device)
 
         # to learn change points
         self.enc_proj_down = nn.Linear(d_model, n_unique+1)
