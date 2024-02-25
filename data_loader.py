@@ -96,10 +96,10 @@ class CustomDataLoader:
 
         ranges = [
             valid_sampling_locations[i] for i in np.random.choice(
-                len(valid_sampling_locations), max_samples, replace=False)
-        ]
+                len(valid_sampling_locations), max_samples, replace=False)]
         X = torch.zeros(max_samples, self.max_encoder_length, self.num_features+1)
         Y = torch.zeros(max_samples, self.pred_len, self.num_features)
+        n_uniques = []
 
         for i, tup in enumerate(ranges):
 
@@ -111,15 +111,16 @@ class CustomDataLoader:
             cp[-1] = cp[-1] - 1
             cp = torch.tensor(cp)
             val = torch.tensor(val)
-            one_hot_encoding = torch.zeros_like(val)
-            sep = one_hot_encoding.scatter_(-1, cp, 1)
-            categories = torch.cumsum(sep, dim=0, dtype=torch.int)
 
-            val = torch.cat([val.unsqueeze(-1), categories.unsqueeze(-1)], dim=-1)
+            one_hot_encoding = torch.zeros(len(sliced))
+            seq_of_cp = torch.cumsum(one_hot_encoding.scatter_(0, cp, 1), dim=0)
+            n_uniques.append(len(torch.unique(seq_of_cp)))
+
+            val = torch.cat([val.unsqueeze(-1), seq_of_cp.unsqueeze(-1)], dim=-1)
             X[i] = val[:self.max_encoder_length, :]
             Y[i] = val[-self.pred_len:, 0:1]
 
-        n_unique = int(max(torch.unique(X[:, :, -1])))
+        n_unique = max(n_uniques)
 
         dataset = TensorDataset(X, Y)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)

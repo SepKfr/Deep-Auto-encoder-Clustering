@@ -36,8 +36,8 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='autoformer')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=32000)
-        parser.add_argument("--max_test_sample", type=int, default=3840)
+        parser.add_argument("--max_train_sample", type=int, default=256)
+        parser.add_argument("--max_test_sample", type=int, default=256)
         parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='yes',
@@ -48,7 +48,7 @@ class Train:
         data_formatter = dataforemater.DataFormatter(args.exp_name)
         # "{}.csv".format(args.exp_name)
 
-        data_path = "{}.csv".format(args.exp_name)
+        data_path = args.data_path
         df = pd.read_csv(data_path, dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
         data = data_formatter.transform_data(df)
@@ -84,23 +84,9 @@ class Train:
         self.batch_size = args.batch_size
         self.best_overall_valid_loss = 1e10
         self.list_explored_params = []
-        self.cluster_type = "kmeans"
 
-        if self.cluster == "yes":
-
-            self.best_forecasting_model = nn.Module()
-            self.best_cluster_model = nn.Module()
-
-            self.run_optuna(args)
-            self.best_overall_valid_loss = 1e10
-            self.list_explored_params = []
-            self.cluster = "no"
-            self.run_optuna(args)
-
-        else:
-            self.best_forecasting_model = nn.Module()
-            self.best_cluster_model = None
-            self.run_optuna(args)
+        self.best_forecasting_model = nn.Module()
+        self.run_optuna(args)
 
         self.evaluate()
 
@@ -127,138 +113,6 @@ class Train:
         for key, value in trial.params.items():
             print("    {}: {}".format(key, value))
 
-    def train_kmeans(self, trial):
-
-        d_model = trial.suggest_categorical("d_model", [16, 32])
-        num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
-        tup_params = [d_model, num_clusters]
-
-        if tup_params in self.list_explored_params:
-            raise optuna.TrialPruned()
-        else:
-            self.list_explored_params.append(tup_params)
-
-        model = TrainableKMeans(num_clusters=num_clusters,
-                                input_size=self.data_loader.input_size,
-                                num_dim=d_model,
-                                pred_len=self.pred_len,
-                                n_uniques=self.data_loader.n_uniques).to(self.device)
-
-        optimizer = Adafactor(model.parameters(), scale_parameter=True, relative_step=True, warmup_init=True, lr=None)
-        lr_scheduler = AdafactorSchedule(optimizer)
-
-        best_trial_valid_loss = 1e10
-
-        for epoch in range(self.num_epochs):
-
-            model.train()
-            train_mse = 0
-
-            for x, y in self.data_loader.train_loader:
-
-                _, loss = model(x.to(self.device), y.to(self.device))
-
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
-                lr_scheduler.step()
-                train_mse += loss.item()
-
-            trial.report(loss, epoch)
-            if trial.should_prune():
-                raise optuna.TrialPruned()
-
-            model.eval()
-            valid_loss = 0
-
-            for x, y in self.data_loader.valid_loader:
-
-                _, loss = model(x.to(self.device), y.to(self.device))
-                valid_loss += loss.item()
-
-                if valid_loss < best_trial_valid_loss:
-                    best_trial_valid_loss = valid_loss
-                    if best_trial_valid_loss < self.best_overall_valid_loss:
-                        self.best_overall_valid_loss = best_trial_valid_loss
-                        self.best_cluster_model = model
-                        torch.save(self.best_cluster_model.state_dict(),
-                                   os.path.join(self.model_path, "{}_cluster.pth".format(self.model_name)))
-
-            if epoch % 5 == 0:
-                print("train MSE loss: {:.3f} epoch: {}".format(train_mse, epoch))
-                print("valid loss: {:.3f}".format(valid_loss))
-
-        return best_trial_valid_loss
-
-    def train_gmm(self, trial):
-
-        d_model = trial.suggest_categorical("d_model", [16, 32])
-        num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
-        w_steps = trial.suggest_categorical("w_steps", [4000, 8000])
-        tup_params = [d_model, num_clusters, w_steps]
-
-        if tup_params in self.list_explored_params:
-            raise optuna.TrialPruned()
-        else:
-            self.list_explored_params.append(tup_params)
-
-        model = GmmFull(num_components=num_clusters, num_dims=d_model, num_feat=self.data_loader.input_size).to(self.device)
-        component_optimizer = Adam(model.component_parameters())
-        mixture_optimizer = Adam(model.mixture_parameters())
-
-        mixture_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(mixture_optimizer, self.num_iteration)
-        component_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(component_optimizer, self.num_iteration)
-
-        clip_grad_norm_(model.component_parameters(), max_norm=1.0)
-        clip_grad_norm_(model.mixture_parameters(), max_norm=1.0)
-
-        best_trial_valid_loss = 1e10
-
-        for epoch in range(self.num_epochs):
-
-            model.train()
-            train_nll = 0
-
-            for x, y in self.data_loader.train_loader:
-
-                loss, sample = model(x.to(self.device))
-
-                component_optimizer.zero_grad()
-                mixture_optimizer.zero_grad()
-                loss.backward()
-                mixture_optimizer.step()
-                mixture_scheduler.step()
-                component_optimizer.step()
-                component_scheduler.step()
-                model.constrain_parameters()
-                train_nll += loss.item()
-
-            trial.report(loss, epoch)
-            if trial.should_prune():
-                raise optuna.TrialPruned()
-
-            model.eval()
-            valid_loss = 0
-
-            for x, valid_y in self.data_loader.valid_loader:
-
-                loss, sample = model(x.to(self.device))
-                valid_loss += loss.item()
-
-                if valid_loss < best_trial_valid_loss:
-                    best_trial_valid_loss = valid_loss
-                    if best_trial_valid_loss < self.best_overall_valid_loss:
-                        self.best_overall_valid_loss = best_trial_valid_loss
-                        self.best_cluster_model = model
-                        torch.save(self.best_cluster_model.state_dict(),
-                                   os.path.join(self.model_path, "{}_cluster.pth".format(self.model_name)))
-
-            if epoch % 5 == 0:
-                print("train NLL loss: {:.3f} epoch: {}".format(train_nll, epoch))
-                print("valid loss: {:.3f}".format(valid_loss))
-
-        return best_trial_valid_loss
-
     def train_forecasting(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
@@ -271,31 +125,9 @@ class Train:
         else:
             self.list_explored_params.append(tup_params)
 
-        cluster_num_dim = None
-        if self.best_cluster_model is not None:
-
-            combination = list(product([16, 32], [3, 5]))
-
-            for comb in combination:
-                num_dim, num_cluster = comb
-                try:
-                    cluster_model = TrainableKMeans(num_dim=num_dim,
-                                                    input_size=self.data_loader.input_size,
-                                                    num_clusters=num_cluster,
-                                                    pred_len=self.pred_len,
-                                                    n_uniques=self.data_loader.n_uniques)
-                    cluster_model.load_state_dict(torch.load(os.path.join(self.model_path,
-                                                                         "{}_cluster.pth".format(self.model_name))))
-                    cluster_model.to(self.device)
-
-                except RuntimeError:
-                    pass
-            cluster_num_dim = cluster_model.num_dim
-        else:
-            cluster_model = None
-
         model = ClusterForecasting(input_size=self.data_loader.input_size,
                                    output_size=self.data_loader.output_size,
+                                   n_unique=self.data_loader.n_uniques,
                                    d_model=d_model,
                                    nheads=8,
                                    num_layers=num_layers,
@@ -303,9 +135,7 @@ class Train:
                                    seed=1234,
                                    device=self.device,
                                    pred_len=self.pred_len,
-                                   batch_size=self.batch_size,
-                                   cluster_model=cluster_model,
-                                   cluster_num_dim=cluster_num_dim).to(self.device)
+                                   batch_size=self.batch_size).to(self.device)
 
         forecast_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(forecast_optimizer, self.num_iteration)
@@ -318,7 +148,7 @@ class Train:
 
             for x, y in self.data_loader.train_loader:
 
-                output, loss, _ = model(x.to(self.device), y.to(self.device))
+                output, loss = model(x.to(self.device), y.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
@@ -335,7 +165,7 @@ class Train:
 
             for x, valid_y in self.data_loader.valid_loader:
 
-                output, loss, _ = model(x.to(self.device), valid_y.to(self.device))
+                output, loss = model(x.to(self.device), valid_y.to(self.device))
                 valid_loss += loss.item()
 
                 if valid_loss < best_trial_valid_loss:
@@ -355,10 +185,7 @@ class Train:
 
     def objective(self, trial):
 
-        if self.cluster == "yes":
-            return self.train_kmeans(trial)
-        else:
-            return self.train_forecasting(trial)
+        return self.train_forecasting(trial)
 
     def evaluate(self):
         """
@@ -370,10 +197,9 @@ class Train:
 
         for x, test_y in self.data_loader.test_loader:
 
-            output, mse_l, mae_l = self.best_forecasting_model(x=x.to(self.device),
-                                                               y=test_y.to(self.device))
-            mse_loss += mse_l
-            mae_loss += mae_l
+            output, _ = self.best_forecasting_model(x=x.to(self.device))
+            mse_loss += nn.MSELoss()(output, test_y).item()
+            mae_loss += nn.L1Loss()(output, test_y).item()
 
         mse_loss = mse_loss / len(self.data_loader.test_loader)
         mae_loss = mae_loss / len(self.data_loader.test_loader)
@@ -390,5 +216,6 @@ class Train:
             df_new.to_csv(error_path)
         else:
             df.to_csv(error_path)
+
 
 Train()

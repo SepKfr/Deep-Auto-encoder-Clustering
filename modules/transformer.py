@@ -132,8 +132,12 @@ class Transformer(nn.Module):
         self.encoder = Encoder(self.encoder_layer, num_layers=num_layers, d_model=d_model, device=device)
         self.decoder = Decoder(self.decoder_layer, num_layers=num_layers, d_model=d_model, device=device)
 
-    def forward(self, enc_input, dec_input):
+    def forward(self, inputs):
 
+        x = torch.split(inputs, split_size_or_sections=int(inputs.shape[1] / 2), dim=1)
+
+        enc_input = x[0]
+        dec_input = x[1]
         enc_input = self.enc_embedding(enc_input)
         dec_input = self.enc_embedding(dec_input)
         memory = self.encoder(enc_input)

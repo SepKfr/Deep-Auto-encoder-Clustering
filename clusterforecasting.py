@@ -1,36 +1,59 @@
+import numpy as np
 import torch.nn as nn
 import torch
 from torch.nn import Linear
-
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 torch.autograd.set_detect_anomaly(True)
 
 
+class Encoder(nn.Module):
+    def __init__(self, d_model, n_heads, num_layers, attn_type, seed):
+        super(Encoder, self).__init__()
+
+        self.encoder = Transformer(input_size=d_model, d_model=d_model*2, nheads=n_heads, num_layers=num_layers,
+                                   attn_type=attn_type, seed=seed)
+        self.d_model = d_model
+
+    def reparameterize(self, mean, logvar):
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mean + eps * std
+
+    def forward(self, x):
+        enc_output, dec_output = self.encoder(x)
+        output = torch.cat([enc_output, dec_output], dim=1)
+        mean = output[:, :, :self.d_model]
+        log_var = output[:, :, -self.d_model:]
+        f_output = self.reparameterize(mean, log_var)
+        return f_output, mean, log_var
+
+
 class ClusterForecasting(nn.Module):
 
-    def __init__(self, input_size, output_size,
+    def __init__(self, input_size, output_size, n_unique,
                  d_model, nheads,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size,
-                 cluster_model,
-                 cluster_num_dim):
+                 device, pred_len, batch_size):
 
         super(ClusterForecasting, self).__init__()
 
         self.device = device
 
-        self.embedding = nn.Linear(input_size, d_model)
-        self.cluster_model = cluster_model
+        self.enc_embedding = nn.Linear(input_size, d_model)
 
-        if self.cluster_model is not None:
+        self.encoder = Encoder(d_model=d_model, n_heads=nheads, num_layers=num_layers,
+                               attn_type=attn_type, seed=seed)
 
-            self.cluster_embed = nn.Linear(1, d_model)
+        # to learn change points
+        self.enc_proj_down = nn.Linear(d_model, n_unique+1)
 
-        self.forecasting_model = Transformer(d_model, d_model, nheads=nheads, num_layers=num_layers,
-                                             attn_type=attn_type, seed=seed, device=self.device)
+        self.centroids = nn.Parameter(torch.randn(5, d_model))
 
         self.fc_dec = Linear(d_model, output_size)
+
+        self.w = nn.Parameter(torch.randn(2))
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -39,38 +62,31 @@ class ClusterForecasting(nn.Module):
 
     def forward(self, x, y=None):
 
-        mse_loss = 0
+        loss_total = 0
 
-        if self.cluster_model is not None:
+        x_silver_standard = x[:, :, -1].to(torch.long)
 
-            with torch.no_grad():
+        x = self.enc_embedding(x)
 
-                output, _ = self.cluster_model(x)
+        f_output, mean, log_var = self.encoder(x)
 
-            output = self.cluster_embed(output)
+        output_cp = self.enc_proj_down(f_output)
 
-            x = self.embedding(x)
-            x = x + output
+        dists = torch.einsum('bsd, cd -> bsc', f_output, self.centroids) / np.sqrt(self.d_model)
+        forecast_out = torch.einsum('bsc, cd-> bsd', dists, self.centroids)
 
-        else:
-
-            x = self.embedding(x)
-
-        x = torch.split(x, split_size_or_sections=int(x.shape[1]/2), dim=1)
-
-        x_enc = x[0]
-        x_dec = x[1]
-
-        x_app = torch.zeros((self.batch_size, self.pred_len, self.d_model), device=self.device)
-        x_dec = torch.cat([x_dec, x_app], dim=1)
-
-        forecast_enc, forecast_dec = self.forecasting_model(x_enc, x_dec)
-
-        forecast_out = self.fc_dec(forecast_dec)[:, -self.pred_len:, :]
+        final_out = self.fc_dec(forecast_out)[:, -self.pred_len:, :]
 
         if y is not None:
 
-            mse_loss = nn.MSELoss()(y, forecast_out)
-            mae_loss = nn.L1Loss()(y, forecast_out)
+            output_cp = output_cp.permute(0, 2, 1)
+            loss_cp = nn.CrossEntropyLoss()(output_cp, x_silver_standard)
+            kl_divergence = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
 
-        return forecast_out, mse_loss, mae_loss
+            cp_loss_total = loss_cp + torch.clip(self.w[0], min=0, max=0.005) * kl_divergence
+
+            mse_loss = nn.MSELoss()(y, final_out)
+
+            loss_total = mse_loss + torch.clip(self.w[1], min=0, max=0.005) * cp_loss_total
+
+        return final_out, loss_total
