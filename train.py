@@ -14,6 +14,7 @@ from optuna.trial import TrialState
 from torch.nn.utils import clip_grad_norm_
 from GMM import GmmFull, GmmDiagonal
 from clusterforecasting import ClusterForecasting
+from forecasting import Forecasting
 from data_loader import CustomDataLoader
 from Kmeans import TrainableKMeans
 from transformers import Adafactor
@@ -36,8 +37,8 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='autoformer')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=256)
-        parser.add_argument("--max_test_sample", type=int, default=256)
+        parser.add_argument("--max_train_sample", type=int, default=32000)
+        parser.add_argument("--max_test_sample", type=int, default=3840)
         parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='yes',
@@ -117,6 +118,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
+        num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
 
         tup_params = [d_model, num_layers]
 
@@ -125,17 +127,30 @@ class Train:
         else:
             self.list_explored_params.append(tup_params)
 
-        model = ClusterForecasting(input_size=self.data_loader.input_size,
-                                   output_size=self.data_loader.output_size,
-                                   n_unique=self.data_loader.n_uniques,
-                                   d_model=d_model,
-                                   nheads=8,
-                                   num_layers=num_layers,
-                                   attn_type=self.attn_type,
-                                   seed=1234,
-                                   device=self.device,
-                                   pred_len=self.pred_len,
-                                   batch_size=self.batch_size).to(self.device)
+        if self.cluster == "yes":
+            model = ClusterForecasting(input_size=self.data_loader.input_size,
+                                       output_size=self.data_loader.output_size,
+                                       n_unique=self.data_loader.n_uniques,
+                                       d_model=d_model,
+                                       nheads=8,
+                                       num_layers=num_layers,
+                                       attn_type=self.attn_type,
+                                       seed=1234,
+                                       device=self.device,
+                                       pred_len=self.pred_len,
+                                       batch_size=self.batch_size,
+                                       num_clusters=num_clusters).to(self.device)
+        else:
+            model = Forecasting(input_size=self.data_loader.input_size,
+                                output_size=self.data_loader.output_size,
+                                d_model=d_model,
+                                nheads=8,
+                                num_layers=num_layers,
+                                attn_type=self.attn_type,
+                                seed=1234,
+                                device=self.device,
+                                pred_len=self.pred_len,
+                                batch_size=self.batch_size).to(self.device)
 
         forecast_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(forecast_optimizer, self.num_iteration)

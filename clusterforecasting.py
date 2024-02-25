@@ -35,7 +35,8 @@ class ClusterForecasting(nn.Module):
     def __init__(self, input_size, output_size, n_unique,
                  d_model, nheads,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size):
+                 device, pred_len, batch_size,
+                 num_clusters):
 
         super(ClusterForecasting, self).__init__()
 
@@ -49,7 +50,7 @@ class ClusterForecasting(nn.Module):
         # to learn change points
         self.enc_proj_down = nn.Linear(d_model, n_unique+1)
 
-        self.centroids = nn.Parameter(torch.randn(5, d_model))
+        self.centroids = nn.Parameter(torch.randn(num_clusters, d_model))
 
         self.fc_dec = Linear(d_model, output_size)
 

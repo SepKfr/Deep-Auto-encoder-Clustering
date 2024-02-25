@@ -94,9 +94,9 @@ class CustomDataLoader:
         valid_sampling_locations = list(valid_sampling_locations)
         split_data_map = dict(split_data_map)
 
-        ranges = [
-            valid_sampling_locations[i] for i in np.random.choice(
-                len(valid_sampling_locations), max_samples, replace=False)]
+        ranges = [valid_sampling_locations[i] for i in np.random.choice(
+                  len(valid_sampling_locations), max_samples, replace=False)]
+
         X = torch.zeros(max_samples, self.max_encoder_length, self.num_features+1)
         Y = torch.zeros(max_samples, self.pred_len, self.num_features)
         n_uniques = []
