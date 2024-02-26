@@ -52,9 +52,7 @@ class ClusterForecasting(nn.Module):
         # to learn change points
         self.enc_proj_down = nn.Linear(d_model, n_unique+1)
 
-        self.centroids = nn.Parameter(torch.randn(num_clusters, d_model))
-
-        self.fc_dec = Linear(d_model, output_size)
+        self.fc_dec = Linear(n_unique+1, output_size)
 
         self.w = nn.Parameter(torch.randn(2))
 
@@ -75,10 +73,7 @@ class ClusterForecasting(nn.Module):
 
         output_cp = self.enc_proj_down(f_output)
 
-        dists = torch.einsum('bsd, cd -> bsc', f_output, self.centroids) / np.sqrt(self.d_model)
-        forecast_out = torch.einsum('bsc, cd-> bsd', dists, self.centroids)
-
-        final_out = self.fc_dec(forecast_out)[:, -self.pred_len:, :]
+        final_out = self.fc_dec(output_cp)[:, -self.pred_len:, :]
 
         if y is not None:
 
@@ -88,12 +83,12 @@ class ClusterForecasting(nn.Module):
 
             kl_divergence = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
 
-            cp_loss_total = loss_cp + torch.clip(self.w[0], min=0, max=0.005) * kl_divergence
+            cp_loss_total = loss_cp + torch.clip(self.w[0], min=0, max=0.01) * kl_divergence
 
             mse_loss = nn.MSELoss()(y, final_out)
 
             if self.training:
-                loss_total = mse_loss + torch.clip(self.w[1], min=0, max=0.005) * cp_loss_total
+                loss_total = mse_loss + torch.clip(self.w[1], min=0, max=0.01) * cp_loss_total
             else:
                 loss_total = mse_loss
 
