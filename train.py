@@ -118,7 +118,6 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        num_clusters = trial.suggest_categorical("num_clusters", [3, 5])
 
         tup_params = [d_model, num_layers]
 
@@ -138,8 +137,7 @@ class Train:
                                        seed=1234,
                                        device=self.device,
                                        pred_len=self.pred_len,
-                                       batch_size=self.batch_size,
-                                       num_clusters=num_clusters).to(self.device)
+                                       batch_size=self.batch_size).to(self.device)
         else:
             model = Forecasting(input_size=self.data_loader.input_size,
                                 output_size=self.data_loader.output_size,
@@ -215,8 +213,8 @@ class Train:
         for x, test_y in self.data_loader.test_loader:
 
             output, _ = self.best_forecasting_model(x=x.to(self.device))
-            mse_loss += nn.MSELoss()(output.to(self.device), test_y).item()
-            mae_loss += nn.L1Loss()(output.to(self.device), test_y).item()
+            mse_loss += nn.MSELoss()(output.to("cpu"), test_y).item()
+            mae_loss += nn.L1Loss()(output.to("cpu"), test_y).item()
 
         mse_loss = mse_loss / len(self.data_loader.test_loader)
         mae_loss = mae_loss / len(self.data_loader.test_loader)

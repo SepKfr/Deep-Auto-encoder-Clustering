@@ -37,8 +37,7 @@ class ClusterForecasting(nn.Module):
     def __init__(self, input_size, output_size, n_unique,
                  d_model, nheads,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size,
-                 num_clusters):
+                 device, pred_len, batch_size):
 
         super(ClusterForecasting, self).__init__()
 
