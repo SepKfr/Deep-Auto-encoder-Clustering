@@ -189,7 +189,8 @@ class Train:
                         self.best_overall_valid_loss = best_trial_valid_loss
                         self.best_forecasting_model = model
                         torch.save(self.best_forecasting_model.state_dict(),
-                                   os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)))
+                                   os.path.join(self.model_path,
+                                                "{}_forecast.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
                 print(
@@ -207,14 +208,15 @@ class Train:
         Evaluate the performance of the best ForecastDenoising model on the test set.
         """
         self.best_forecasting_model.eval()
+
         mse_loss = 0
         mae_loss = 0
 
         for x, test_y in self.data_loader.test_loader:
 
             output, _ = self.best_forecasting_model(x=x.to(self.device))
-            mse_loss += nn.MSELoss()(output, test_y).item()
-            mae_loss += nn.L1Loss()(output, test_y).item()
+            mse_loss += nn.MSELoss()(output.to(self.device), test_y).item()
+            mae_loss += nn.L1Loss()(output.to(self.device), test_y).item()
 
         mse_loss = mse_loss / len(self.data_loader.test_loader)
         mae_loss = mae_loss / len(self.data_loader.test_loader)

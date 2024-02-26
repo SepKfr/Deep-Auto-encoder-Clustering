@@ -83,7 +83,9 @@ class ClusterForecasting(nn.Module):
         if y is not None:
 
             output_cp = output_cp.permute(0, 2, 1)
+
             loss_cp = nn.CrossEntropyLoss()(output_cp, x_silver_standard)
+
             kl_divergence = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
 
             cp_loss_total = loss_cp + torch.clip(self.w[0], min=0, max=0.005) * kl_divergence
