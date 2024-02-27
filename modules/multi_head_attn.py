@@ -10,6 +10,10 @@ from forecasting_models.BasicAttn import BasicAttn
 from forecasting_models.Informer import ProbAttention
 from forecasting_models.Autoformer import AutoCorrelation
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class MultiHeadAttention(nn.Module):
 

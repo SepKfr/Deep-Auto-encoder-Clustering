@@ -3,6 +3,10 @@ import torch.nn as nn
 import numpy as np
 import random
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class ATA(nn.Module):
     def __init__(self, d_k, h, seed, device):

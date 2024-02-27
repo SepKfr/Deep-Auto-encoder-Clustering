@@ -6,6 +6,10 @@ from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 torch.autograd.set_detect_anomaly(True)
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class Encoder(nn.Module):
     def __init__(self, d_model, n_heads, num_layers, attn_type, seed, device):

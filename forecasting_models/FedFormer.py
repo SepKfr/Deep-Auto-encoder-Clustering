@@ -9,6 +9,9 @@ from layers.SelfAttention_Family import FullAttention, ProbAttention
 from layers.Autoformer_EncDec import Encoder, Decoder, EncoderLayer, DecoderLayer, my_Layernorm, series_decomp, series_decomp_multi
 import math
 import numpy as np
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

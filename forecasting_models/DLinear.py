@@ -4,6 +4,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
+
 class moving_avg(nn.Module):
     """
     Moving average block to highlight the trend of time series

@@ -2,6 +2,10 @@ import torch
 import torch.nn as nn
 from modules.multi_head_attn import MultiHeadAttention
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, device, max_len=512):

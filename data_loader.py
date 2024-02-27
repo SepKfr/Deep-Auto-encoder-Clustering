@@ -5,6 +5,10 @@ import torch
 import ruptures as rpt
 from torch.utils.data import TensorDataset, DataLoader
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class CustomDataLoader:
     def __init__(self,

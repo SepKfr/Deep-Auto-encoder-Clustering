@@ -5,6 +5,10 @@ import torch
 import torch.nn as nn
 import math
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class AutoCorrelation(nn.Module):
     """

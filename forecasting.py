@@ -3,6 +3,10 @@ from torch import nn
 
 from modules.transformer import Transformer
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class Forecasting(nn.Module):
     def __init__(self, input_size, output_size,

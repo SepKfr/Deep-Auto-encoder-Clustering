@@ -3,6 +3,10 @@ import numpy as np
 import torch
 from torch import nn
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class RNN(nn.Module):
     def __init__(self, n_layers, hidden_size,

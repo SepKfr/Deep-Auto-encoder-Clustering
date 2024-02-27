@@ -10,6 +10,10 @@ from torch.nn import functional as F
 from torch.nn.functional import mse_loss, l1_loss, binary_cross_entropy, cross_entropy
 from torch.optim import Optimizer
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 class NBeatsNet(nn.Module):
     SEASONALITY_BLOCK = 'seasonality'

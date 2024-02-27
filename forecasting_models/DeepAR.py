@@ -9,6 +9,9 @@ from torch.autograd import Variable
 import logging
 
 logger = logging.getLogger('DeepAR.Net')
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
 
 
 class Net(nn.Module):
