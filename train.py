@@ -117,7 +117,7 @@ class Train:
     def train_forecasting(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
-        num_layers = trial.suggest_categorical("num_layers", [1, 2] if cluster == "no" else [1])
+        num_layers = trial.suggest_categorical("num_layers", [1, 2] if self.cluster == "no" else [1])
 
         tup_params = [d_model, num_layers]
 
