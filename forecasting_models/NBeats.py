@@ -2,7 +2,6 @@ import pickle
 import random
 from time import time
 from typing import Union
-
 import numpy as np
 import torch
 from torch import nn, optim

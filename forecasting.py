@@ -1,6 +1,7 @@
 import torch
 from torch import nn
-
+import random
+import numpy as np
 from modules.transformer import Transformer
 
 torch.manual_seed(1234)

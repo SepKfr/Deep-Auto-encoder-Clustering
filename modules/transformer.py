@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 from modules.multi_head_attn import MultiHeadAttention
+import random
+import numpy as np
 
 torch.manual_seed(1234)
 np.random.seed(1234)
