@@ -49,7 +49,7 @@ class Train:
         data_formatter = dataforemater.DataFormatter(args.exp_name)
         # "{}.csv".format(args.exp_name)
 
-        data_path = "{}.csv".format(args.exp_name)
+        data_path = args.data_path
         df = pd.read_csv(data_path, dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
         data = data_formatter.transform_data(df)
@@ -168,10 +168,6 @@ class Train:
                 forecast_optimizer.step()
                 scheduler.step()
                 train_mse_loss += loss.item()
-
-            trial.report(loss, epoch)
-            if trial.should_prune():
-                raise optuna.TrialPruned()
 
             model.eval()
             valid_loss = 0
