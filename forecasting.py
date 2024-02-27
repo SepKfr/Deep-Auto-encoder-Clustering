@@ -32,11 +32,11 @@ class Forecasting(nn.Module):
 
         loss = 0
 
-        x = self.embedding(x)
+        x = self.embedding(x[:, :, :-1])
 
-        forecast_enc, forecast_dec = self.forecasting_model(x)
+        forecast_out = self.forecasting_model(x)
 
-        forecast_out = self.fc_dec(forecast_dec)[:, -self.pred_len:, :]
+        forecast_out = self.fc_dec(forecast_out)[:, -self.pred_len:, :]
 
         if y is not None:
 

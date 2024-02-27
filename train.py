@@ -41,7 +41,7 @@ class Train:
         parser.add_argument("--max_test_sample", type=int, default=3840)
         parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
-        parser.add_argument('--cluster', choices=['yes', 'no'], default='yes',
+        parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
 
         args = parser.parse_args()

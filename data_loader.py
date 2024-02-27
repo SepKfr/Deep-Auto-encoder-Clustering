@@ -79,7 +79,7 @@ class CustomDataLoader:
         self.test_loader, test_unique = self.create_dataloader(test_data, max_test_sample)
 
         train_x, train_y = next(iter(self.train_loader))
-        self.input_size = train_x.shape[2]
+        self.input_size = train_x.shape[2] - 1
         self.output_size = train_y.shape[2]
         self.n_uniques = max(train_unique, valid_unique, test_unique)
 

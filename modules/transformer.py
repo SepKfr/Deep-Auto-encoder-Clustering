@@ -148,8 +148,9 @@ class Transformer(nn.Module):
         dec_input = self.enc_embedding(dec_input)
         memory = self.encoder(enc_input)
         output = self.decoder(dec_input, memory)
+        output = torch.cat([memory, output], dim=1)
 
-        return memory, output
+        return output
 
 
 if __name__ == "__main__":

@@ -29,8 +29,7 @@ class Encoder(nn.Module):
 
     def forward(self, x):
 
-        enc_output, dec_output = self.encoder(x)
-        output = torch.cat([enc_output, dec_output], dim=1)
+        output = self.encoder(x)
         mean = output[:, :, :self.d_model]
         log_var = output[:, :, -self.d_model:]
         f_output = self.reparameterize(mean, log_var)
@@ -49,14 +48,16 @@ class ClusterForecasting(nn.Module):
         self.device = device
 
         self.enc_embedding = nn.Linear(input_size, d_model)
+        self.enc_cat_embedding = nn.Embedding(n_unique+1, d_model)
 
         self.encoder = Encoder(d_model=d_model, n_heads=nheads, num_layers=num_layers,
                                attn_type=attn_type, seed=seed, device=device)
-
-        # to learn change points
-        self.enc_proj_down = nn.Linear(d_model, n_unique+1)
-
-        self.fc_dec = Linear(n_unique+1, output_size)
+        self.decoder = nn.Sequential(Transformer(input_size=d_model, d_model=d_model,
+                                                 nheads=nheads, num_layers=num_layers,
+                                                 attn_type=attn_type, seed=seed, device=device),
+                                     nn.Linear(d_model, n_unique+1)
+                                     )
+        self.fc_dec = nn.Linear(d_model, output_size)
 
         self.w = nn.Parameter(torch.randn(2))
 
@@ -71,17 +72,21 @@ class ClusterForecasting(nn.Module):
 
         x_silver_standard = x[:, :, -1].to(torch.long)
 
-        x = self.enc_embedding(x)
+        x_cat_emb = self.enc_cat_embedding(x_silver_standard)
 
-        f_output, mean, log_var = self.encoder(x)
+        x = self.enc_embedding(x[:, :, :-1])
 
-        output_cp = self.enc_proj_down(f_output)
+        x = x + x_cat_emb
 
-        final_out = self.fc_dec(output_cp)[:, -self.pred_len:, :]
+        enc_output, mean, log_var = self.encoder(x)
+
+        dec_output_cp = self.decoder(enc_output)
+
+        final_out = self.fc_dec(enc_output)[:, -self.pred_len:, :]
 
         if y is not None:
 
-            output_cp = output_cp.permute(0, 2, 1)
+            output_cp = dec_output_cp.permute(0, 2, 1)
 
             loss_cp = nn.CrossEntropyLoss()(output_cp, x_silver_standard)
 
