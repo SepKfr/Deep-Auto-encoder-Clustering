@@ -106,7 +106,7 @@ class CustomDataLoader:
         Y = torch.zeros(max_samples, self.pred_len, self.num_features)
         n_uniques = []
 
-        def detect_change_points_distribution_shift(time_series_data, window_size=9):
+        def detect_change_points_distribution_shift(time_series_data, window_size=6):
             """
             Detect change points in a time series using distribution shift detection.
 
