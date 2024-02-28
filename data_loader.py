@@ -152,8 +152,12 @@ class CustomDataLoader:
             sliced = split_data_map[identifier].iloc[start_idx - self.total_time_steps: start_idx]
             val = sliced["value"].values
             cp = detect_change_points_distribution_shift(val)
-            cp[-1] = cp[-1] - 1
-            cp = torch.tensor(cp)
+
+            if len(cp) >= 1:
+                cp[-1] = cp[-1] - 1
+                cp = torch.tensor(cp)
+            else:
+                cp = torch.tensor([])
             val = torch.tensor(val)
 
             one_hot_encoding = torch.zeros(len(sliced))
