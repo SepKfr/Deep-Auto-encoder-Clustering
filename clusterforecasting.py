@@ -55,8 +55,7 @@ class ClusterForecasting(nn.Module):
         self.decoder = nn.Sequential(Transformer(input_size=d_model, d_model=d_model,
                                                  nheads=nheads, num_layers=num_layers,
                                                  attn_type=attn_type, seed=seed, device=device),
-                                     nn.Linear(d_model, n_unique+1)
-                                     )
+                                     nn.Linear(d_model, n_unique+1))
         self.fc_dec = nn.Linear(d_model, output_size)
 
         self.w = nn.Parameter(torch.randn(2))
