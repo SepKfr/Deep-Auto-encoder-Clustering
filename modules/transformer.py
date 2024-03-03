@@ -31,10 +31,10 @@ class DecoderLayer(nn.Module):
         super(DecoderLayer, self).__init__()
         self.dec_self_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed)
+            attn_type=attn_type, seed=seed, device=device)
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed)
+            attn_type=attn_type, seed=seed, device=device)
 
         self.pos_ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
                                      nn.ReLU(),
@@ -57,10 +57,9 @@ class DecoderLayer(nn.Module):
 
 class Decoder(nn.Module):
 
-    def __init__(self, decoder_layer, num_layers, d_model, device):
+    def __init__(self, decoder_layer, num_layers):
         super(Decoder, self).__init__()
 
-        self.pos_emb = PositionalEncoding(d_model=d_model, device=device)
         self.num_layers = num_layers
 
         self.decoder_layers = nn.ModuleList([decoder_layer for _ in range(num_layers)])
@@ -81,7 +80,7 @@ class EncoderLayer(nn.Module):
 
         self.enc_self_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed)
+            attn_type=attn_type, seed=seed, device=device)
 
         self.pos_ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
                                      nn.ReLU(),
@@ -101,7 +100,7 @@ class EncoderLayer(nn.Module):
 
 class Encoder(nn.Module):
 
-    def __init__(self, encoder_layer, num_layers, d_model, device):
+    def __init__(self, encoder_layer, num_layers):
         super(Encoder, self).__init__()
 
         self.num_layers = num_layers
@@ -129,8 +128,8 @@ class Transformer(nn.Module):
         self.decoder_layer = DecoderLayer(d_model=d_model, attn_type=attn_type,
                                           n_heads=nheads, seed=seed, device=device)
 
-        self.encoder = Encoder(self.encoder_layer, num_layers=num_layers, d_model=d_model, device=device)
-        self.decoder = Decoder(self.decoder_layer, num_layers=num_layers, d_model=d_model, device=device)
+        self.encoder = Encoder(self.encoder_layer, num_layers=num_layers)
+        self.decoder = Decoder(self.decoder_layer, num_layers=num_layers)
         self.n_heads = nheads
         self.d_model = d_model
 
