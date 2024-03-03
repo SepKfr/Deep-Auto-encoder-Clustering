@@ -36,7 +36,6 @@ class MultiHeadAttention(nn.Module):
         self.n_heads = n_heads
         self.attn_type = attn_type
         self.seed = seed
-        self.batch_first = batch_first
 
     def forward(self, Q, K, V):
 
