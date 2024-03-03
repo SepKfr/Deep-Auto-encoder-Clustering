@@ -9,7 +9,7 @@ random.seed(1234)
 
 
 class ATA(nn.Module):
-    def __init__(self, d_k, h, seed, device):
+    def __init__(self, d_k, h, seed):
 
         super(ATA, self).__init__()
 
@@ -24,16 +24,15 @@ class ATA(nn.Module):
             nn.Sequential(nn.Conv1d(
                 in_channels=d_k*h, out_channels=d_k*h, kernel_size=f, padding=int((f-1)/2)),
                           nn.BatchNorm1d(d_k*h),
-                          nn.ReLU()).to(device)
-            for f in self.filter_length
-            ])
+                          nn.ReLU())
+            for f in self.filter_length])
 
         self.conv_list_q = nn.ModuleList([
             nn.Sequential(
                 nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h, kernel_size=f, padding=int((f-1)/2)),
                           nn.BatchNorm1d(d_k*h),
                           nn.ReLU())
-            for f in self.filter_length]).to(device)
+            for f in self.filter_length])
 
         self.proj_back_q = nn.Linear(d_k*len(self.filter_length), self.d_k)
         self.proj_back_k = nn.Linear(d_k*len(self.filter_length), self.d_k)
@@ -43,6 +42,7 @@ class ATA(nn.Module):
     def forward(self, Q, K, V):
 
         b, h, l, d_k = Q.shape
+
         l_k = K.shape[2]
         Q_l = []
         K_l = []

@@ -31,14 +31,14 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="solar")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=1)
+        parser.add_argument("--num_epochs", type=int, default=5)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
-        parser.add_argument("--attn_type", type=str, default='autoformer')
+        parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=32000)
-        parser.add_argument("--max_test_sample", type=int, default=3840)
+        parser.add_argument("--max_train_sample", type=int, default=64000)
+        parser.add_argument("--max_test_sample", type=int, default=7680)
         parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -89,7 +89,7 @@ class Train:
         self.best_forecasting_model = nn.Module()
         self.run_optuna(args)
 
-        self.evaluate()
+        #self.evaluate()
 
     def run_optuna(self, args):
 
@@ -129,7 +129,7 @@ class Train:
         if self.cluster == "yes":
             model = ClusterForecasting(input_size=self.data_loader.input_size,
                                        output_size=self.data_loader.output_size,
-                                       n_unique=self.data_loader.n_uniques,
+                                       len_snippets=self.data_loader.len_snippets,
                                        d_model=d_model,
                                        nheads=8,
                                        num_layers=num_layers,
@@ -159,9 +159,9 @@ class Train:
             model.train()
             train_mse_loss = 0
 
-            for x, y in self.data_loader.train_loader:
+            for x, x_seg, y in self.data_loader.train_loader:
 
-                output, loss = model(x.to(self.device), y.to(self.device))
+                loss = model(x.to(self.device), x_seg.to(self.device), y.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
@@ -172,9 +172,9 @@ class Train:
             model.eval()
             valid_loss = 0
 
-            for x, valid_y in self.data_loader.valid_loader:
+            for x, x_seg, valid_y in self.data_loader.valid_loader:
 
-                output, loss = model(x.to(self.device), valid_y.to(self.device))
+                loss = model(x.to(self.device), x_seg.to(self.device), valid_y.to(self.device))
                 valid_loss += loss.item()
 
                 if valid_loss < best_trial_valid_loss:
@@ -206,9 +206,9 @@ class Train:
         mse_loss = 0
         mae_loss = 0
 
-        for x, test_y in self.data_loader.test_loader:
+        for x, x_seg, test_y in self.data_loader.test_loader:
 
-            output, _ = self.best_forecasting_model(x=x.to(self.device))
+            output, _ = self.best_forecasting_model(x=x.to(self.device), x_seg=x_seg.to(self.device))
             mse_loss += nn.MSELoss()(output.to("cpu"), test_y).item()
             mae_loss += nn.L1Loss()(output.to("cpu"), test_y).item()
 

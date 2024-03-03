@@ -5,7 +5,7 @@ import torch
 import ruptures as rpt
 from scipy.stats import ks_2samp
 from torch.utils.data import TensorDataset, DataLoader
-
+from torch.nn.utils.rnn import pad_sequence
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
@@ -74,16 +74,18 @@ class CustomDataLoader:
         )
         self.total_time_steps = self.max_encoder_length + self.pred_len
 
-        self.train_loader, train_unique = self.create_dataloader(train_data, max_train_sample)
-        self.valid_loader, valid_unique = self.create_dataloader(valid_data, max_test_sample)
-        self.test_loader, test_unique = self.create_dataloader(test_data, max_test_sample)
+        self.train_loader, train_len_snippets = self.create_dataloader(train_data, max_train_sample)
+        self.valid_loader, valid_len_snippets = self.create_dataloader(valid_data, max_test_sample)
+        self.test_loader, test_len_snippets = self.create_dataloader(test_data, max_test_sample)
 
-        train_x, train_y = next(iter(self.train_loader))
+        train_x, train_x_seg, train_y = next(iter(self.train_loader))
         self.input_size = train_x.shape[2] - 1
         self.output_size = train_y.shape[2]
-        self.n_uniques = max(train_unique, valid_unique, test_unique)
+        self.len_snippets = max(train_len_snippets, valid_len_snippets, test_len_snippets)
 
     def create_dataloader(self, data, max_samples):
+
+        x_list = []
 
         valid_sampling_locations, split_data_map = zip(
             *[
@@ -102,11 +104,11 @@ class CustomDataLoader:
         ranges = [valid_sampling_locations[i] for i in np.random.choice(
                   len(valid_sampling_locations), max_samples, replace=False)]
 
-        X = torch.zeros(max_samples, self.max_encoder_length, self.num_features+1)
+        X = torch.zeros(max_samples, self.max_encoder_length+self.pred_len, self.num_features+1)
         Y = torch.zeros(max_samples, self.pred_len, self.num_features)
         n_uniques = []
 
-        def detect_change_points_distribution_shift(time_series_data, window_size=6):
+        def detect_change_points_distribution_shift(time_series_data, window_size=9):
             """
             Detect change points in a time series using distribution shift detection.
 
@@ -154,23 +156,52 @@ class CustomDataLoader:
             cp = detect_change_points_distribution_shift(val)
 
             if len(cp) >= 1:
-                cp[-1] = cp[-1] - 1
                 cp = torch.tensor(cp)
             else:
                 cp = torch.tensor([])
-            val = torch.tensor(val)
 
-            one_hot_encoding = torch.zeros(len(sliced))
-            seq_of_cp = torch.cumsum(one_hot_encoding.scatter_(0, cp, 1), dim=0)
-            n_uniques.append(len(torch.unique(seq_of_cp)))
+            tensor = torch.from_numpy(val)
 
-            val = torch.cat([val.unsqueeze(-1), seq_of_cp.unsqueeze(-1)], dim=-1)
-            X[i] = val[:self.max_encoder_length, :]
-            Y[i] = val[-self.pred_len:, 0:1]
+            if len(cp) > 0:
 
-        n_unique = max(n_uniques)
+                one_hot_encoding = torch.zeros(len(val))
+                seq_of_cp = torch.cumsum(one_hot_encoding.scatter_(0, cp, 1), dim=0)
+                n_uniques.append(len(torch.unique(seq_of_cp)))
 
-        dataset = TensorDataset(X, Y)
+                last_one = len(tensor) - cp[-1]
+                change_indices = torch.cat([torch.zeros(1), cp])
+                change_indices = torch.diff(change_indices)
+
+                change_indices = change_indices.tolist()
+                change_indices.append(last_one)
+                change_indices = [int(x) for x in change_indices]
+                tensors = torch.split(tensor, change_indices)
+                padded_tensor = pad_sequence(tensors, padding_value=0)
+
+                x_list.append(padded_tensor)
+                Y[i] = tensor[-self.pred_len:].unsqueeze(-1)
+                X[i] = tensor.unsqueeze(-1)
+
+            else:
+                Y[i] = tensor[-self.pred_len:].unsqueeze(-1)
+                x_list.append(tensor.unsqueeze(-1))
+                X[i] = tensor.unsqueeze(-1)
+
+        max_size_1 = max(tensor.size(0) for tensor in x_list)
+        max_size_2 = max(tensor.size(1) for tensor in x_list)
+        tensors_final = torch.zeros(len(x_list), max_size_1, max_size_2, self.num_features)
+
+        Y = Y[:len(x_list)]
+        X = X[:len(x_list)]
+
+        for i, tensor in enumerate(x_list):
+            tensors_final[i, :tensor.shape[0], :tensor.shape[1], :] = tensor.unsqueeze(-1)
+
+        dataset = TensorDataset(X,
+                                tensors_final,
+                                Y)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
 
-        return dataloader, n_unique
+        len_snippets = max_size_2
+
+        return dataloader, len_snippets

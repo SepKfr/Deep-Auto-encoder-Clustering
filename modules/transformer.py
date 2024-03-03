@@ -31,12 +31,10 @@ class DecoderLayer(nn.Module):
         super(DecoderLayer, self).__init__()
         self.dec_self_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed,
-            device=device)
+            attn_type=attn_type, seed=seed)
         self.dec_enc_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed,
-            device=device)
+            attn_type=attn_type, seed=seed)
 
         self.pos_ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
                                      nn.ReLU(),
@@ -69,11 +67,10 @@ class Decoder(nn.Module):
 
     def forward(self, dec_inputs, enc_outputs):
 
-        dec_outputs = self.pos_emb(dec_inputs)
         for i in range(self.num_layers):
-            dec_outputs = self.decoder_layers[i](dec_outputs, enc_outputs)
+            dec_inputs = self.decoder_layers[i](dec_inputs, enc_outputs)
 
-        return dec_outputs
+        return dec_inputs
 
 
 class EncoderLayer(nn.Module):
@@ -84,8 +81,7 @@ class EncoderLayer(nn.Module):
 
         self.enc_self_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
-            attn_type=attn_type, seed=seed,
-            device=device)
+            attn_type=attn_type, seed=seed)
 
         self.pos_ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
                                      nn.ReLU(),
@@ -108,18 +104,16 @@ class Encoder(nn.Module):
     def __init__(self, encoder_layer, num_layers, d_model, device):
         super(Encoder, self).__init__()
 
-        self.pos_emb = PositionalEncoding(d_model=d_model, device=device)
         self.num_layers = num_layers
 
         self.encoder_layers = nn.ModuleList([encoder_layer for _ in range(num_layers)])
 
     def forward(self, enc_inputs):
 
-        enc_output = self.pos_emb(enc_inputs)
         for i in range(self.num_layers):
-            enc_output = self.encoder_layers[i](enc_output)
+            enc_inputs = self.encoder_layers[i](enc_inputs)
 
-        return enc_output
+        return enc_inputs
 
 
 class Transformer(nn.Module):
@@ -137,15 +131,40 @@ class Transformer(nn.Module):
 
         self.encoder = Encoder(self.encoder_layer, num_layers=num_layers, d_model=d_model, device=device)
         self.decoder = Decoder(self.decoder_layer, num_layers=num_layers, d_model=d_model, device=device)
+        self.n_heads = nheads
+        self.d_model = d_model
+
+        self.pos_emb = PositionalEncoding(d_model=d_model, device=device)
 
     def forward(self, inputs):
 
-        x = torch.split(inputs, split_size_or_sections=int(inputs.shape[1] / 2), dim=1)
+        batch_size = inputs.shape[0]
+
+        x = torch.split(inputs, split_size_or_sections=int(inputs.shape[2] / 2), dim=2)
 
         enc_input = x[0]
         dec_input = x[1]
         enc_input = self.enc_embedding(enc_input)
-        dec_input = self.enc_embedding(dec_input)
+        dec_input = self.dec_embedding(dec_input)
+
+        def reshape(x_inp):
+
+            sizes_inputs = [batch_size] if len(x_inp.shape) == 3 else [batch_size * x_inp.shape[1]]
+
+            for s in x_inp.shape[1:-1] if len(x_inp.shape) == 3 else x_inp.shape[2:-1]:
+                sizes_inputs.append(s)
+
+            sizes_inputs.append(self.d_model)
+
+            x_inp = x_inp.reshape(torch.Size(sizes_inputs))
+            return x_inp
+
+        enc_input = reshape(enc_input)
+        dec_input = reshape(dec_input)
+
+        enc_input = self.pos_emb(enc_input)
+        dec_input = self.pos_emb(dec_input)
+
         memory = self.encoder(enc_input)
         output = self.decoder(dec_input, memory)
         output = torch.cat([memory, output], dim=1)
