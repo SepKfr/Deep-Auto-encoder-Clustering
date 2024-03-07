@@ -37,7 +37,7 @@ class Encoder(nn.Module):
         return f_output, mean, log_var
 
 
-def assign_clusters(points, centroids):
+def assign_clusters(points, centroids, rate):
     """
     Assign each point to the nearest cluster centroid.
 
@@ -55,9 +55,11 @@ def assign_clusters(points, centroids):
     cluster_indices = torch.argmin(distances, dim=1)
 
     cluster_count = torch.bincount(cluster_indices, minlength=centroids.size(0) + 1)
-    loss = cluster_count.to(torch.float).std()
-
-    return cluster_indices, loss
+    poisson_dist = torch.distributions.poisson.Poisson(rate=rate)
+    pos_log_prob = poisson_dist.log_prob(cluster_indices)
+    uniform_log_prog = torch.ones(pos_log_prob.shape[0]) / pos_log_prob.shape[0]
+    kl_divergence = torch.nn.functional.kl_div(pos_log_prob, uniform_log_prog, reduction='mean')
+    return cluster_indices, kl_divergence
 
 
 def compute_inter_cluster_loss(points, centroids, cluster_indices):
@@ -130,6 +132,7 @@ class ClusterForecasting(nn.Module):
                                      attn_type=attn_type, seed=seed, device=device)
 
         self.cluster_centers = nn.Parameter(torch.randn((num_clusters, d_model*len_snippets), device=device))
+        self.rate = torch.randn(1, requires_grad=True, device=device)
         self.w_loss = nn.Parameter(torch.softmax((torch.randn(3, device=device)), dim=0))
 
         self.pred_len = pred_len
@@ -144,7 +147,7 @@ class ClusterForecasting(nn.Module):
         output = output.reshape(x.shape)
         input_to_cluster = output.reshape(self.batch_size * x.shape[1], -1)
 
-        cluster_indices, entropy_loss = assign_clusters(input_to_cluster, self.cluster_centers)
+        cluster_indices, entropy_loss = assign_clusters(input_to_cluster, self.cluster_centers, self.rate)
 
         # Compute inter-cluster loss
         inter_loss = compute_inter_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
@@ -152,7 +155,7 @@ class ClusterForecasting(nn.Module):
         # Compute intra-cluster loss
         intra_loss = compute_intra_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
 
-        loss = inter_loss + intra_loss + entropy_loss
+        loss = self.w_loss[0] * inter_loss + self.w_loss[1] * intra_loss + self.w_loss[2] * entropy_loss
 
         return loss
 
