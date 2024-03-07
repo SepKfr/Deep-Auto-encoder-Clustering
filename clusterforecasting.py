@@ -36,52 +36,76 @@ class Encoder(nn.Module):
         return f_output, mean, log_var
 
 
-class ClusteringLoss(torch.nn.Module):
-    def __init__(self, margin=1.0, inter_weight=1.0, intra_weight=1.0):
-        super(ClusteringLoss, self).__init__()
-        self.margin = margin
-        self.inter_weight = inter_weight
-        self.intra_weight = intra_weight
+def assign_clusters(points, centroids):
+    """
+    Assign each point to the nearest cluster centroid.
 
-    @staticmethod
-    def inter_cluster_loss(centers, margin):
-        """Calculate inter-cluster loss"""
-        # Calculate pairwise distances between cluster centers
-        distances = torch.norm(centers.unsqueeze(1) - centers.unsqueeze(0), dim=2)
-        # Exclude self-distances
-        inter_loss = (torch.sum(torch.triu(distances, diagonal=1) < margin).float()) / (
-                centers.size(0) * (centers.size(0) - 1) / 2)
-        return inter_loss
+    Args:
+        points (torch.Tensor): Tensor of shape (num_points, dimension) representing data points.
+        centroids (torch.Tensor): Tensor of shape (num_clusters, dimension) representing cluster centroids.
 
-    @staticmethod
-    def intra_cluster_loss(features, centers):
-        """Calculate intra-cluster loss"""
-        # Compute distances between each feature vector and each cluster center
-        distances = torch.norm(features.unsqueeze(1) - centers.unsqueeze(0), dim=2)
-        # Assign each point to the nearest cluster
-        _, assigned_clusters = torch.min(distances, dim=1)
-        intra_losses = []
-        # Calculate variance within each cluster
-        for i in range(centers.size(0)):
-            cluster_points = features[assigned_clusters == i]
-            if len(cluster_points) > 1:
-                intra_loss = torch.mean(torch.norm(cluster_points - torch.mean(cluster_points, dim=0), dim=1))
-                intra_losses.append(intra_loss)
-        # Take the average of intra-cluster losses
-        if len(intra_losses) > 0:
-            intra_loss = torch.mean(torch.stack(intra_losses))
-        else:
-            intra_loss = torch.tensor(0.0)
-        return intra_loss
+    Returns:
+        cluster_indices (torch.Tensor): Tensor of shape (num_points,) containing the index of the nearest centroid for each point.
+    """
+    # Compute squared distances between each point and each centroid
+    distances = torch.cdist(points, centroids, p=2)**2  # Shape: (num_points, num_clusters)
 
-    def forward(self, features, centers):
-        # Compute inter-cluster loss
-        inter_loss = self.inter_weight * self.inter_cluster_loss(centers, self.margin)
-        # Compute intra-cluster loss
-        intra_loss = self.intra_weight * self.intra_cluster_loss(features, centers)
-        # Total loss is the sum of both
-        total_loss = inter_loss + intra_loss
-        return total_loss
+    # Assign each point to the cluster with the smallest distance
+    cluster_indices = torch.argmin(distances, dim=1)
+
+    return cluster_indices
+
+
+def compute_inter_cluster_loss(points, centroids, cluster_indices):
+    """
+    Compute the inter-cluster loss based on squared Euclidean distance.
+
+    Args:
+        points (torch.Tensor): Tensor of shape (num_points, dimension) representing data points.
+        centroids (torch.Tensor): Tensor of shape (num_clusters, dimension) representing cluster centroids.
+        cluster_indices (torch.Tensor): Tensor of shape (num_points,) containing the index of the nearest centroid for each point.
+
+    Returns:
+        inter_cluster_loss (torch.Tensor): Inter-cluster loss.
+    """
+    # Gather centroids corresponding to assigned clusters
+    assigned_centroids = centroids[cluster_indices]  # Shape: (num_points, dimension)
+
+    # Compute squared Euclidean distance between points and centroids
+    inter_cluster_loss = torch.mean(torch.sum((points - assigned_centroids)**2, dim=1))
+
+    return inter_cluster_loss
+
+
+def compute_intra_cluster_loss(points, centroids, cluster_indices):
+    """
+    Compute the intra-cluster loss based on squared Euclidean distance.
+
+    Args:
+        points (torch.Tensor): Tensor of shape (num_points, dimension) representing data points.
+        centroids (torch.Tensor): Tensor of shape (num_clusters, dimension) representing cluster centroids.
+        cluster_indices (torch.Tensor): Tensor of shape (num_points,) containing the index of the nearest centroid for each point.
+
+    Returns:
+        intra_cluster_loss (torch.Tensor): Intra-cluster loss.
+    """
+    intra_cluster_losses = []
+    for i in range(centroids.size(0)):
+        # Mask points belonging to cluster i
+        mask = cluster_indices == i
+        cluster_points = points[mask]
+
+        # Compute squared Euclidean distance between cluster points and centroid
+        if len(cluster_points) > 0:
+            centroid = centroids[i].unsqueeze(0)  # Add singleton dimension to match cluster_points
+            distances = torch.sum((cluster_points - centroid)**2, dim=1)
+            intra_cluster_loss_i = torch.mean(distances)
+            intra_cluster_losses.append(intra_cluster_loss_i)
+
+    # Compute overall intra-cluster loss as the mean of individual cluster losses
+    intra_cluster_loss = torch.mean(torch.stack(intra_cluster_losses))
+
+    return intra_cluster_loss
 
 
 class ClusterForecasting(nn.Module):
@@ -114,7 +138,15 @@ class ClusterForecasting(nn.Module):
         output = self.seq_model(x)
         output = output.reshape(x.shape)
         input_to_cluster = output.reshape(self.batch_size * x.shape[1], -1)
-        loss = ClusteringLoss()(input_to_cluster, self.cluster_centers)
+        cluster_indices = assign_clusters(input_to_cluster, self.cluster_centers)
+
+        # Compute inter-cluster loss
+        inter_loss = compute_inter_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
+
+        # Compute intra-cluster loss
+        intra_loss = compute_intra_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
+
+        loss = inter_loss + intra_loss
 
         return loss
 
