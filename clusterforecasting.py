@@ -54,7 +54,6 @@ def assign_clusters(points, centroids, rate):
     # Assign each point to the cluster with the smallest distance
     cluster_indices = torch.argmin(distances, dim=1)
 
-    cluster_count = torch.bincount(cluster_indices, minlength=centroids.size(0) + 1)
     poisson_dist = torch.distributions.poisson.Poisson(rate=rate)
     pos_log_prob = poisson_dist.log_prob(cluster_indices)
     uniform_log_prog = torch.ones(pos_log_prob.shape[0]) / pos_log_prob.shape[0]
