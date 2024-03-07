@@ -37,7 +37,7 @@ class Encoder(nn.Module):
         return f_output, mean, log_var
 
 
-def assign_clusters(points, centroids, rate):
+def assign_clusters(points, centroids, rate, device):
     """
     Assign each point to the nearest cluster centroid.
 
@@ -56,7 +56,7 @@ def assign_clusters(points, centroids, rate):
 
     poisson_dist = torch.distributions.poisson.Poisson(rate=rate)
     pos_log_prob = poisson_dist.log_prob(cluster_indices)
-    uniform_log_prog = torch.ones(pos_log_prob.shape[0]) / pos_log_prob.shape[0]
+    uniform_log_prog = torch.ones(pos_log_prob.shape[0], device=device) / pos_log_prob.shape[0]
     kl_divergence = torch.nn.functional.kl_div(pos_log_prob, uniform_log_prog, reduction='mean')
     return cluster_indices, kl_divergence
 
@@ -146,7 +146,7 @@ class ClusterForecasting(nn.Module):
         output = output.reshape(x.shape)
         input_to_cluster = output.reshape(self.batch_size * x.shape[1], -1)
 
-        cluster_indices, entropy_loss = assign_clusters(input_to_cluster, self.cluster_centers, self.rate)
+        cluster_indices, entropy_loss = assign_clusters(input_to_cluster, self.cluster_centers, self.rate, self.device)
 
         # Compute inter-cluster loss
         inter_loss = compute_inter_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
