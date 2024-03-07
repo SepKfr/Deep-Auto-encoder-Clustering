@@ -57,7 +57,7 @@ def assign_clusters(points, centroids, rate, device):
     poisson_dist = torch.distributions.poisson.Poisson(rate=rate)
     pos_log_prob = poisson_dist.log_prob(cluster_indices)
     uniform_log_prog = torch.ones(pos_log_prob.shape[0], device=device) / pos_log_prob.shape[0]
-    kl_divergence = torch.nn.functional.kl_div(pos_log_prob, uniform_log_prog, reduction='mean')
+    kl_divergence = torch.nn.functional.kl_div(pos_log_prob, uniform_log_prog, reduction='batchmean')
     return cluster_indices, kl_divergence
 
 
