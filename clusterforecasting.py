@@ -127,13 +127,13 @@ class Autoencoder(nn.Module):
             nn.Linear(encoding_dim, 128),
             nn.ReLU(),
             nn.Linear(128, input_dim),
-            nn.Sigmoid()  # Sigmoid activation to output values between 0 and 1
         )
 
     def forward(self, x):
         x_encoded = self.encoder(x)
         x_decoded = self.decoder(x_encoded)
         return x_decoded
+
 
 class ClusterForecasting(nn.Module):
 
