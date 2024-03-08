@@ -2,6 +2,8 @@ import argparse
 import os
 from itertools import product
 import random
+
+import matplotlib.pyplot as plt
 import optuna
 from torch import nn
 from torch.optim import Adam
@@ -49,7 +51,7 @@ class Train:
         data_formatter = dataforemater.DataFormatter(args.exp_name)
         # "{}.csv".format(args.exp_name)
 
-        data_path = "{}.csv".format(args.exp_name)
+        data_path = args.data_path
         df = pd.read_csv(data_path, dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
         data = data_formatter.transform_data(df)
@@ -89,7 +91,7 @@ class Train:
         self.best_forecasting_model = nn.Module()
         self.run_optuna(args)
 
-        #self.evaluate()
+        self.evaluate()
 
     def run_optuna(self, args):
 
@@ -161,7 +163,7 @@ class Train:
 
             for x, x_seg, y in self.data_loader.train_loader:
 
-                loss = model(x.to(self.device), x_seg.to(self.device), y.to(self.device))
+                loss, _ = model(x.to(self.device), x_seg.to(self.device), y.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
@@ -174,7 +176,7 @@ class Train:
 
             for x, x_seg, valid_y in self.data_loader.valid_loader:
 
-                loss = model(x.to(self.device), x_seg.to(self.device), valid_y.to(self.device))
+                loss, _ = model(x.to(self.device), x_seg.to(self.device), valid_y.to(self.device))
                 valid_loss += loss.item()
 
                 if valid_loss < best_trial_valid_loss:
@@ -203,30 +205,31 @@ class Train:
         """
         self.best_forecasting_model.eval()
 
-        mse_loss = 0
-        mae_loss = 0
+        cluster_assignments = []
+        inputs_to_cluster = []
 
         for x, x_seg, test_y in self.data_loader.test_loader:
 
-            output, _ = self.best_forecasting_model(x=x.to(self.device), x_seg=x_seg.to(self.device))
-            mse_loss += nn.MSELoss()(output.to("cpu"), test_y).item()
-            mae_loss += nn.L1Loss()(output.to("cpu"), test_y).item()
+            _, outputs = self.best_forecasting_model(x=x.to(self.device), x_seg=x_seg.to(self.device))
+            cluster_assignments.append(outputs[0])
+            inputs_to_cluster.append(outputs[1])
 
-        mse_loss = mse_loss / len(self.data_loader.test_loader)
-        mae_loss = mae_loss / len(self.data_loader.test_loader)
-        errors = {self.model_name: {'MSE': f"{mse_loss:.3f}", 'MAE': f"{mae_loss: .3f}"}}
-        print(errors)
+        cluster_assignments = torch.cat(cluster_assignments, dim=0).detach().numpy()
+        inputs_to_cluster = torch.cat(inputs_to_cluster, dim=0).detach().numpy()
 
-        error_path = "reported_errors_{}.csv".format(self.exp_name)
+        colors = ['r', 'g', 'b', 'c', 'm']
 
-        df = pd.DataFrame.from_dict(errors, orient='index')
+        # Plot the clusters
+        for i in range(1, 6):
+            cluster_points = cluster_assignments == i
+            plt.scatter(inputs_to_cluster[cluster_points, 0], inputs_to_cluster[cluster_points, 1], color=colors[i - 1],
+                        label=f'Cluster {i}')
 
-        if os.path.exists(error_path):
-            df_old = pd.read_csv(error_path)
-            df_new = pd.concat([df_old, df], axis=0)
-            df_new.to_csv(error_path)
-        else:
-            df.to_csv(error_path)
-
+        # Set plot labels and legend
+        plt.title('Clustering Assignments')
+        plt.xlabel('Dimension 1')
+        plt.ylabel('Dimension 2')
+        plt.legend()
+        plt.savefig("cluster_assignments_{}.pdf".format(self.exp_name))
 
 Train()

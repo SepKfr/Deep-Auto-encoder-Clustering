@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 from torch.nn import Linear
+from sklearn.decomposition import PCA
 from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 torch.autograd.set_detect_anomaly(True)
@@ -113,6 +114,27 @@ def compute_intra_cluster_loss(points, centroids, cluster_indices):
     return intra_cluster_loss
 
 
+class Autoencoder(nn.Module):
+    def __init__(self, input_dim, encoding_dim=2):
+        super(Autoencoder, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, encoding_dim),
+            nn.Sigmoid()
+        )
+        self.decoder = nn.Sequential(
+            nn.Linear(encoding_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, input_dim),
+            nn.Sigmoid()  # Sigmoid activation to output values between 0 and 1
+        )
+
+    def forward(self, x):
+        x_encoded = self.encoder(x)
+        x_decoded = self.decoder(x_encoded)
+        return x_decoded
+
 class ClusterForecasting(nn.Module):
 
     def __init__(self, input_size, output_size, len_snippets,
@@ -132,6 +154,7 @@ class ClusterForecasting(nn.Module):
 
         self.cluster_centers = nn.Parameter(torch.randn((num_clusters, d_model*len_snippets), device=device))
         self.rate = torch.ones(1, requires_grad=True, device=device)
+        self.auto_encoder = Autoencoder(d_model*len_snippets)
         #self.w_loss = nn.Parameter(torch.softmax((torch.randn(3, device=device)), dim=0))
 
         self.pred_len = pred_len
@@ -145,6 +168,8 @@ class ClusterForecasting(nn.Module):
         output = self.seq_model(x)
         output = output.reshape(x.shape)
         input_to_cluster = output.reshape(self.batch_size * x.shape[1], -1)
+        reconstruct = self.auto_encoder(input_to_cluster)
+        reconstruct_loss = torch.nn.L1Loss()(input_to_cluster, reconstruct)
 
         cluster_indices, entropy_loss = assign_clusters(input_to_cluster, self.cluster_centers, self.rate, self.device)
 
@@ -154,9 +179,10 @@ class ClusterForecasting(nn.Module):
         # Compute intra-cluster loss
         intra_loss = compute_intra_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
 
-        loss = inter_loss + intra_loss + 0.1 * entropy_loss
+        loss = inter_loss + intra_loss + 0.1 * entropy_loss + reconstruct_loss
+        low_dim_data = self.auto_encoder.encoder(input_to_cluster)
 
-        return loss
+        return loss, [cluster_indices, low_dim_data]
 
         # enc_output, mean, log_var = self.encoder(x)
         #
