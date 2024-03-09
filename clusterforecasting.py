@@ -152,7 +152,7 @@ class ClusterForecasting(nn.Module):
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
-        self.cluster_centers = nn.Parameter(torch.randn((num_clusters, d_model*len_snippets), device=device))
+        self.cluster_centers = nn.Parameter(torch.randn((num_clusters, 2), device=device))
         self.rate = torch.ones(1, requires_grad=True, device=device)
         self.auto_encoder = Autoencoder(d_model*len_snippets)
         #self.w_loss = nn.Parameter(torch.softmax((torch.randn(3, device=device)), dim=0))
