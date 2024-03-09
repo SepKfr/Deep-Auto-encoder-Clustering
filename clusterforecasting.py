@@ -53,7 +53,6 @@ def assign_clusters(points, centroids, rate, device):
     distances = torch.einsum('nd, cd-> nc', points, centroids)  # Shape: (num_points, num_clusters)
     # Assign each point to the cluster with the smallest distance
     cluster_indices = torch.argmin(distances, dim=1)
-    print(cluster_indices)
 
     # Compute cluster probabilities (assuming cluster_indices are indices of cluster assignments)
     cluster_indices_prob = torch.zeros(distances.shape[0], device=device)
