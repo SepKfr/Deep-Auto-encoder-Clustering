@@ -50,15 +50,25 @@ def assign_clusters(points, centroids, rate, device):
         cluster_indices (torch.Tensor): Tensor of shape (num_points,) containing the index of the nearest centroid for each point.
     """
     # Compute squared distances between each point and each centroid
-    distances = torch.cdist(points, centroids, p=2)**2  # Shape: (num_points, num_clusters)
-
+    distances = torch.einsum('nd, cd-> nc', points, centroids)  # Shape: (num_points, num_clusters)
     # Assign each point to the cluster with the smallest distance
     cluster_indices = torch.argmin(distances, dim=1)
+    print(cluster_indices)
 
-    poisson_dist = torch.distributions.poisson.Poisson(rate=rate)
-    pos_log_prob = poisson_dist.log_prob(cluster_indices)
-    uniform_log_prog = torch.ones(pos_log_prob.shape[0], device=device) / pos_log_prob.shape[0]
-    kl_divergence = torch.nn.functional.kl_div(pos_log_prob, uniform_log_prog, reduction='batchmean')
+    # Compute cluster probabilities (assuming cluster_indices are indices of cluster assignments)
+    cluster_indices_prob = torch.zeros(distances.shape[0], device=device)
+    cluster_indices_prob.scatter_(0, cluster_indices,
+                                  1)  # Assuming cluster_indices is a tensor of cluster indices
+
+    # Normalize to probabilities
+    cluster_indices_prob /= cluster_indices_prob.sum()
+
+    # Create uniform probability distribution
+    uniform_prob = torch.ones_like(cluster_indices_prob) / cluster_indices_prob.shape[0]
+    kl_divergence = - torch.nn.functional.kl_div(torch.logsumexp(cluster_indices_prob, dim=0),
+                                               torch.torch.logsumexp(uniform_prob, dim=0),
+                                               reduction='batchmean')
+    print("kl_loss:", kl_divergence)
     return cluster_indices, kl_divergence
 
 
