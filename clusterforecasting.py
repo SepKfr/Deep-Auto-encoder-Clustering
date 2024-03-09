@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 from torch.nn import Linear
+import torch.distributions as dist
 from sklearn.decomposition import PCA
 from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
@@ -50,24 +51,21 @@ def assign_clusters(points, centroids, rate, device):
         cluster_indices (torch.Tensor): Tensor of shape (num_points,) containing the index of the nearest centroid for each point.
     """
     # Compute squared distances between each point and each centroid
-    distances = torch.einsum('nd, cd-> nc', points, centroids)  # Shape: (num_points, num_clusters)
+    distances = torch.cdist(points, centroids, p=2)**2  # Shape: (num_points, num_clusters)
     # Assign each point to the cluster with the smallest distance
     cluster_indices = torch.argmin(distances, dim=1)
+    norm_indices = torch.softmax(torch.ones_like(cluster_indices).float(), dim=0)
+    cluster_indices_arr = torch.zeros_like(cluster_indices)
+    cluster_indices_arr.scatter_(0, cluster_indices, 100)
+    cluster_indices_arr = cluster_indices_arr.float()
+    cluster_indices_arr = torch.softmax(cluster_indices_arr, dim=0)
+    dist_norm_log_prob = torch.log(norm_indices)
 
-    # Compute cluster probabilities (assuming cluster_indices are indices of cluster assignments)
-    cluster_indices_prob = torch.zeros(distances.shape[0], device=device)
-    cluster_indices_prob.scatter_(0, cluster_indices,
-                                  1)  # Assuming cluster_indices is a tensor of cluster indices
+    dist_log_prob = torch.log(cluster_indices_arr)
 
-    # Normalize to probabilities
-    cluster_indices_prob /= cluster_indices_prob.sum()
+    kl_estimate = nn.functional.kl_div(dist_log_prob, dist_norm_log_prob, reduction="batchmean", log_target=True)
 
-    # Create uniform probability distribution
-    uniform_prob = torch.ones_like(cluster_indices_prob) / cluster_indices_prob.shape[0]
-    kl_divergence = - torch.nn.functional.kl_div(torch.logsumexp(cluster_indices_prob, dim=0),
-                                               torch.torch.logsumexp(uniform_prob, dim=0),
-                                               reduction='batchmean')
-    return cluster_indices, kl_divergence
+    return cluster_indices, kl_estimate
 
 
 def compute_inter_cluster_loss(points, centroids, cluster_indices):
