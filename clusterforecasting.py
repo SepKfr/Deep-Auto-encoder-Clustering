@@ -179,7 +179,7 @@ class ClusterForecasting(nn.Module):
         # Compute intra-cluster loss
         intra_loss = compute_intra_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
 
-        loss = inter_loss + intra_loss + 0.1 * entropy_loss + reconstruct_loss
+        loss = inter_loss + intra_loss + entropy_loss + reconstruct_loss
         low_dim_data = self.auto_encoder.encoder(input_to_cluster)
 
         return loss, [cluster_indices, low_dim_data]
