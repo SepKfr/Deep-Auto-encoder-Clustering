@@ -171,16 +171,17 @@ class ClusterForecasting(nn.Module):
         reconstruct = self.auto_encoder(input_to_cluster)
         reconstruct_loss = torch.nn.L1Loss()(input_to_cluster, reconstruct)
 
-        cluster_indices, entropy_loss = assign_clusters(input_to_cluster, self.cluster_centers, self.rate, self.device)
+        low_dim_data = self.auto_encoder.encoder(input_to_cluster)
+
+        cluster_indices, entropy_loss = assign_clusters(low_dim_data, self.cluster_centers, self.rate, self.device)
 
         # Compute inter-cluster loss
-        inter_loss = compute_inter_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
+        inter_loss = compute_inter_cluster_loss(low_dim_data, self.cluster_centers, cluster_indices)
 
         # Compute intra-cluster loss
-        intra_loss = compute_intra_cluster_loss(input_to_cluster, self.cluster_centers, cluster_indices)
+        intra_loss = compute_intra_cluster_loss(low_dim_data, self.cluster_centers, cluster_indices)
 
         loss = inter_loss + intra_loss + entropy_loss + reconstruct_loss
-        low_dim_data = self.auto_encoder.encoder(input_to_cluster)
 
         return loss, [cluster_indices, low_dim_data]
 
