@@ -160,24 +160,28 @@ class Train:
 
             model.train()
             train_mse_loss = 0
+            train_kl_loss = 0
 
             for x, x_seg, y in self.data_loader.train_loader:
 
-                loss, _ = model(x.to(self.device), x_seg.to(self.device), y.to(self.device))
+                loss, kl_loss, _ = model(x.to(self.device), x_seg.to(self.device), y.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
                 forecast_optimizer.step()
                 scheduler.step()
                 train_mse_loss += loss.item()
+                train_kl_loss += kl_loss.item()
 
             model.eval()
             valid_loss = 0
+            valid_kl_loss = 0
 
             for x, x_seg, valid_y in self.data_loader.valid_loader:
 
-                loss, _ = model(x.to(self.device), x_seg.to(self.device), valid_y.to(self.device))
+                loss, kl_loss, _ = model(x.to(self.device), x_seg.to(self.device), valid_y.to(self.device))
                 valid_loss += loss.item()
+                valid_kl_loss += kl_loss.item()
 
                 if valid_loss < best_trial_valid_loss:
                     best_trial_valid_loss = valid_loss
@@ -191,7 +195,10 @@ class Train:
             if epoch % 5 == 0:
                 print(
                     "train MSE loss: {:.3f} epoch: {}".format(train_mse_loss, epoch))
-                print("valid loss: {:.3f}".format(valid_loss))
+                print("valid MSE loss: {:.3f}".format(valid_loss))
+                print(
+                    "train KL loss: {:.3f} epoch: {}".format(train_kl_loss, epoch))
+                print("valid KL loss: {:.3f}".format(valid_kl_loss))
 
         return best_trial_valid_loss
 
@@ -210,7 +217,7 @@ class Train:
 
         for x, x_seg, test_y in self.data_loader.test_loader:
 
-            _, outputs = self.best_forecasting_model(x=x.to(self.device), x_seg=x_seg.to(self.device))
+            _, _, outputs = self.best_forecasting_model(x=x.to(self.device), x_seg=x_seg.to(self.device))
             cluster_assignments.append(outputs[0])
             inputs_to_cluster.append(outputs[1])
 

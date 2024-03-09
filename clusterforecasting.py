@@ -67,7 +67,6 @@ def assign_clusters(points, centroids, rate, device):
     kl_divergence = - torch.nn.functional.kl_div(torch.logsumexp(cluster_indices_prob, dim=0),
                                                torch.torch.logsumexp(uniform_prob, dim=0),
                                                reduction='batchmean')
-    print("kl_loss:", kl_divergence)
     return cluster_indices, kl_divergence
 
 
@@ -192,7 +191,7 @@ class ClusterForecasting(nn.Module):
 
         loss = inter_loss + intra_loss + entropy_loss + reconstruct_loss
 
-        return loss, [cluster_indices, low_dim_data]
+        return loss, entropy_loss, [cluster_indices, low_dim_data]
 
         # enc_output, mean, log_var = self.encoder(x)
         #
