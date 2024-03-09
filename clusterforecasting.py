@@ -52,31 +52,17 @@ def assign_clusters(points, centroids, rate, device):
     """
     # Compute squared distances between each point and each centroid
     num_clusters = centroids.shape[0]
-    num_points = points.shape[0]
+
     distances = torch.cdist(points, centroids, p=2)**2  # Shape: (num_points, num_clusters)
     # Assign each point to the cluster with the smallest distance
+    distances_norm = torch.ones_like(distances)/num_clusters
+    distances_log_prob = torch.log(torch.softmax(distances, dim=-1))
+    distances_norm_log_prob = torch.log(torch.softmax(distances_norm, dim=-1))
+    kl_loss = nn.functional.kl_div(distances_log_prob, distances_norm_log_prob, reduction="batchmean", log_target=True)
+
     cluster_indices = torch.argmin(distances, dim=1)
 
-    # Generate a random permutation of column indices
-    column_indices = torch.randperm(num_points, device=device) * num_clusters
-
-    # Create a zero tensor
-    norm_indices = torch.zeros(num_clusters*num_points, device=device)
-    true_indices = torch.zeros(num_points, device=device)
-    norm_indices[column_indices] = 1
-    true_indices[cluster_indices] = 1
-    true_indices = true_indices.unsqueeze(0).repeat(num_clusters, 1)
-    norm_indices = norm_indices.reshape(true_indices.shape)
-    true_indices = torch.softmax(true_indices, dim=-1)
-    norm_indices = torch.softmax(norm_indices, dim=-1)
-
-    norm_indices = torch.log(norm_indices)
-
-    true_indices = torch.log(true_indices)
-
-    kl_estimate = nn.functional.kl_div(true_indices, norm_indices, reduction="batchmean", log_target=True)
-
-    return cluster_indices, kl_estimate
+    return cluster_indices, kl_loss
 
 
 def compute_inter_cluster_loss(points, centroids, cluster_indices):

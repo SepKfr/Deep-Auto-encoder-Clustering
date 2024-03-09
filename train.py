@@ -39,9 +39,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=32000)
-        parser.add_argument("--max_test_sample", type=int, default=3840)
-        parser.add_argument("--batch_size", type=int, default=256)
+        parser.add_argument("--max_train_sample", type=int, default=32)
+        parser.add_argument("--max_test_sample", type=int, default=32)
+        parser.add_argument("--batch_size", type=int, default=4)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -51,7 +51,7 @@ class Train:
         data_formatter = dataforemater.DataFormatter(args.exp_name)
         # "{}.csv".format(args.exp_name)
 
-        data_path = "{}.csv".format(args.exp_name)
+        data_path = args.data_path
         df = pd.read_csv(data_path, dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
         data = data_formatter.transform_data(df)
