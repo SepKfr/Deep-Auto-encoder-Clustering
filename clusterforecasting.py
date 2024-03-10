@@ -60,7 +60,7 @@ def assign_clusters(points, centroids, rate, device):
     # distances_log_prob = torch.log(torch.softmax(distances, dim=-1))
     # distances_norm_log_prob = torch.log(torch.softmax(distances_norm, dim=-1))
     # kl_loss = nn.functional.kl_div(distances_log_prob, distances_norm_log_prob, reduction="batchmean", log_target=True)
-    kl_loss = 0
+    kl_loss = torch.tensor(0, device=device)
     cluster_indices = torch.argmin(distances, dim=1)
 
     return cluster_indices, kl_loss
