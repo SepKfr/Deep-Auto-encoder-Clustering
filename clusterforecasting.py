@@ -184,10 +184,10 @@ class ClusterForecasting(nn.Module):
         cluster_labels, entropy_loss = assign_clusters(low_dim_data, cluster_centers, self.rate, self.device)
 
         # Compute inter-cluster loss
-        inter_loss = compute_inter_cluster_loss(low_dim_data, cluster_labels, cluster_indices)
+        inter_loss = compute_inter_cluster_loss(low_dim_data, cluster_centers, cluster_labels)
 
         # Compute intra-cluster loss
-        intra_loss = compute_intra_cluster_loss(low_dim_data, cluster_labels, cluster_indices)
+        intra_loss = compute_intra_cluster_loss(low_dim_data, cluster_centers, cluster_labels)
 
         loss = reconstruct_loss + inter_loss + intra_loss
         entropy_loss = torch.tensor(0, device=self.device)
