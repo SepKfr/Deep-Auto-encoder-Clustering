@@ -226,6 +226,7 @@ class Train:
         # Plot the clusters
         for i in range(1, 4):
             cluster_points = cluster_assignments == i
+            print(inputs_to_cluster[cluster_points, 0])
             plt.scatter(inputs_to_cluster[cluster_points, 0], inputs_to_cluster[cluster_points, 1], color=colors[i - 1],
                         label=f'Cluster {i}')
 
