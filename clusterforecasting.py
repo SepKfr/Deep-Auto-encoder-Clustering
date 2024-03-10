@@ -180,16 +180,17 @@ class ClusterForecasting(nn.Module):
         kmeans = KMeans(n_clusters=self.num_clusters, init='random', n_init=10).fit(low_dim_data.detach().cpu().numpy())
         cluster_centers = kmeans.cluster_centers_
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
+        cluster_labels = kmeans.labels_
+        cluster_labels = torch.tensor(cluster_labels, device=self.device)
+        # cluster_labels, entropy_loss = assign_clusters(low_dim_data, cluster_centers, self.rate, self.device)
+        #
+        # # Compute inter-cluster loss
+        # inter_loss = compute_inter_cluster_loss(low_dim_data, cluster_centers, cluster_labels)
+        #
+        # # Compute intra-cluster loss
+        # intra_loss = compute_intra_cluster_loss(low_dim_data, cluster_centers, cluster_labels)
 
-        cluster_labels, entropy_loss = assign_clusters(low_dim_data, cluster_centers, self.rate, self.device)
-
-        # Compute inter-cluster loss
-        inter_loss = compute_inter_cluster_loss(low_dim_data, cluster_centers, cluster_labels)
-
-        # Compute intra-cluster loss
-        intra_loss = compute_intra_cluster_loss(low_dim_data, cluster_centers, cluster_labels)
-
-        loss = reconstruct_loss + inter_loss + intra_loss
+        loss = reconstruct_loss
         entropy_loss = torch.tensor(0, device=self.device)
 
         return loss, entropy_loss, [cluster_labels, low_dim_data]
