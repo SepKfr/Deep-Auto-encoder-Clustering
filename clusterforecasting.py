@@ -8,6 +8,7 @@ import torch.distributions as dist
 from sklearn.decomposition import PCA
 from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
+from sklearn.cluster import KMeans
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)
@@ -55,11 +56,11 @@ def assign_clusters(points, centroids, rate, device):
 
     distances = torch.cdist(points, centroids, p=2)**2  # Shape: (num_points, num_clusters)
     # Assign each point to the cluster with the smallest distance
-    distances_norm = torch.randn_like(distances)
-    distances_log_prob = torch.log(torch.softmax(distances, dim=-1))
-    distances_norm_log_prob = torch.log(torch.softmax(distances_norm, dim=-1))
-    kl_loss = nn.functional.kl_div(distances_log_prob, distances_norm_log_prob, reduction="batchmean", log_target=True)
-
+    # distances_norm = torch.randn_like(distances)
+    # distances_log_prob = torch.log(torch.softmax(distances, dim=-1))
+    # distances_norm_log_prob = torch.log(torch.softmax(distances_norm, dim=-1))
+    # kl_loss = nn.functional.kl_div(distances_log_prob, distances_norm_log_prob, reduction="batchmean", log_target=True)
+    kl_loss = 0
     cluster_indices = torch.argmin(distances, dim=1)
 
     return cluster_indices, kl_loss
@@ -164,6 +165,7 @@ class ClusterForecasting(nn.Module):
         self.nheads = nheads
         self.batch_size = batch_size
         self.d_model = d_model
+        self.num_clusters = num_clusters
 
     def forward(self, x, x_seg, y=None):
 
@@ -175,14 +177,17 @@ class ClusterForecasting(nn.Module):
         reconstruct_loss = torch.nn.L1Loss()(input_to_cluster, reconstruct)
 
         low_dim_data = self.auto_encoder.encoder(input_to_cluster)
+        kmeans = KMeans(n_clusters=self.num_clusters, init='random').fit(low_dim_data.detach().cpu().numpy())
+        cluster_centers = kmeans.cluster_centers_
+        cluster_centers = torch.tensor(cluster_centers, device=self.device)
 
-        cluster_indices, entropy_loss = assign_clusters(low_dim_data, self.cluster_centers, self.rate, self.device)
+        cluster_indices, entropy_loss = assign_clusters(low_dim_data, cluster_centers, self.rate, self.device)
 
         # Compute inter-cluster loss
-        inter_loss = compute_inter_cluster_loss(low_dim_data, self.cluster_centers, cluster_indices)
+        inter_loss = compute_inter_cluster_loss(low_dim_data, cluster_centers, cluster_indices)
 
         # Compute intra-cluster loss
-        intra_loss = compute_intra_cluster_loss(low_dim_data, self.cluster_centers, cluster_indices)
+        intra_loss = compute_intra_cluster_loss(low_dim_data, cluster_centers, cluster_indices)
 
         loss = inter_loss + intra_loss + entropy_loss + reconstruct_loss
 
