@@ -55,7 +55,7 @@ def assign_clusters(points, centroids, rate, device):
 
     distances = torch.cdist(points, centroids, p=2)**2  # Shape: (num_points, num_clusters)
     # Assign each point to the cluster with the smallest distance
-    distances_norm = torch.ones_like(distances)/num_clusters
+    distances_norm = torch.randn_like(distances)
     distances_log_prob = torch.log(torch.softmax(distances, dim=-1))
     distances_norm_log_prob = torch.log(torch.softmax(distances_norm, dim=-1))
     kl_loss = nn.functional.kl_div(distances_log_prob, distances_norm_log_prob, reduction="batchmean", log_target=True)
