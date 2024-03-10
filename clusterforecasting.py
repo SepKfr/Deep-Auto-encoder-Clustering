@@ -124,8 +124,7 @@ class Autoencoder(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, encoding_dim),
-            nn.Sigmoid()
+            nn.Linear(128, encoding_dim)
         )
         self.decoder = nn.Sequential(
             nn.Linear(encoding_dim, 128),
