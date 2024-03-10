@@ -190,6 +190,7 @@ class ClusterForecasting(nn.Module):
         # intra_loss = compute_intra_cluster_loss(low_dim_data, cluster_centers, cluster_indices)
 
         loss = reconstruct_loss
+        entropy_loss = torch.tensor(0, device=self.device)
 
         return loss, entropy_loss, [cluster_indices, low_dim_data]
 
