@@ -177,7 +177,7 @@ class ClusterForecasting(nn.Module):
         reconstruct_loss = torch.nn.L1Loss()(input_to_cluster, reconstruct)
 
         low_dim_data = self.auto_encoder.encoder(input_to_cluster)
-        kmeans = KMeans(n_clusters=self.num_clusters, init='random').fit(low_dim_data.detach().cpu().numpy())
+        kmeans = KMeans(n_clusters=self.num_clusters, init='random', n_init=10).fit(low_dim_data.detach().cpu().numpy())
         cluster_centers = kmeans.cluster_centers_
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
 
