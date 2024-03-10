@@ -39,7 +39,7 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=3200)
+        parser.add_argument("--max_train_sample", type=int, default=3840)
         parser.add_argument("--max_test_sample", type=int, default=512)
         parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
