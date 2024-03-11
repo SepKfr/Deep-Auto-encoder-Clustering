@@ -33,13 +33,13 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="solar")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=10)
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=3840)
+        parser.add_argument("--max_train_sample", type=int, default=3820)
         parser.add_argument("--max_test_sample", type=int, default=512)
         parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
@@ -48,13 +48,13 @@ class Train:
 
         args = parser.parse_args()
 
-        data_formatter = dataforemater.DataFormatter(args.exp_name)
+        self.data_formatter = dataforemater.DataFormatter(args.exp_name)
         # "{}.csv".format(args.exp_name)
 
-        data_path = "{}.csv".format(args.exp_name)
+        data_path = args.data_path
         df = pd.read_csv(data_path, dtype={'date': str})
         df.sort_values(by=["id", "hours_from_start"], inplace=True)
-        data = data_formatter.transform_data(df)
+        data = self.data_formatter.transform_data(df)
 
         self.device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
         print("using {}".format(self.device))
@@ -81,7 +81,7 @@ class Train:
                                             batch_size=args.batch_size,
                                             device=self.device,
                                             data=data,
-                                            target_col=data_formatter.target_column)
+                                            target_col=self.data_formatter.target_column)
 
         self.num_epochs = args.num_epochs
         self.batch_size = args.batch_size

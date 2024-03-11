@@ -104,8 +104,8 @@ class CustomDataLoader:
         ranges = [valid_sampling_locations[i] for i in np.random.choice(
                   len(valid_sampling_locations), max_samples, replace=False)]
 
-        X = torch.zeros(max_samples, self.max_encoder_length+self.pred_len, self.num_features+1)
-        Y = torch.zeros(max_samples, self.pred_len, self.num_features)
+        X = torch.zeros(max_samples, self.total_time_steps, self.num_features+1)
+        Y = torch.zeros(max_samples, self.total_time_steps, self.num_features)
         n_uniques = []
 
         def detect_change_points_distribution_shift(time_series_data, window_size=9):
@@ -179,11 +179,11 @@ class CustomDataLoader:
                 padded_tensor = pad_sequence(tensors, padding_value=0)
 
                 x_list.append(padded_tensor)
-                Y[i] = tensor[-self.pred_len:].unsqueeze(-1)
+                Y[i] = tensor.unsqueeze(-1)
                 X[i] = tensor.unsqueeze(-1)
 
             else:
-                Y[i] = tensor[-self.pred_len:].unsqueeze(-1)
+                Y[i] = tensor.unsqueeze(-1)
                 x_list.append(tensor.unsqueeze(-1))
                 X[i] = tensor.unsqueeze(-1)
 
