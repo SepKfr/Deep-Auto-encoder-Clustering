@@ -119,23 +119,23 @@ def compute_intra_cluster_loss(points, centroids, cluster_indices):
 
 
 class Autoencoder(nn.Module):
-    def __init__(self, input_dim, encoding_dim, output_dim):
+    def __init__(self, input_dim, encoding_dim):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, output_dim)
+            nn.Linear(128, encoding_dim)
         )
-        # self.decoder = nn.Sequential(
-        #     nn.Linear(encoding_dim, 128),
-        #     nn.ReLU(),
-        #     nn.Linear(128, output_dim),
-        # )
+        self.decoder = nn.Sequential(
+            nn.Linear(encoding_dim, 128),
+            nn.ReLU(),
+            nn.Linear(128, input_dim),
+        )
 
     def forward(self, x):
         x_encoded = self.encoder(x)
-        # x_decoded = self.decoder(x_encoded)
-        return x_encoded
+        x_decoded = self.decoder(x_encoded)
+        return x_decoded
 
 
 class ClusterForecasting(nn.Module):
@@ -155,9 +155,9 @@ class ClusterForecasting(nn.Module):
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
-        self.cluster_centers = nn.Parameter(torch.randn((num_clusters, d_model), device=device))
-        self.rate = torch.ones(1, requires_grad=True, device=device)
-        self.auto_encoder = Autoencoder(input_dim=d_model, encoding_dim=d_model, output_dim=2)
+        self.cluster_centers = nn.Parameter(torch.randn((num_clusters, 2), device=device))
+        #self.rate = torch.ones(1, requires_grad=True, device=device)
+        self.auto_encoder = Autoencoder(input_dim=d_model*len_snippets, encoding_dim=2)
         #self.w_loss = nn.Parameter(torch.softmax((torch.randn(3, device=device)), dim=0))
 
         self.pred_len = pred_len
@@ -170,27 +170,30 @@ class ClusterForecasting(nn.Module):
 
         x = self.enc_embedding(x_seg)
         # auto-regressive generative
-        output = self.seq_model(x)[:, -1:, :]
-        input_to_cluster = output.reshape(self.batch_size * x.shape[1], -1)
-        input_to_cluster = self.auto_encoder(input_to_cluster)
+        output = self.seq_model(x)
+
+        output = output.reshape(self.batch_size * x.shape[1], -1)
+
+        reconstruct = self.auto_encoder(output)
+        input_to_cluster = self.auto_encoder.encoder(output)
 
         kmeans = KMeans(n_clusters=self.num_clusters, init='random', n_init=10).fit(input_to_cluster.detach().cpu().numpy())
 
         cluster_centers = kmeans.cluster_centers_
-        # cluster_labels = kmeans.labels_
-        # cluster_labels = torch.tensor(cluster_labels, device=self.device)
+        cluster_labels = kmeans.labels_
+        cluster_labels = torch.tensor(cluster_labels, device=self.device)
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
 
-        cluster_labels, entropy_loss = assign_clusters(input_to_cluster, cluster_centers, self.rate, self.device)
-
-        # Compute inter-cluster loss
-        inter_loss = compute_inter_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
-
-        # Compute intra-cluster loss
-        intra_loss = compute_intra_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
-
-        loss = inter_loss + intra_loss
-        input_to_cluster = (input_to_cluster - input_to_cluster.min())/(input_to_cluster.max() - input_to_cluster.min())
+        # cluster_labels, entropy_loss = assign_clusters(input_to_cluster, cluster_centers, self.rate, self.device)
+        #
+        # # Compute inter-cluster loss
+        # inter_loss = compute_inter_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
+        #
+        # # Compute intra-cluster loss
+        # intra_loss = compute_intra_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
+        entropy_loss = torch.tensor(0, device=self.device)
+        loss = nn.MSELoss()(reconstruct, output)
+        #input_to_cluster = (input_to_cluster - input_to_cluster.min())/(input_to_cluster.max() - input_to_cluster.min())
 
         return loss, entropy_loss, [cluster_labels, input_to_cluster]
 
