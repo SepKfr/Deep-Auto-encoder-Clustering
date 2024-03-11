@@ -171,6 +171,7 @@ class ClusterForecasting(nn.Module):
         x = self.enc_embedding(x_seg)
         # auto-regressive generative
         output = self.seq_model(x)[:, -1:, :]
+        print(output.shape)
 
         input_to_cluster = output.reshape(self.batch_size * x.shape[1], -1)
 
