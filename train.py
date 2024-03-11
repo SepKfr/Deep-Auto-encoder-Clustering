@@ -224,10 +224,9 @@ class Train:
         colors = ['r', 'g', 'b', 'c', 'm']
 
         # Plot the clusters
-        for i in range(1, 4):
+        for i in range(3):
             cluster_points = cluster_assignments == i
-            print(inputs_to_cluster[cluster_points, 0])
-            plt.scatter(inputs_to_cluster[cluster_points, 0], inputs_to_cluster[cluster_points, 1], color=colors[i - 1],
+            plt.scatter(inputs_to_cluster[cluster_points, 0], inputs_to_cluster[cluster_points, 1], color=colors[i],
                         label=f'Cluster {i}')
 
         # Set plot labels and legend
