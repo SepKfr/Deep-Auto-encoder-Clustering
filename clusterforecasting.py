@@ -124,18 +124,18 @@ class Autoencoder(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, encoding_dim)
+            nn.Linear(128, output_dim)
         )
-        self.decoder = nn.Sequential(
-            nn.Linear(encoding_dim, 128),
-            nn.ReLU(),
-            nn.Linear(128, output_dim),
-        )
+        # self.decoder = nn.Sequential(
+        #     nn.Linear(encoding_dim, 128),
+        #     nn.ReLU(),
+        #     nn.Linear(128, output_dim),
+        # )
 
     def forward(self, x):
         x_encoded = self.encoder(x)
-        x_decoded = self.decoder(x_encoded)
-        return x_decoded
+        # x_decoded = self.decoder(x_encoded)
+        return x_encoded
 
 
 class ClusterForecasting(nn.Module):
@@ -157,7 +157,7 @@ class ClusterForecasting(nn.Module):
 
         self.cluster_centers = nn.Parameter(torch.randn((num_clusters, d_model), device=device))
         self.rate = torch.ones(1, requires_grad=True, device=device)
-        self.auto_encoder = Autoencoder(input_dim=d_model, encoding_dim=d_model, output_dim=output_size)
+        self.auto_encoder = Autoencoder(input_dim=d_model, encoding_dim=d_model, output_dim=2)
         #self.w_loss = nn.Parameter(torch.softmax((torch.randn(3, device=device)), dim=0))
 
         self.pred_len = pred_len
@@ -172,35 +172,27 @@ class ClusterForecasting(nn.Module):
         # auto-regressive generative
         output = self.seq_model(x)[:, -1:, :]
         input_to_cluster = output.reshape(self.batch_size * x.shape[1], -1)
-
-        x_to_auto = output.reshape(self.batch_size * x_seg.shape[1], -1)
-
-        x_seg = x_seg.reshape(self.batch_size * x_seg.shape[1], -1).mean(-1).unsqueeze(-1)
-
-        reconstruct = self.auto_encoder(x_to_auto)
-
-        reconstruct_loss = torch.nn.L1Loss()(reconstruct, x_seg)
-
-        input_to_cluster = self.auto_encoder.encoder(input_to_cluster)
+        input_to_cluster = self.auto_encoder(input_to_cluster)
 
         kmeans = KMeans(n_clusters=self.num_clusters, init='random', n_init=10).fit(input_to_cluster.detach().cpu().numpy())
 
-        cluster_labels = kmeans.labels_
-        cluster_labels = torch.tensor(cluster_labels, device=self.device)
-        # cluster_labels, entropy_loss = assign_clusters(low_dim_data, cluster_centers, self.rate, self.device)
-        #
-        # # Compute inter-cluster loss
-        # inter_loss = compute_inter_cluster_loss(low_dim_data, cluster_centers, cluster_labels)
-        #
-        # # Compute intra-cluster loss
-        # intra_loss = compute_intra_cluster_loss(low_dim_data, cluster_centers, cluster_labels)
+        cluster_centers = kmeans.cluster_centers_
+        # cluster_labels = kmeans.labels_
+        # cluster_labels = torch.tensor(cluster_labels, device=self.device)
+        cluster_centers = torch.tensor(cluster_centers, device=self.device)
 
-        loss = reconstruct_loss
-        entropy_loss = torch.tensor(0, device=self.device)
-        low_dim_output = torch.cat([reconstruct, x_seg], dim=-1)
-        low_dim_output = (low_dim_output - low_dim_output.min())/(low_dim_output.max() - low_dim_output.min())
+        cluster_labels, entropy_loss = assign_clusters(input_to_cluster, cluster_centers, self.rate, self.device)
 
-        return loss, entropy_loss, [cluster_labels, low_dim_output]
+        # Compute inter-cluster loss
+        inter_loss = compute_inter_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
+
+        # Compute intra-cluster loss
+        intra_loss = compute_intra_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
+
+        loss = inter_loss + intra_loss
+        input_to_cluster = (input_to_cluster - input_to_cluster.min())/(input_to_cluster.max() - input_to_cluster.min())
+
+        return loss, entropy_loss, [cluster_labels, input_to_cluster]
 
         # enc_output, mean, log_var = self.encoder(x)
         #
