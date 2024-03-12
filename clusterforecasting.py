@@ -169,11 +169,11 @@ class ClusterForecasting(nn.Module):
 
     def forward(self, x, y=None):
 
-        x = self.enc_embedding(x)
+        x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output = self.seq_model(x)
+        output = self.seq_model(x_enc)
 
-        output = output.reshape(self.batch_size * x.shape[1], -1)
+        output = output.reshape(self.batch_size * x_enc.shape[1], -1)
 
         reconstruct = self.auto_encoder(output).reshape(x.shape)
         input_to_cluster = self.auto_encoder.encoder(output)
