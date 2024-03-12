@@ -232,7 +232,7 @@ class Train:
 
         for x, test_y in self.data_loader.test_loader:
 
-            _, _, outputs = self.best_forecasting_model(x=x.to(self.device))
+            _, _, outputs = self.best_forecasting_model(x=x.to(self.device), y=test_y)
             cluster_assignments.append(outputs[0])
             true_clusters.append(test_y)
             inputs_to_cluster.append(outputs[1])
