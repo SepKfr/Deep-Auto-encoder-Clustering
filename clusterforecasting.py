@@ -194,7 +194,7 @@ class ClusterForecasting(nn.Module):
         # # Compute intra-cluster loss
         # intra_loss = compute_intra_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
         loss = nn.MSELoss()(reconstruct, x)
-        adj_rand_index = AdjustedRandScore()(cluster_labels, y)
+        adj_rand_index = AdjustedRandScore()(cluster_labels.to(torch.long), y.to(torch.long))
         #input_to_cluster = (input_to_cluster - input_to_cluster.min())/(input_to_cluster.max() - input_to_cluster.min())
 
         return loss, adj_rand_index, [cluster_labels, input_to_cluster]
