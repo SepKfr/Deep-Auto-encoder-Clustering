@@ -212,7 +212,7 @@ class Train:
 
             if epoch % 5 == 0:
                 print("train MSE loss: {:.3f}, train adj loss: {:.3f} epoch: {}".format(train_mse_loss, train_adj_loss, epoch))
-                print("valid MSE loss: {:.3f}, valid adj loss: {:.3f} epoch: {}".format(valid_mse_loss, valid_adj_loss, epoch))
+                print("valid MSE loss: {:.3f}, valid adj loss: {:.3f} epoch: {}".format(valid_loss, valid_adj_loss, epoch))
 
         return best_trial_valid_loss
 
