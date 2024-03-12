@@ -211,8 +211,12 @@ class Train:
                                                 "{}_forecast.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
-                print("train MSE loss: {:.3f}, train adj loss: {:.3f} epoch: {}".format(train_mse_loss, train_adj_loss, epoch))
-                print("valid MSE loss: {:.3f}, valid adj loss: {:.3f} epoch: {}".format(valid_loss, valid_adj_loss, epoch))
+                print("train MSE loss: {:.3f}, train adj loss: "
+                      "{:.3f} epoch: {}".format(train_mse_loss/len(self.data_loader.train_loader),
+                                                train_adj_loss/len(self.data_loader.train_loader), epoch))
+                print("valid MSE loss: {:.3f}, valid adj loss: "
+                      "{:.3f} epoch: {}".format(valid_loss/len(self.data_loader.valid_loader),
+                                                valid_adj_loss/len(self.data_loader.valid_loader), epoch))
 
         return best_trial_valid_loss
 
