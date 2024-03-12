@@ -183,6 +183,7 @@ class ClusterForecasting(nn.Module):
         cluster_centers = kmeans.cluster_centers_
         cluster_labels = kmeans.labels_
         cluster_labels = torch.tensor(cluster_labels, device=self.device)
+        y = y.reshape(cluster_labels.shape)
         cluster_centers = torch.tensor(cluster_centers, device=self.device)
 
         # cluster_labels, entropy_loss = assign_clusters(input_to_cluster, cluster_centers, self.rate, self.device)
