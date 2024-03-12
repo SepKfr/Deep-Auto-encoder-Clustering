@@ -175,7 +175,7 @@ class ClusterForecasting(nn.Module):
 
         output = output.reshape(self.batch_size * x.shape[1], -1)
 
-        reconstruct = self.auto_encoder(output)
+        reconstruct = self.auto_encoder(output).reshape(x.shape)
         input_to_cluster = self.auto_encoder.encoder(output)
 
         kmeans = KMeans(n_clusters=self.num_clusters, init='random', n_init=10).fit(input_to_cluster.detach().cpu().numpy())
