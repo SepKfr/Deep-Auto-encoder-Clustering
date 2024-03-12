@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 from sklearn.cluster import KMeans
+from torchmetrics.clustering import AdjustedRandScore
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)
@@ -119,7 +120,7 @@ def compute_intra_cluster_loss(points, centroids, cluster_indices):
 
 
 class Autoencoder(nn.Module):
-    def __init__(self, input_dim, encoding_dim):
+    def __init__(self, input_dim, encoding_dim, out_dim):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 128),
@@ -129,7 +130,7 @@ class Autoencoder(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(encoding_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, input_dim),
+            nn.Linear(128, out_dim),
         )
 
     def forward(self, x):
@@ -143,7 +144,7 @@ class ClusterForecasting(nn.Module):
     def __init__(self, input_size, output_size, len_snippets,
                  d_model, nheads,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size, num_clusters=3):
+                 device, pred_len, batch_size, n_clusters):
 
         super(ClusterForecasting, self).__init__()
 
@@ -155,20 +156,20 @@ class ClusterForecasting(nn.Module):
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
-        self.cluster_centers = nn.Parameter(torch.randn((num_clusters, 2), device=device))
+        self.cluster_centers = nn.Parameter(torch.randn((n_clusters, 2), device=device))
         #self.rate = torch.ones(1, requires_grad=True, device=device)
-        self.auto_encoder = Autoencoder(input_dim=d_model*len_snippets, encoding_dim=2)
+        self.auto_encoder = Autoencoder(input_dim=d_model*len_snippets, encoding_dim=2, out_dim=output_size)
         #self.w_loss = nn.Parameter(torch.softmax((torch.randn(3, device=device)), dim=0))
 
         self.pred_len = pred_len
         self.nheads = nheads
         self.batch_size = batch_size
         self.d_model = d_model
-        self.num_clusters = num_clusters
+        self.num_clusters = n_clusters
 
-    def forward(self, x, x_seg, y=None):
+    def forward(self, x, y=None):
 
-        x = self.enc_embedding(x_seg)
+        x = self.enc_embedding(x)
         # auto-regressive generative
         output = self.seq_model(x)
 
@@ -191,11 +192,11 @@ class ClusterForecasting(nn.Module):
         #
         # # Compute intra-cluster loss
         # intra_loss = compute_intra_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
-        entropy_loss = torch.tensor(0, device=self.device)
-        loss = nn.MSELoss()(reconstruct, output)
+        loss = nn.MSELoss()(reconstruct, x)
+        adj_rand_index = AdjustedRandScore()(cluster_labels, y)
         #input_to_cluster = (input_to_cluster - input_to_cluster.min())/(input_to_cluster.max() - input_to_cluster.min())
 
-        return loss, entropy_loss, [cluster_labels, input_to_cluster]
+        return loss, adj_rand_index, [cluster_labels, input_to_cluster]
 
         # enc_output, mean, log_var = self.encoder(x)
         #

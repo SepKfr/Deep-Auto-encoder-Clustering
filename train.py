@@ -2,7 +2,7 @@ import argparse
 import os
 from itertools import product
 import random
-
+from torchmetrics.clustering import AdjustedRandScore
 import matplotlib.pyplot as plt
 import optuna
 from torch import nn
@@ -18,6 +18,7 @@ from GMM import GmmFull, GmmDiagonal
 from clusterforecasting import ClusterForecasting
 from forecasting import Forecasting
 from data_loader import CustomDataLoader
+from data_loader_userid import UserDataLoader
 from Kmeans import TrainableKMeans
 from transformers import Adafactor
 from transformers.optimization import AdafactorSchedule
@@ -31,7 +32,7 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="solar")
+        parser.add_argument("--exp_name", type=str, default="User_id")
         parser.add_argument("--model_name", type=str, default="basic_attn")
         parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
@@ -39,22 +40,28 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=1024)
-        parser.add_argument("--max_test_sample", type=int, default=32)
-        parser.add_argument("--batch_size", type=int, default=32)
-        parser.add_argument("--data_path", type=str, default='~/research/Corruption-resilient-Forecasting-Models/solar.csv')
+        parser.add_argument("--max_train_sample", type=int, default=3840)
+        parser.add_argument("--max_test_sample", type=int, default=512)
+        parser.add_argument("--batch_size", type=int, default=256)
+        parser.add_argument("--data_path", type=str, default='User_id.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
 
         args = parser.parse_args()
+        self.exp_name = args.exp_name
 
-        self.data_formatter = dataforemater.DataFormatter(args.exp_name)
-        # "{}.csv".format(args.exp_name)
+        if self.exp_name == "User_id":
+            data_path = "{}.csv".format(args.exp_name)
+            data = pd.read_csv(data_path)
+            data.sort_values(by=["id", "time"], inplace=True)
+        else:
+            self.data_formatter = dataforemater.DataFormatter(args.exp_name)
+            # "{}.csv".format(args.exp_name)
 
-        data_path = "{}.csv".format(args.exp_name)
-        df = pd.read_csv(data_path, dtype={'date': str})
-        df.sort_values(by=["id", "hours_from_start"], inplace=True)
-        data = self.data_formatter.transform_data(df)
+            data_path = "{}.csv".format(args.exp_name)
+            df = pd.read_csv(data_path, dtype={'date': str})
+            df.sort_values(by=["id", "hours_from_start"], inplace=True)
+            data = self.data_formatter.transform_data(df)
 
         self.device = torch.device(args.cuda if torch.cuda.is_available() else "cpu")
         print("using {}".format(self.device))
@@ -72,16 +79,26 @@ class Train:
         self.model_path = model_dir
         self.cluster = args.cluster
 
-        # Data loader configuration (replace with your own dataloader)
-        self.data_loader = CustomDataLoader(real_inputs=[],
-                                            max_encoder_length=args.max_encoder_length,
-                                            pred_len=self.pred_len,
-                                            max_train_sample=args.max_train_sample,
-                                            max_test_sample=args.max_test_sample,
-                                            batch_size=args.batch_size,
-                                            device=self.device,
-                                            data=data,
-                                            target_col=self.data_formatter.target_column)
+        if self.exp_name == "User_id":
+            self.data_loader = UserDataLoader(real_inputs=["time", "x", "y", "z"],
+                                              max_encoder_length=args.max_encoder_length,
+                                              max_train_sample=args.max_train_sample,
+                                              max_test_sample=args.max_test_sample,
+                                              batch_size=args.batch_size,
+                                              device=self.device,
+                                              data=data,
+                                              target_col="id")
+        else:
+            # Data loader configuration (replace with your own dataloader)
+            self.data_loader = CustomDataLoader(real_inputs=[],
+                                                max_encoder_length=args.max_encoder_length,
+                                                pred_len=self.pred_len,
+                                                max_train_sample=args.max_train_sample,
+                                                max_test_sample=args.max_test_sample,
+                                                batch_size=args.batch_size,
+                                                device=self.device,
+                                                data=data,
+                                                target_col=self.data_formatter.target_column)
 
         self.num_epochs = args.num_epochs
         self.batch_size = args.batch_size
@@ -131,7 +148,8 @@ class Train:
         if self.cluster == "yes":
             model = ClusterForecasting(input_size=self.data_loader.input_size,
                                        output_size=self.data_loader.output_size,
-                                       len_snippets=self.data_loader.len_snippets,
+                                       len_snippets=1,
+                                       n_clusters=22,
                                        d_model=d_model,
                                        nheads=8,
                                        num_layers=num_layers,
@@ -160,31 +178,31 @@ class Train:
 
             model.train()
             train_mse_loss = 0
-            train_kl_loss = 0
+            train_adj_loss = 0
 
-            for x, x_seg, y in self.data_loader.train_loader:
+            for x, y in self.data_loader.train_loader:
 
-                loss, kl_loss, _ = model(x.to(self.device), x_seg.to(self.device), y.to(self.device))
+                loss, adj_loss, _ = model(x.to(self.device), y.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
                 forecast_optimizer.step()
                 scheduler.step()
                 train_mse_loss += loss.item()
-                train_kl_loss += kl_loss.item()
+                train_adj_loss += adj_loss.item()
 
             model.eval()
             valid_loss = 0
-            valid_kl_loss = 0
+            valid_adj_loss = 0
 
-            for x, x_seg, valid_y in self.data_loader.valid_loader:
+            for x, valid_y in self.data_loader.valid_loader:
 
-                loss, kl_loss, _ = model(x.to(self.device), x_seg.to(self.device), valid_y.to(self.device))
+                loss, adj_loss, _ = model(x.to(self.device), valid_y.to(self.device))
                 valid_loss += loss.item()
-                valid_kl_loss += kl_loss.item()
+                valid_adj_loss += adj_loss.item()
 
-                if valid_loss < best_trial_valid_loss:
-                    best_trial_valid_loss = valid_loss
+                if valid_adj_loss < best_trial_valid_loss:
+                    best_trial_valid_loss = valid_adj_loss
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
                         self.best_forecasting_model = model
@@ -193,9 +211,8 @@ class Train:
                                                 "{}_forecast.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
-                print(
-                    "train MSE loss: {:.3f}, train KL loss: {:.3f} epoch: {}".format(train_mse_loss, train_kl_loss, epoch))
-                print("valid MSE loss: {:.3f}, valid KL loss: {:.3f}".format(valid_loss, valid_kl_loss))
+                print("train MSE loss: {:.3f}, train adj loss: {:.3f} epoch: {}".format(train_mse_loss, train_adj_loss, epoch))
+                print("valid MSE loss: {:.3f}, valid adj loss: {:.3f} epoch: {}".format(valid_mse_loss, valid_adj_loss, epoch))
 
         return best_trial_valid_loss
 
@@ -210,29 +227,38 @@ class Train:
         self.best_forecasting_model.eval()
 
         cluster_assignments = []
+        true_clusters = []
         inputs_to_cluster = []
 
-        for x, x_seg, test_y in self.data_loader.test_loader:
+        for x, test_y in self.data_loader.test_loader:
 
-            _, _, outputs = self.best_forecasting_model(x=x.to(self.device), x_seg=x_seg.to(self.device))
+            _, _, outputs = self.best_forecasting_model(x=x.to(self.device))
             cluster_assignments.append(outputs[0])
+            true_clusters.append(test_y)
             inputs_to_cluster.append(outputs[1])
 
-        cluster_assignments = torch.cat(cluster_assignments, dim=0).detach().cpu().numpy()
+        cluster_assignments = torch.cat(cluster_assignments, dim=0).to(torch.long)
+        true_clusters = torch.cat(true_clusters, dim=0).reshape(cluster_assignments.shape).to(torch.long)
         inputs_to_cluster = torch.cat(inputs_to_cluster, dim=0).detach().cpu().numpy()
+        adj = AdjustedRandScore()
+        adjusted_rand_index = adj(true_clusters, cluster_assignments)
+        print("adjusted rand index: {:.3f}".format(adjusted_rand_index))
 
-        colors = ['r', 'g', 'b', 'c', 'm']
-
+        colors = np.random.rand(6, 3)
+        # check out 100
+        cluster_to_plot = cluster_assignments[:500]
+        inputs_to_plot = inputs_to_cluster[:500]
         # Plot the clusters
-        for i in range(3):
-            cluster_points = cluster_assignments == i
-            plt.scatter(inputs_to_cluster[cluster_points, 0], inputs_to_cluster[cluster_points, 1], color=colors[i],
+        for i in range(6):
+            cluster_points = cluster_to_plot == i
+            plt.scatter(inputs_to_plot[cluster_points, 0], inputs_to_plot[cluster_points, 1], color=colors[i],
                         label=f'Cluster {i}')
 
         # Set plot labels and legend
         plt.title('Clustering Assignments')
         plt.xlabel('Dimension 1')
         plt.ylabel('Dimension 2')
+        plt.tight_layout()
         plt.legend()
         plt.savefig("cluster_assignments_{}.pdf".format(self.exp_name))
 

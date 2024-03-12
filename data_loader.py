@@ -28,7 +28,6 @@ class CustomDataLoader:
         self.max_train_sample = max_train_sample * batch_size
         self.max_test_sample = max_test_sample * batch_size
         self.batch_size = batch_size
-        seed = 1234
         torch.manual_seed(seed)
         random.seed(seed)
         np.random.seed(seed)

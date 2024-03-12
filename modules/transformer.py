@@ -139,7 +139,7 @@ class Transformer(nn.Module):
 
         batch_size = inputs.shape[0]
 
-        x = torch.split(inputs, split_size_or_sections=int(inputs.shape[2] / 2), dim=2)
+        x = torch.split(inputs, split_size_or_sections=int(inputs.shape[1] / 2), dim=1)
 
         enc_input = x[0]
         dec_input = x[1]
