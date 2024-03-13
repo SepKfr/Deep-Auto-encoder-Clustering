@@ -178,13 +178,22 @@ class ClusterForecasting(nn.Module):
         reconstruct = self.auto_encoder(output).reshape(x.shape)
         input_to_cluster = self.auto_encoder.encoder(output)
 
+        # initialize centroids
         kmeans = KMeans(n_clusters=self.num_clusters, init='random', n_init=10).fit(input_to_cluster.detach().cpu().numpy())
 
         cluster_centers = kmeans.cluster_centers_
+        cluster_centers = torch.tensor(cluster_centers, device=self.device)
+        diff = input_to_cluster.unsqueeze(1) - cluster_centers.unsqueeze(0)
+
+        dist = - torch.einsum('bkj,bkj-> bk', diff, diff)
+        dist = torch.softmax(dist, dim=-1)
+
+        cluster_centers_updated = torch.einsum('bc, bd->cd', dist, input_to_cluster)
+
         cluster_labels = kmeans.labels_
         cluster_labels = torch.tensor(cluster_labels, device=self.device)
         y = y.reshape(cluster_labels.shape)
-        cluster_centers = torch.tensor(cluster_centers, device=self.device)
+
 
         # cluster_labels, entropy_loss = assign_clusters(input_to_cluster, cluster_centers, self.rate, self.device)
         #
@@ -193,7 +202,7 @@ class ClusterForecasting(nn.Module):
         #
         # # Compute intra-cluster loss
         # intra_loss = compute_intra_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
-        loss = nn.MSELoss()(reconstruct, x)
+        loss = nn.MSELoss()(reconstruct, x) + nn.MSELoss()(cluster_centers, cluster_centers_updated)
         adj_rand_index = AdjustedRandScore()(cluster_labels.to(torch.long), y.to(torch.long))
         #input_to_cluster = (input_to_cluster - input_to_cluster.min())/(input_to_cluster.max() - input_to_cluster.min())
 
