@@ -120,7 +120,7 @@ def compute_intra_cluster_loss(points, centroids, cluster_indices):
 
 
 class Autoencoder(nn.Module):
-    def __init__(self, input_dim, encoding_dim, out_dim):
+    def __init__(self, input_dim, encoding_dim):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, 128),
@@ -130,7 +130,7 @@ class Autoencoder(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(encoding_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, out_dim),
+            nn.Linear(128, encoding_dim),
         )
 
     def forward(self, x):
@@ -156,9 +156,9 @@ class ClusterForecasting(nn.Module):
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
-        self.cluster_centers = nn.Parameter(torch.randn((n_clusters, 2), device=device))
+        self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
         #self.rate = torch.ones(1, requires_grad=True, device=device)
-        self.auto_encoder = Autoencoder(input_dim=d_model*len_snippets, encoding_dim=2, out_dim=input_size)
+        self.auto_encoder = Autoencoder(input_dim=d_model*len_snippets, encoding_dim=input_size)
         #self.w_loss = nn.Parameter(torch.softmax((torch.randn(3, device=device)), dim=0))
 
         self.pred_len = pred_len
@@ -167,7 +167,7 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.num_clusters = n_clusters
 
-    def forward(self, x, y=None):
+    def forward(self, x, y, centroids):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
@@ -175,60 +175,19 @@ class ClusterForecasting(nn.Module):
 
         output = output.reshape(self.batch_size * x_enc.shape[1], -1)
 
-        reconstruct = self.auto_encoder(output).reshape(x.shape)
-        input_to_cluster = self.auto_encoder.encoder(output)
+        input_to_cluster = self.auto_encoder(output)
 
-        # initialize centroids
-        kmeans = KMeans(n_clusters=self.num_clusters, init='random', n_init=10).fit(input_to_cluster.detach().cpu().numpy())
-
-        cluster_centers = kmeans.cluster_centers_
-        cluster_centers = torch.tensor(cluster_centers, device=self.device)
-        diff = input_to_cluster.unsqueeze(1) - cluster_centers.unsqueeze(0)
+        diff = input_to_cluster.unsqueeze(1) - centroids.unsqueeze(0)
 
         dist = - torch.einsum('bkj,bkj-> bk', diff, diff)
         dist = torch.softmax(dist, dim=-1)
 
         cluster_centers_updated = torch.einsum('bc, bd->cd', dist, input_to_cluster)
 
-        cluster_labels = kmeans.labels_
-        cluster_labels = torch.tensor(cluster_labels, device=self.device)
+        cluster_labels = torch.argmin(dist, dim=-1)
         y = y.reshape(cluster_labels.shape)
 
-
-        # cluster_labels, entropy_loss = assign_clusters(input_to_cluster, cluster_centers, self.rate, self.device)
-        #
-        # # Compute inter-cluster loss
-        # inter_loss = compute_inter_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
-        #
-        # # Compute intra-cluster loss
-        # intra_loss = compute_intra_cluster_loss(input_to_cluster, cluster_centers, cluster_labels)
-        loss = nn.MSELoss()(reconstruct, x) + nn.MSELoss()(cluster_centers, cluster_centers_updated)
+        loss = nn.MSELoss()(centroids, cluster_centers_updated)
         adj_rand_index = AdjustedRandScore()(cluster_labels.to(torch.long), y.to(torch.long))
-        #input_to_cluster = (input_to_cluster - input_to_cluster.min())/(input_to_cluster.max() - input_to_cluster.min())
 
-        return loss, adj_rand_index, [cluster_labels, input_to_cluster]
-
-        # enc_output, mean, log_var = self.encoder(x)
-        #
-        # dec_output_cp = self.decoder(enc_output)
-        #
-        # final_out = self.fc_dec(enc_output)[:, -self.pred_len:, :]
-        #
-        # if y is not None:
-        #
-        #     output_cp = dec_output_cp.permute(0, 2, 1)
-        #
-        #     loss_cp = nn.CrossEntropyLoss()(output_cp, x_silver_standard)
-        #
-        #     kl_divergence = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
-        #
-        #     cp_loss_total = loss_cp + torch.clip(self.w[0], min=0, max=0.01) * kl_divergence
-        #
-        #     mse_loss = nn.MSELoss()(y, final_out)
-        #
-        #     if self.training:
-        #         loss_total = mse_loss + torch.clip(self.w[1], min=0, max=0.01) * cp_loss_total
-        #     else:
-        #         loss_total = mse_loss
-        #
-        # return final_out, loss_total
+        return loss, adj_rand_index, cluster_centers_updated, [cluster_labels, input_to_cluster]

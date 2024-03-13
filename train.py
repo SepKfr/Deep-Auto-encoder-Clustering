@@ -22,6 +22,8 @@ from data_loader_userid import UserDataLoader
 from Kmeans import TrainableKMeans
 from transformers import Adafactor
 from transformers.optimization import AdafactorSchedule
+from sklearn.cluster import KMeans
+from sklearn.manifold import TSNE
 
 torch.manual_seed(1234)
 np.random.seed(1234)
@@ -34,7 +36,7 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="User_id")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=1)
+        parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
@@ -78,6 +80,7 @@ class Train:
         self.model_name = "{}_{}_{}".format(args.model_name, args.exp_name, self.pred_len)
         self.model_path = model_dir
         self.cluster = args.cluster
+        self.best_centroids = None
 
         if self.exp_name == "User_id":
             self.data_loader = UserDataLoader(real_inputs=["time", "x", "y", "z"],
@@ -137,6 +140,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
+        num_clusters = 22
 
         tup_params = [d_model, num_layers]
 
@@ -149,7 +153,7 @@ class Train:
             model = ClusterForecasting(input_size=self.data_loader.input_size,
                                        output_size=self.data_loader.output_size,
                                        len_snippets=1,
-                                       n_clusters=22,
+                                       n_clusters=num_clusters,
                                        d_model=d_model,
                                        nheads=8,
                                        num_layers=num_layers,
@@ -173,7 +177,18 @@ class Train:
         forecast_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(forecast_optimizer, self.num_iteration)
 
+        # for initialization
+        x_init, _ = next(iter(self.data_loader.train_loader))
+
+        x_to_kmeans = x_init.reshape(-1, self.data_loader.input_size)
+        k_means = KMeans(n_clusters=num_clusters, init='random',
+                         n_init=10).fit(x_to_kmeans.detach().numpy())
+        centroids = k_means.cluster_centers_
+        centroids = torch.from_numpy(centroids).to(self.device)
+        first_iter = True
+
         best_trial_valid_loss = 1e10
+
         for epoch in range(self.num_epochs):
 
             model.train()
@@ -182,7 +197,11 @@ class Train:
 
             for x, y in self.data_loader.train_loader:
 
-                loss, adj_loss, _ = model(x.to(self.device), y.to(self.device))
+                if not first_iter:
+                    centroids = centroids.detach()
+                else:
+                    first_iter = False
+                loss, adj_loss, centroids, _ = model(x.to(self.device), y.to(self.device), centroids)
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
@@ -197,7 +216,7 @@ class Train:
 
             for x, valid_y in self.data_loader.valid_loader:
 
-                loss, adj_loss, _ = model(x.to(self.device), valid_y.to(self.device))
+                loss, adj_loss, centroids, _ = model(x.to(self.device), valid_y.to(self.device), centroids)
                 valid_loss += loss.item()
                 valid_adj_loss += adj_loss.item()
 
@@ -209,6 +228,7 @@ class Train:
                         torch.save(self.best_forecasting_model.state_dict(),
                                    os.path.join(self.model_path,
                                                 "{}_forecast.pth".format(self.model_name)))
+                        self.best_centroids = centroids
 
             if epoch % 5 == 0:
                 print("train MSE loss: {:.3f}, train adj loss: "
@@ -236,7 +256,7 @@ class Train:
 
         for x, test_y in self.data_loader.test_loader:
 
-            _, _, outputs = self.best_forecasting_model(x=x.to(self.device), y=test_y)
+            _, _, _, outputs = self.best_forecasting_model(x.to(self.device), test_y, self.best_centroids)
             cluster_assignments.append(outputs[0])
             true_clusters.append(test_y)
             inputs_to_cluster.append(outputs[1])
@@ -244,18 +264,21 @@ class Train:
         cluster_assignments = torch.cat(cluster_assignments, dim=0).to(torch.long)
         true_clusters = torch.cat(true_clusters, dim=0).reshape(cluster_assignments.shape).to(torch.long)
         inputs_to_cluster = torch.cat(inputs_to_cluster, dim=0).detach().cpu().numpy()
+        tsne = TSNE(n_components=2)
+        X_embedded = tsne.fit_transform(inputs_to_cluster)
         adj = AdjustedRandScore()
         adjusted_rand_index = adj(true_clusters, cluster_assignments)
         print("adjusted rand index: {:.3f}".format(adjusted_rand_index))
 
-        colors = np.random.rand(6, 3)
+        colors = np.random.rand(10, 3)
         # check out 100
         cluster_to_plot = cluster_assignments[:500]
-        inputs_to_plot = inputs_to_cluster[:500]
+        X_embedded = X_embedded[:500]
+
         # Plot the clusters
-        for i in range(6):
+        for i in range(10):
             cluster_points = cluster_to_plot == i
-            plt.scatter(inputs_to_plot[cluster_points, 0], inputs_to_plot[cluster_points, 1], color=colors[i],
+            plt.scatter(X_embedded[cluster_points, 0], X_embedded[cluster_points, 1], color=colors[i],
                         label=f'Cluster {i}')
 
         # Set plot labels and legend
