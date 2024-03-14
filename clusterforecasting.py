@@ -179,17 +179,17 @@ class ClusterForecasting(nn.Module):
         dist = torch.einsum('lbcd,lbcd-> lbc', diff, diff)
         dist_softmax = torch.softmax(-dist, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
+        k_nearest = k_nearest[0, :, :]
 
         y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).squeeze(-1)
-        y_c = y_c.permute(2, 0, 1)
-        labels = y_c[torch.arange(y_c.shape[0])[:, None, None],
-                     torch.arange(self.batch_size)[None, :, None], k_nearest]
-        dist_knn = dist[torch.arange(y_c.shape[0])[:, None, None],
-                        torch.arange(self.batch_size)[None, :, None], k_nearest]
+        y_c = y_c.permute(2, 0, 1)[0, :, :]
+
+        labels = y_c[torch.arange(self.batch_size)[None, :, None], k_nearest]
+        dist_knn = dist[torch.arange(self.batch_size)[None, :, None], k_nearest]
 
         assigned_labels = torch.mode(labels, dim=-1).values
         assigned_labels = assigned_labels.reshape(-1)
-        y = y.permute(1, 0, 2).reshape(-1)
+        y = y[:, :1, :].reshape(-1)
 
         loss = dist_knn.sum()
 
