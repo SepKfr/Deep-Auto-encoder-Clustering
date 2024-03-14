@@ -157,9 +157,7 @@ class ClusterForecasting(nn.Module):
                                      attn_type=attn_type, seed=seed, device=device)
 
         self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
-        #self.rate = torch.ones(1, requires_grad=True, device=device)
-        self.auto_encoder = Autoencoder(input_dim=d_model*len_snippets, encoding_dim=input_size)
-        #self.w_loss = nn.Parameter(torch.softmax((torch.randn(3, device=device)), dim=0))
+        self.auto_encoder = Autoencoder(input_dim=d_model, encoding_dim=d_model)
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -167,27 +165,34 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.num_clusters = n_clusters
 
-    def forward(self, x, y, centroids):
+    def forward(self, x, y):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
         output = self.seq_model(x_enc)
 
-        output = output.reshape(self.batch_size * x_enc.shape[1], -1)
-
         input_to_cluster = self.auto_encoder(output)
 
-        diff = input_to_cluster.unsqueeze(1) - centroids.unsqueeze(0)
+        diff = input_to_cluster.unsqueeze(1) - input_to_cluster.unsqueeze(0)
+        diff = diff.permute(2, 0, 1, 3)
 
-        dist = - torch.einsum('bkj,bkj-> bk', diff, diff)
-        dist = torch.softmax(dist, dim=-1)
+        dist = torch.einsum('lbcd,lbcd-> lbc', diff, diff)
+        dist_softmax = torch.softmax(-dist, dim=-1)
+        _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
-        cluster_centers_updated = torch.einsum('bc, bd->cd', dist, input_to_cluster)
+        y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).squeeze(-1)
+        y_c = y_c.permute(2, 0, 1)
+        labels = y_c[torch.arange(y_c.shape[0])[:, None, None],
+                     torch.arange(self.batch_size)[None, :, None], k_nearest]
+        dist_knn = dist[torch.arange(y_c.shape[0])[:, None, None],
+                        torch.arange(self.batch_size)[None, :, None], k_nearest]
 
-        cluster_labels = torch.argmin(dist, dim=-1)
-        y = y.reshape(cluster_labels.shape)
+        assigned_labels = torch.mode(labels, dim=-1).values
+        assigned_labels = assigned_labels.reshape(-1)
+        y = y.permute(1, 0, 2).reshape(-1)
 
-        loss = nn.MSELoss()(centroids, cluster_centers_updated)
-        adj_rand_index = AdjustedRandScore()(cluster_labels.to(torch.long), y.to(torch.long))
+        loss = dist_knn.sum()
 
-        return loss, adj_rand_index, cluster_centers_updated, [cluster_labels, input_to_cluster]
+        adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+
+        return loss, adj_rand_index, [assigned_labels, input_to_cluster]

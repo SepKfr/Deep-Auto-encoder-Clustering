@@ -177,16 +177,6 @@ class Train:
         forecast_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(forecast_optimizer, self.num_iteration)
 
-        # for initialization
-        x_init, _ = next(iter(self.data_loader.train_loader))
-
-        x_to_kmeans = x_init.reshape(-1, self.data_loader.input_size)
-        k_means = KMeans(n_clusters=num_clusters, init='random',
-                         n_init=10).fit(x_to_kmeans.detach().numpy())
-        centroids = k_means.cluster_centers_
-        centroids = torch.from_numpy(centroids).to(self.device)
-        first_iter = True
-
         best_trial_valid_loss = 1e10
 
         for epoch in range(self.num_epochs):
@@ -197,11 +187,7 @@ class Train:
 
             for x, y in self.data_loader.train_loader:
 
-                if not first_iter:
-                    centroids = centroids.detach()
-                else:
-                    first_iter = False
-                loss, adj_loss, centroids, _ = model(x.to(self.device), y.to(self.device), centroids)
+                loss, adj_loss, _ = model(x.to(self.device), y.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
@@ -213,10 +199,9 @@ class Train:
             model.eval()
             valid_loss = 0
             valid_adj_loss = 0
-
             for x, valid_y in self.data_loader.valid_loader:
 
-                loss, adj_loss, centroids, _ = model(x.to(self.device), valid_y.to(self.device), centroids)
+                loss, adj_loss, _ = model(x.to(self.device), valid_y.to(self.device))
                 valid_loss += loss.item()
                 valid_adj_loss += adj_loss.item()
 
@@ -228,7 +213,6 @@ class Train:
                         torch.save(self.best_forecasting_model.state_dict(),
                                    os.path.join(self.model_path,
                                                 "{}_forecast.pth".format(self.model_name)))
-                        self.best_centroids = centroids
 
             if epoch % 5 == 0:
                 print("train MSE loss: {:.3f}, train adj loss: "
@@ -256,7 +240,7 @@ class Train:
 
         for x, test_y in self.data_loader.test_loader:
 
-            _, _, _, outputs = self.best_forecasting_model(x.to(self.device), test_y, self.best_centroids)
+            _, _, outputs = self.best_forecasting_model(x.to(self.device), test_y)
             cluster_assignments.append(outputs[0])
             true_clusters.append(test_y)
             inputs_to_cluster.append(outputs[1])
@@ -264,29 +248,29 @@ class Train:
         cluster_assignments = torch.cat(cluster_assignments, dim=0).to(torch.long)
         true_clusters = torch.cat(true_clusters, dim=0).reshape(cluster_assignments.shape).to(torch.long)
         inputs_to_cluster = torch.cat(inputs_to_cluster, dim=0).detach().cpu().numpy()
-        tsne = TSNE(n_components=2)
-        X_embedded = tsne.fit_transform(inputs_to_cluster)
+        # tsne = TSNE(n_components=inputs_to_cluster.shape[-1])
+        # X_embedded = tsne.fit_transform(inputs_to_cluster)
         adj = AdjustedRandScore()
         adjusted_rand_index = adj(true_clusters, cluster_assignments)
         print("adjusted rand index: {:.3f}".format(adjusted_rand_index))
 
-        colors = np.random.rand(10, 3)
-        # check out 100
-        cluster_to_plot = cluster_assignments[:500]
-        X_embedded = X_embedded[:500]
-
-        # Plot the clusters
-        for i in range(10):
-            cluster_points = cluster_to_plot == i
-            plt.scatter(X_embedded[cluster_points, 0], X_embedded[cluster_points, 1], color=colors[i],
-                        label=f'Cluster {i}')
-
-        # Set plot labels and legend
-        plt.title('Clustering Assignments')
-        plt.xlabel('Dimension 1')
-        plt.ylabel('Dimension 2')
-        plt.tight_layout()
-        plt.legend()
-        plt.savefig("cluster_assignments_{}.pdf".format(self.exp_name))
+        # colors = np.random.rand(10, 3)
+        # # check out 100
+        # cluster_to_plot = cluster_assignments[:500]
+        # X_embedded = X_embedded[:500]
+        #
+        # # Plot the clusters
+        # for i in range(10):
+        #     cluster_points = cluster_to_plot == i
+        #     plt.scatter(X_embedded[cluster_points, 0], X_embedded[cluster_points, 1], color=colors[i],
+        #                 label=f'Cluster {i}')
+        #
+        # # Set plot labels and legend
+        # plt.title('Clustering Assignments')
+        # plt.xlabel('Dimension 1')
+        # plt.ylabel('Dimension 2')
+        # plt.tight_layout()
+        # plt.legend()
+        # plt.savefig("cluster_assignments_{}.pdf".format(self.exp_name))
 
 Train()
