@@ -188,11 +188,11 @@ class ClusterForecasting(nn.Module):
         dist_knn = dist[torch.arange(self.batch_size)[None, :, None], k_nearest]
 
         assigned_labels = torch.mode(labels, dim=-1).values
-        assigned_labels = assigned_labels.reshape(-1)
-        y = y[:, :1, :].reshape(-1)
+        assigned_labels = assigned_labels.reshape(-1).to(torch.int)
+        y_c = y_c[0, :].to(torch.int)
 
         loss = dist_knn.sum()
 
-        adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+        adj_rand_index = AdjustedRandScore()(assigned_labels, y_c)
 
         return loss, adj_rand_index, [assigned_labels, input_to_cluster]
