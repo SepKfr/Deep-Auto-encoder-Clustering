@@ -69,7 +69,7 @@ class UserDataLoader:
         ranges = [valid_sampling_locations[i] for i in np.random.choice(
                   len(valid_sampling_locations), max_samples, replace=False)]
 
-        X = torch.zeros(max_samples, self.total_time_steps, self.num_features)
+        X = torch.zeros(max_samples, self.total_time_steps, self.num_features+1)
         Y = torch.zeros(max_samples, self.total_time_steps, 1)
 
         for i, tup in enumerate(ranges):
@@ -78,9 +78,10 @@ class UserDataLoader:
             sliced = split_data_map[identifier].iloc[start_idx - self.total_time_steps: start_idx]
             val = sliced[self.real_inputs].values
             tensor = torch.tensor(val)
-            cluster_id = torch.zeros(self.total_time_steps).fill_(identifier)
-            Y[i] = cluster_id.unsqueeze(-1)
-            X[i] = tensor
+            cluster_id = torch.zeros(self.total_time_steps).fill_(identifier).unsqueeze(-1)
+            final_tensor = torch.cat([tensor, cluster_id], dim=-1)
+            Y[i] = cluster_id
+            X[i] = final_tensor
 
         dataset = TensorDataset(X, Y)
         dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
