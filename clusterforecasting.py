@@ -171,18 +171,18 @@ class ClusterForecasting(nn.Module):
         seq_len = x.shape[1]
 
         # Generate all possible combinations of indices using torch.meshgrid
-        all_indices = torch.arange(self.batch_size)
+        all_indices = torch.arange(self.batch_size).to(self.device)
 
         # Mask to filter out the samples belonging to each cluster
-        cluster_masks = x_cluster_id == torch.arange(self.num_clusters).reshape(-1, 1)
+        cluster_masks = x_cluster_id == torch.arange(self.num_clusters, device=self.device).reshape(-1, 1)
 
         # Generate random indices for each cluster
-        random_indices = torch.zeros(self.num_clusters, dtype=torch.long)
+        random_indices = torch.zeros(self.num_clusters, dtype=torch.long, device=self.device)
         for i in range(self.num_clusters):
 
             cluster_indices = all_indices[cluster_masks[i]]
             if cluster_indices.numel() > 0:
-                random_indices[i] = torch.randint(0, cluster_indices.size(0), (1,))
+                random_indices[i] = torch.randint(0, cluster_indices.size(0), (1,), device=self.device)
 
         # Select the randomly chosen samples
         cluster_centroids = self.cluster_centers(x[random_indices])
@@ -200,9 +200,9 @@ class ClusterForecasting(nn.Module):
         dist_softmax = torch.softmax(-dist, dim=-1)
         _, clusters_assigned = torch.topk(dist_softmax, k=1, dim=-1)
 
-        mask = clusters_assigned == torch.arange(self.num_clusters).unsqueeze(0).unsqueeze(0)
+        mask = clusters_assigned == torch.arange(self.num_clusters, device=self.device).unsqueeze(0).unsqueeze(0)
         mask = mask.permute(2, 0, 1)
-        all_indices = torch.arange(seq_len).unsqueeze(0).repeat(self.batch_size, 1)
+        all_indices = torch.arange(seq_len, device=self.device).unsqueeze(0).repeat(self.batch_size, 1)
 
         loss_sum = 0
         dist_softmax = dist_softmax.reshape(-1)
