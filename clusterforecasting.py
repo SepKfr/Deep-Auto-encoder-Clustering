@@ -170,31 +170,27 @@ class ClusterForecasting(nn.Module):
         x_enc = self.enc_embedding(x)
         seq_len = x.shape[1]
         # auto-regressive generative
-        output = self.seq_model(x_enc)
+        output = self.seq_model(x_enc)[:, -1, :]
 
-        input_to_cluster = self.auto_encoder(output)
+        diff = output.unsqueeze(1) - output.unsqueeze(0)
 
-        diff = input_to_cluster.unsqueeze(1) - input_to_cluster.unsqueeze(0)
-        diff = diff.permute(2, 0, 1, 3)
-
-        dist = torch.einsum('lbcd,lbcd-> lbc', diff, diff)
+        dist = torch.einsum('lbd,lbd-> lb', diff, diff)
         dist_softmax = torch.softmax(-dist, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         total_indices = torch.arange(self.num_clusters, device=self.device).unsqueeze(0).\
-            repeat(self.batch_size, 1).unsqueeze(0).repeat(seq_len, 1, 1)
+            repeat(self.batch_size, 1)
         mask_cluster = k_nearest == total_indices
-        mask_cluster = mask_cluster.permute(2, 0, 1)
+        mask_cluster = mask_cluster.permute(1, 0)
         tot_sum = 0
 
         for i in range(self.num_clusters):
             tot_sum += dist[mask_cluster[i]].sum()
 
-        y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).squeeze(-1)
-        y_c = y_c.permute(2, 0, 1)
+        y = y[:, -1, :]
+        y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
 
-        labels = y_c[torch.arange(seq_len)[:, None, None]
-                     ,torch.arange(self.batch_size)[None, :, None], k_nearest]
+        labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
 
         assigned_labels = torch.mode(labels, dim=-1).values
         assigned_labels = assigned_labels.reshape(-1)
@@ -202,4 +198,4 @@ class ClusterForecasting(nn.Module):
 
         adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
 
-        return tot_sum, adj_rand_index, [assigned_labels, input_to_cluster]
+        return tot_sum, adj_rand_index, None
