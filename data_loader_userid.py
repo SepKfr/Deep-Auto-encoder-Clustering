@@ -84,6 +84,6 @@ class UserDataLoader:
             X[i] = final_tensor
 
         dataset = TensorDataset(X, Y)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
 
         return dataloader
