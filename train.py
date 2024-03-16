@@ -42,9 +42,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=64000)
-        parser.add_argument("--max_test_sample", type=int, default=6400)
-        parser.add_argument("--batch_size", type=int, default=512)
+        parser.add_argument("--max_train_sample", type=int, default=66560)
+        parser.add_argument("--max_test_sample", type=int, default=10240)
+        parser.add_argument("--batch_size", type=int, default=1024)
         parser.add_argument("--data_path", type=str, default='User_id.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
