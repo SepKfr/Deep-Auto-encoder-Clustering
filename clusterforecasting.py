@@ -184,7 +184,7 @@ class ClusterForecasting(nn.Module):
         tot_sum = 0
 
         for i in range(self.num_clusters):
-            tot_sum += dist[mask_cluster[i]].sum()
+            tot_sum += dist[mask_cluster[i]].mean()
 
         y = y[:, -1, :]
         y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
