@@ -77,7 +77,8 @@ class CustomDataLoader:
         def detect_significant_events_ma(data, covar, window_size, threshold_factor):
 
             moving_avg = np.convolve(data, np.ones(window_size) / window_size, mode='valid')
-            residuals = np.abs(data[window_size - 1:] - moving_avg)
+            moving_avg2 = np.convolve(moving_avg, np.ones(window_size) / window_size, mode='valid')
+            residuals = np.abs(moving_avg[window_size - 1:] - moving_avg2)
 
             # Calculate the standard deviation of the residuals
             residual_std = np.std(residuals)
@@ -116,12 +117,11 @@ class CustomDataLoader:
             # Filter out chunks with less than 10 data points and expand others
             expanded_chunks = []
             expanded_chunks_covar = []
+            max_length = max(len(tensor) for tensor in split_tensors)
+
             for tensor_chunk in split_tensors:
-                if len(tensor_chunk) < 10:
-                    continue  # Skip chunks with less than 10 data points
-                else:
-                    # Calculate the number of data points to add before and after
-                    num_to_add = int(len(tensor_chunk) * expansion_percentage)
+
+                    num_to_add = (max_length - len(tensor_chunk)) // 2
 
                     # Get the index range for expanding the chunk
                     start_index = max(0, tensor_chunk[0] - num_to_add)

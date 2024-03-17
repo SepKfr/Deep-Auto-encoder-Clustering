@@ -167,9 +167,6 @@ class ClusterForecasting(nn.Module):
 
     def forward(self, x, y=None):
 
-        seq_len = x.shape[1]
-        x = torch.cat([x, torch.zeros(self.batch_size, self.time_proj-seq_len,
-                                      self.input_size, device=self.device)], dim=1)
         x_reconstruct = self.auto_encoder(x)
 
         rec_loss = nn.MSELoss()(x, x_reconstruct)
