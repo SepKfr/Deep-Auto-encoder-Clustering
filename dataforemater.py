@@ -30,8 +30,8 @@ class DataAttributes:
                  'covariates': [], 'time': 'hours_from_start'},
                 "air_quality": {'id': 'id', 'target': 'NO2',
                        'covariates': ['CO', 'TEMP']},
-                "watershed": {'id': 'id', 'target': 'Conductivity',
-                     'covariates': ['Q']},
+                "watershed": {'id': 'id', 'target': 'Q',
+                     'covariates': ['Conductivity']},
                 "exchange": {'id': 'id', 'target': 'OT',
                     'covariates': ['0', '1', '2', '3', '4', '5']}}
 

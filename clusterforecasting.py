@@ -130,7 +130,7 @@ class Autoencoder(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(encoding_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, encoding_dim),
+            nn.Linear(128, input_dim),
         )
 
     def forward(self, x):
@@ -150,51 +150,56 @@ class ClusterForecasting(nn.Module):
 
         self.device = device
 
-        self.enc_embedding = nn.Linear(input_size, d_model)
-
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
-        self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
-        self.auto_encoder = Autoencoder(input_dim=d_model, encoding_dim=d_model)
+        #self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
+        self.auto_encoder = Autoencoder(input_dim=input_size, encoding_dim=d_model)
 
         self.pred_len = pred_len
         self.nheads = nheads
         self.batch_size = batch_size
         self.d_model = d_model
-        self.num_clusters = n_clusters
+        self.input_size = input_size
+        self.time_proj = 100
+        self.num_clusters = 10
 
-    def forward(self, x, y):
+    def forward(self, x, y=None):
 
-        x_enc = self.enc_embedding(x)
+        seq_len = x.shape[1]
+        x = torch.cat([x, torch.zeros(self.batch_size, self.time_proj-seq_len,
+                                      self.input_size, device=self.device)], dim=1)
+        x_reconstruct = self.auto_encoder(x)
+
+        rec_loss = nn.MSELoss()(x, x_reconstruct)
+        x_enc = self.auto_encoder.encoder(x)
         # auto-regressive generative
-        output = self.seq_model(x_enc)[:, -1, :]
+        output = self.seq_model(x_enc)
 
         diff = output.unsqueeze(1) - output.unsqueeze(0)
 
-        dist = torch.einsum('lbd,lbd-> lb', diff, diff)
-        dist_softmax = torch.softmax(-dist, dim=-1)
+        dist = torch.einsum('lbsd,lbsd-> lbs', diff, diff)
+        dist_2d = torch.einsum('lbs, lbs -> lb', dist, dist)
+
+        dist_softmax = torch.softmax(-dist_2d, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
-        total_indices = torch.arange(self.num_clusters, device=self.device).unsqueeze(0).\
-            repeat(self.batch_size, 1)
-        mask_cluster = k_nearest == total_indices
-        mask_cluster = mask_cluster.permute(1, 0)
-        tot_sum = 0
+        dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
+        loss = dist_knn.mean() + rec_loss
 
-        for i in range(self.num_clusters):
-            tot_sum += dist[mask_cluster[i]].mean()
+        if y is not None:
+            y = y[:, -1, :]
+            y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
 
-        y = y[:, -1, :]
-        y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
+            labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
+            assigned_labels = torch.mode(labels, dim=-1).values
+            assigned_labels = assigned_labels.reshape(-1)
+            y = y.reshape(-1)
 
-        assigned_labels = torch.mode(labels, dim=-1).values
-        assigned_labels = assigned_labels.reshape(-1)
-        y = y.reshape(-1)
+            adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+        else:
+            adj_rand_index = torch.tensor(0, device=self.device)
 
-        adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-
-        return tot_sum, adj_rand_index, None
+        return loss, adj_rand_index, [x_reconstruct, k_nearest]

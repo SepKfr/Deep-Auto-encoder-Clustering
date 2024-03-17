@@ -34,7 +34,7 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="User_id")
+        parser.add_argument("--exp_name", type=str, default="watershed")
         parser.add_argument("--model_name", type=str, default="basic_attn")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
@@ -42,10 +42,10 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=66560)
-        parser.add_argument("--max_test_sample", type=int, default=10240)
-        parser.add_argument("--batch_size", type=int, default=512)
-        parser.add_argument("--data_path", type=str, default='User_id.csv')
+        parser.add_argument("--max_train_sample", type=int, default=32000)
+        parser.add_argument("--max_test_sample", type=int, default=3840)
+        parser.add_argument("--batch_size", type=int, default=256)
+        parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
 
@@ -93,7 +93,7 @@ class Train:
                                               target_col="id")
         else:
             # Data loader configuration (replace with your own dataloader)
-            self.data_loader = CustomDataLoader(real_inputs=[],
+            self.data_loader = CustomDataLoader(real_inputs=self.data_formatter.real_inputs,
                                                 max_encoder_length=args.max_encoder_length,
                                                 pred_len=self.pred_len,
                                                 max_train_sample=args.max_train_sample,
@@ -111,7 +111,7 @@ class Train:
         self.best_forecasting_model = nn.Module()
         self.run_optuna(args)
 
-        #self.evaluate()
+        self.evaluate()
 
     def run_optuna(self, args):
 
@@ -140,7 +140,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        num_clusters = 22
+        num_clusters = 2
 
         tup_params = [d_model, num_layers]
 
@@ -185,9 +185,9 @@ class Train:
             train_mse_loss = 0
             train_adj_loss = 0
 
-            for x, y in self.data_loader.train_loader:
+            for x in self.data_loader.train_loader:
 
-                loss, adj_loss, _ = model(x.to(self.device), y.to(self.device))
+                loss, adj_loss, _ = model(x.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
@@ -199,9 +199,9 @@ class Train:
             model.eval()
             valid_loss = 0
             valid_adj_loss = 0
-            for x, valid_y in self.data_loader.valid_loader:
+            for x in self.data_loader.valid_loader:
 
-                loss, adj_loss, _ = model(x.to(self.device), valid_y.to(self.device))
+                loss, adj_loss, _ = model(x.to(self.device))
                 valid_loss += loss.item()
                 valid_adj_loss += adj_loss.item()
 
@@ -234,43 +234,35 @@ class Train:
         """
         self.best_forecasting_model.eval()
 
-        cluster_assignments = []
-        true_clusters = []
-        inputs_to_cluster = []
+        x_reconstructs = []
+        knns = []
 
-        for x, test_y in self.data_loader.test_loader:
+        for x in self.data_loader.test_loader:
 
-            _, _, outputs = self.best_forecasting_model(x.to(self.device), test_y)
-            cluster_assignments.append(outputs[0])
-            true_clusters.append(test_y)
-            inputs_to_cluster.append(outputs[1])
+            _, _, outputs = self.best_forecasting_model(x.to(self.device))
+            x_reconstructs.append(outputs[0].detach().cpu().numpy())
+            knns.append(outputs[1].detach().cpu().numpy())
 
-        cluster_assignments = torch.cat(cluster_assignments, dim=0).to(torch.long)
-        true_clusters = torch.cat(true_clusters, dim=0).reshape(cluster_assignments.shape).to(torch.long)
-        inputs_to_cluster = torch.cat(inputs_to_cluster, dim=0).detach().cpu().numpy()
-        # tsne = TSNE(n_components=inputs_to_cluster.shape[-1])
-        # X_embedded = tsne.fit_transform(inputs_to_cluster)
-        adj = AdjustedRandScore()
-        adjusted_rand_index = adj(true_clusters, cluster_assignments)
-        print("adjusted rand index: {:.3f}".format(adjusted_rand_index))
+        x_reconstructs = np.vstack(x_reconstructs)
+        knns = np.vstack(knns)
 
-        # colors = np.random.rand(10, 3)
-        # # check out 100
-        # cluster_to_plot = cluster_assignments[:500]
-        # X_embedded = X_embedded[:500]
-        #
-        # # Plot the clusters
-        # for i in range(10):
-        #     cluster_points = cluster_to_plot == i
-        #     plt.scatter(X_embedded[cluster_points, 0], X_embedded[cluster_points, 1], color=colors[i],
-        #                 label=f'Cluster {i}')
-        #
-        # # Set plot labels and legend
-        # plt.title('Clustering Assignments')
-        # plt.xlabel('Dimension 1')
-        # plt.ylabel('Dimension 2')
-        # plt.tight_layout()
-        # plt.legend()
-        # plt.savefig("cluster_assignments_{}.pdf".format(self.exp_name))
+        colors = np.random.rand(11, 3)
+
+
+        # Plot the clusters
+        ids = knns[0]
+        x_1 = x_reconstructs[0]
+        plt.scatter(x_1[:, 0], x_1[:, 1], color=colors[0], label=f'Cluster {0}')
+        x_os = [x_reconstructs[i] for i in ids]
+        for i, x in enumerate(x_os):
+            plt.scatter(x[:, 0], x[:, 1], color=colors[i+1], label=f'Cluster {i+1}')
+
+        # Set plot labels and legend
+        plt.title('Clustering Assignments')
+        plt.xlabel('Dimension 1')
+        plt.ylabel('Dimension 2')
+        plt.tight_layout()
+        plt.legend()
+        plt.savefig("cluster_assignments_{}.pdf".format(self.exp_name))
 
 Train()

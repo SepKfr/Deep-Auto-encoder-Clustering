@@ -4,8 +4,9 @@ import pandas as pd
 import torch
 import ruptures as rpt
 from scipy.stats import ks_2samp
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, BatchSampler
 from torch.nn.utils.rnn import pad_sequence
+from scipy.signal import find_peaks
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
@@ -28,179 +29,134 @@ class CustomDataLoader:
         self.max_train_sample = max_train_sample * batch_size
         self.max_test_sample = max_test_sample * batch_size
         self.batch_size = batch_size
-        torch.manual_seed(seed)
-        random.seed(seed)
-        np.random.seed(seed)
 
-        total_batches = int(len(data) / self.batch_size)
+        real_inputs = real_inputs[0]
+        self.real_inputs = real_inputs
+
+        self.num_features = 2
+        self.device = device
+
+        dataset = pd.DataFrame(
+            dict(
+                value=data[target_col],
+                reals=data[real_inputs] if len(real_inputs) > 0 else None,
+                group=data["id"],
+                time_idx=np.arange(len(data)),
+            )
+        )
+
+        X = self.create_dataloader(dataset, max_train_sample)
+
+        total_batches = int(len(X) / self.batch_size)
         train_len = int(total_batches * batch_size * 0.6)
         valid_len = int(total_batches * batch_size * 0.2)
         test_len = int(total_batches * batch_size * 0.2)
 
-        train = data[:train_len]
-        valid = data[train_len:train_len+valid_len]
-        test = data[train_len+valid_len:train_len+valid_len+test_len]
-        self.real_inputs = real_inputs
+        train = X[:train_len]
+        valid = X[train_len:train_len + valid_len]
+        test = X[train_len + valid_len:train_len + valid_len + test_len]
 
-        self.num_features = 1
-        self.device = device
-
-        train_data = pd.DataFrame(
-            dict(
-                value=train[target_col],
-                reals=train[real_inputs] if len(real_inputs) > 0 else None,
-                group=train["id"],
-                time_idx=np.arange(train_len),
+        def get_sampler(source, num_samples):
+            batch_sampler = BatchSampler(
+                sampler=torch.utils.data.RandomSampler(source, num_samples=num_samples),
+                batch_size=self.batch_size,
+                drop_last=True,
             )
-        )
+            return batch_sampler
 
-        valid_data = pd.DataFrame(
-            dict(
-                value=valid[target_col],
-                reals=valid[real_inputs] if len(real_inputs) > 0 else None,
-                group=valid["id"],
-                time_idx=np.arange(train_len, train_len+valid_len),
-            )
-        )
+        self.train_loader = DataLoader(train, batch_sampler=get_sampler(train, max_train_sample))
+        self.valid_loader = DataLoader(valid, batch_sampler=get_sampler(valid, max_test_sample))
+        self.test_loader = DataLoader(test, batch_sampler=get_sampler(test, max_test_sample))
 
-        test_data = pd.DataFrame(
-            dict(
-                value=test[target_col],
-                reals=test[real_inputs] if len(real_inputs) > 0 else None,
-                group=test["id"],
-                time_idx=np.arange(train_len+valid_len, train_len+valid_len+test_len),
-            )
-        )
-        self.total_time_steps = self.max_encoder_length + self.pred_len
-
-        self.train_loader, train_len_snippets = self.create_dataloader(train_data, max_train_sample)
-        self.valid_loader, valid_len_snippets = self.create_dataloader(valid_data, max_test_sample)
-        self.test_loader, test_len_snippets = self.create_dataloader(test_data, max_test_sample)
-
-        train_x, train_x_seg, train_y = next(iter(self.train_loader))
-        self.input_size = train_x.shape[2] - 1
-        self.output_size = train_y.shape[2]
-        self.len_snippets = max(train_len_snippets, valid_len_snippets, test_len_snippets)
+        train_x = next(iter(self.train_loader))
+        self.input_size = train_x.shape[2]
+        self.output_size = train_x.shape[2]
 
     def create_dataloader(self, data, max_samples):
 
-        x_list = []
+        def detect_significant_events_ma(data, covar, window_size, threshold_factor):
 
-        valid_sampling_locations, split_data_map = zip(
-            *[
-                (
-                    (identifier, self.total_time_steps + i),
-                    (identifier, df)
-                )
-                for identifier, df in data.groupby("group")
-                if (num_entries := len(df)) >= self.total_time_steps
-                for i in range(num_entries - self.total_time_steps + 1)
-            ]
-        )
-        valid_sampling_locations = list(valid_sampling_locations)
-        split_data_map = dict(split_data_map)
+            moving_avg = np.convolve(data, np.ones(window_size) / window_size, mode='valid')
+            residuals = np.abs(data[window_size - 1:] - moving_avg)
 
-        ranges = [valid_sampling_locations[i] for i in np.random.choice(
-                  len(valid_sampling_locations), max_samples, replace=False)]
+            # Calculate the standard deviation of the residuals
+            residual_std = np.std(residuals)
 
-        X = torch.zeros(max_samples, self.total_time_steps, self.num_features+1)
-        Y = torch.zeros(max_samples, self.total_time_steps, self.num_features)
-        n_uniques = []
+            # Set the threshold as a multiple of the standard deviation
+            threshold = threshold_factor * residual_std
 
-        def detect_change_points_distribution_shift(time_series_data, window_size=9):
-            """
-            Detect change points in a time series using distribution shift detection.
+            # Find indices of significant events where residuals exceed the threshold
+            significant_events = np.where(residuals > threshold)[0]
+            significant_events = torch.tensor(significant_events)
 
-            Args:
-            - time_series_data (numpy array): The time series data.
-            - window_size (int): The size of the window for analyzing distribution shift.
+            cp = torch.where(torch.roll(significant_events, shifts=-1) - significant_events > 1, torch.tensor(1),
+                             torch.tensor(0))
+            change_point_indices = torch.nonzero(cp).squeeze()
 
-            Returns:
-            - change_points (list): List of detected change points.
-            """
-            change_points = []
+            # Add the first and last indices to capture the entire range
+            change_point_indices = torch.cat(
+                (torch.tensor([0]), change_point_indices, torch.tensor([len(significant_events)])))
 
-            # Calculate the number of windows
-            num_windows = len(time_series_data) // window_size
+            # Calculate split sizes
+            split_sizes = change_point_indices[1:] - change_point_indices[:-1]
 
-            # Iterate through windows
-            for i in range(num_windows):
-                start_index = i * window_size
-                end_index = start_index + window_size
+            # Filter out zero-sized splits (if any)
+            non_zero_splits = split_sizes[split_sizes != 0]
 
-                try:
-                    # Split the time series into two segments: before and after the change point
-                    segment_before = time_series_data[:end_index]
-                    segment_after = time_series_data[end_index:]
+            # Compute the starting indices for each split
+            split_starts = torch.cumsum(non_zero_splits, dim=0)
 
-                    # Compute Kolmogorov-Smirnov statistic to measure distribution shift
-                    ks_statistic, _ = ks_2samp(segment_before, segment_after)
+            # Split the tensor based on change points, excluding the last index of each chunk
+            split_tensors = [significant_events[start+1:end+1] if start > change_point_indices[0] else
+                             significant_events[start:end+1] for start, end in
+                             zip(change_point_indices[:-1], split_starts)]
 
-                    # Threshold for detecting significant distribution shift
-                    threshold = 0.05  # Adjust as needed based on significance level
+            expansion_percentage = 0.10
 
-                    # Check if distribution shift is significant
-                    if ks_statistic > threshold:
-                        change_points.append(end_index)
-                except ValueError:
-                    pass
+            # Filter out chunks with less than 10 data points and expand others
+            expanded_chunks = []
+            expanded_chunks_covar = []
+            for tensor_chunk in split_tensors:
+                if len(tensor_chunk) < 10:
+                    continue  # Skip chunks with less than 10 data points
+                else:
+                    # Calculate the number of data points to add before and after
+                    num_to_add = int(len(tensor_chunk) * expansion_percentage)
 
-            return change_points
+                    # Get the index range for expanding the chunk
+                    start_index = max(0, tensor_chunk[0] - num_to_add)
+                    end_index = min(len(data), tensor_chunk[-1] + num_to_add + 1)
 
-        for i, tup in enumerate(ranges):
+                    chunk_to_add = torch.from_numpy(data[start_index:end_index])
+                    if covar is not None:
 
-            identifier, start_idx = tup
-            sliced = split_data_map[identifier].iloc[start_idx - self.total_time_steps: start_idx]
-            val = sliced["value"].values
-            cp = detect_change_points_distribution_shift(val)
+                        expanded_chunks_covar.append(torch.from_numpy(covar[start_index:end_index]))
 
-            if len(cp) >= 1:
-                cp = torch.tensor(cp)
-            else:
-                cp = torch.tensor([])
+                    expanded_chunks.append(chunk_to_add)
 
-            tensor = torch.from_numpy(val)
+            return expanded_chunks, expanded_chunks_covar, threshold
 
-            if len(cp) > 0:
+        total_tensors_q = []
+        total_tensors_c = []
+        for identifier, df in data.groupby("group"):
+            val = df["value"].values
+            covar = df["reals"].values
+            list_of_events_q, list_of_events_c, _ = detect_significant_events_ma(val, covar, window_size=30,
+                                                                                 threshold_factor=3)
+            padded_tensor_q = pad_sequence(list_of_events_q, padding_value=0)
+            padded_tensor_c = pad_sequence(list_of_events_c, padding_value=0)
+            total_tensors_q.append(padded_tensor_q)
+            total_tensors_c.append(padded_tensor_c)
 
-                one_hot_encoding = torch.zeros(len(val))
-                seq_of_cp = torch.cumsum(one_hot_encoding.scatter_(0, cp, 1), dim=0)
-                n_uniques.append(len(torch.unique(seq_of_cp)))
+        max_size_1 = max(tensor.size(0) for tensor in total_tensors_q)
+        max_size_2 = max(tensor.size(1) for tensor in total_tensors_q)
+        tensors_final = torch.zeros(len(total_tensors_q), max_size_1, max_size_2, self.num_features)
+        for i in range(len(total_tensors_q)):
 
-                last_one = len(tensor) - cp[-1]
-                change_indices = torch.cat([torch.zeros(1), cp])
-                change_indices = torch.diff(change_indices)
+            q = total_tensors_q[i]
+            c = total_tensors_c[i]
+            tensors_final[i, :q.shape[0], :q.shape[1], 0] = q
+            tensors_final[i, :q.shape[0], :q.shape[1], 1] = c
 
-                change_indices = change_indices.tolist()
-                change_indices.append(last_one)
-                change_indices = [int(x) for x in change_indices]
-                tensors = torch.split(tensor, change_indices)
-                padded_tensor = pad_sequence(tensors, padding_value=0)
-
-                x_list.append(padded_tensor)
-                Y[i] = tensor.unsqueeze(-1)
-                X[i] = tensor.unsqueeze(-1)
-
-            else:
-                Y[i] = tensor.unsqueeze(-1)
-                x_list.append(tensor.unsqueeze(-1))
-                X[i] = tensor.unsqueeze(-1)
-
-        max_size_1 = max(tensor.size(0) for tensor in x_list)
-        max_size_2 = max(tensor.size(1) for tensor in x_list)
-        tensors_final = torch.zeros(len(x_list), max_size_1, max_size_2, self.num_features)
-
-        Y = Y[:len(x_list)]
-        X = X[:len(x_list)]
-
-        for i, tensor in enumerate(x_list):
-            tensors_final[i, :tensor.shape[0], :tensor.shape[1], :] = tensor.unsqueeze(-1)
-
-        dataset = TensorDataset(X,
-                                tensors_final,
-                                Y)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
-
-        len_snippets = max_size_2
-
-        return dataloader, len_snippets
+        X = tensors_final.reshape(-1, tensors_final.shape[2], self.num_features)
+        return X
