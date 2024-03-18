@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # Lint as: python3
-import numpy as np
 import pandas as pd
 import sklearn.preprocessing
 
@@ -75,7 +74,9 @@ class DataFormatter:
 
         print('Formatting data.')
 
-        return self.set_scalers(df)
+        self.set_scalers(df)
+
+        return self.transform_inputs(df)
 
     def set_scalers(self, df):
 
@@ -87,19 +88,50 @@ class DataFormatter:
 
         self.real_scalers = {}
         self.target_scaler = {}
+        identifiers = []
 
-        real_data = df[self.real_inputs].values
-        targets = df[self.target_column].values
-        if len(targets.shape) == 1:
-            targets = targets.reshape(-1, 1)
-        if len(real_data.shape) == 1:
-            real_data = real_data.reshape(-1, 1)
-        self.real_scalers[self.id_column] = sklearn.preprocessing.StandardScaler().fit(real_data)
-        self.target_scaler[self.id_column] = sklearn.preprocessing.StandardScaler().fit(targets)
-        data = df.copy()
-        data[self.real_inputs] = self.real_scalers[self.id_column].transform(real_data)
+        for identifier, sliced in df.groupby(self.id_column):
 
-        return data
+            data = sliced[self.real_inputs].values
+            targets = sliced[self.target_column].values
+            if len(data.shape) == 1:
+                data = data.reshape(-1, 1)
+            if len(targets.shape) == 1:
+                targets = targets.reshape(-1, 1)
+
+            self.real_scalers[identifier] = sklearn.preprocessing.StandardScaler().fit(data)
+
+            self.target_scaler[identifier] = sklearn.preprocessing.StandardScaler().fit(targets)
+
+            identifiers.append(identifier)
+
+        # Extract identifiers in case required
+        self.identifiers = identifiers
+
+    def transform_inputs(self, df):
+        """Performs feature transformations.
+        This includes both feature engineering, preprocessing and normalisation.
+        Args:
+          df: Data frame to transform.
+        Returns:
+          Transformed data_set frame.
+        """
+
+        if self.real_scalers is None:
+            raise ValueError('Scalers have not been set!')
+
+        # Transform real inputs per entity
+        df_list = []
+        for identifier, sliced in df.groupby(self.id_column):
+            # Filter out any trajectories that are too short
+            sliced_copy = sliced.copy()
+            sliced_copy[self.real_inputs] = self.real_scalers[identifier].transform(
+                sliced_copy[self.real_inputs].values)
+            df_list.append(sliced_copy)
+
+        output = pd.concat(df_list, axis=0)
+
+        return output
 
     def format_predictions(self, predictions):
         """Reverts any normalisation to give predictions in original scale.
@@ -112,6 +144,29 @@ class DataFormatter:
         if self.target_scaler is None:
             raise ValueError('Scalers have not been set!')
 
-        output = self.target_scaler[[self.id_column]].inverse_transform(predictions)
+        column_names = predictions.columns
+
+        df_list = []
+        for identifier, sliced in predictions.groupby('identifier'):
+            sliced_copy = sliced.copy()
+            target_scaler = self.target_scaler[identifier]
+
+            for col in column_names:
+                if col not in {'identifier'}:
+                    try:
+                        sliced_copy[col] = target_scaler.inverse_transform(sliced_copy[col])
+                    except ValueError:
+                        if len(sliced_copy[col]) == 1:
+                            pred = sliced_copy[col].to_numpy().reshape(1, -1)
+                        else:
+                            pred = sliced_copy[col].to_numpy().reshape(-1, 1)
+
+                        sliced_copy[col] = target_scaler.inverse_transform(pred)
+
+            df_list.append(sliced_copy)
+        if len(df_list) == 0:
+            output = None
+        else:
+            output = pd.concat(df_list, axis=0)
 
         return output
