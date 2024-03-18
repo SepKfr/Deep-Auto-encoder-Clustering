@@ -2,6 +2,8 @@ import argparse
 import os
 from itertools import product
 import random
+
+import matplotlib.lines
 from torchmetrics.clustering import AdjustedRandScore
 import matplotlib.pyplot as plt
 import optuna
@@ -22,8 +24,8 @@ from data_loader_userid import UserDataLoader
 from Kmeans import TrainableKMeans
 from transformers import Adafactor
 from transformers.optimization import AdafactorSchedule
-from sklearn.cluster import KMeans
-from sklearn.manifold import TSNE
+from matplotlib.patches import Circle
+
 
 torch.manual_seed(1234)
 np.random.seed(1234)
@@ -36,15 +38,15 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="watershed")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=5)
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=64)
-        parser.add_argument("--max_test_sample", type=int, default=64)
-        parser.add_argument("--batch_size", type=int, default=32)
+        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--batch_size", type=int, default=64)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -242,30 +244,40 @@ class Train:
             x_reconstructs.append(outputs[1].detach().cpu().numpy())
             knns.append(outputs[0].detach().cpu().numpy())
 
-        x_reconstructs = np.vstack(x_reconstructs)
         knns = np.vstack(knns)
+        x_reconstructs = np.vstack(x_reconstructs)
 
-        colors = np.random.rand(11, 3)
+        colors = np.random.rand(6, 3)
+        alpha_arr = [(i+1)/x_reconstructs.shape[1] for i in range(x_reconstructs.shape[1])]
 
-        indices = np.arange(x_reconstructs.shape[1])
-        alphas = (indices + 1) / x_reconstructs.shape[1]
+        path_to_pdfs = "storm_events"
+        if not os.path.exists(path_to_pdfs):
+            os.makedirs(path_to_pdfs)
+
+        def get_color(ind):
+            r, g, b = colors[ind]
+            # r, g, b, _ = to_rgba(color)
+            color = [(r, g, b, alpha) for alpha in alpha_arr]
+            return color
 
         # Plot the clusters
         for i in range(len(x_reconstructs)):
-            ids = knns[0]
-            x_1 = x_reconstructs[0]
-            plt.scatter(x_1[:, 0], x_1[:, 1], color=colors[0], label=f'Cluster {0}', alpha=alphas)
-            x_os = [x_reconstructs[i] for i in ids]
-            for i, x in enumerate(x_os):
-                plt.scatter(x[:, 0], x[:, 1], color=colors[i+1], label=f'Cluster {i+1}', alpha=alphas)
+            ids = knns[i]
+            x_1 = x_reconstructs[i]
+
+            plt.scatter(x_1[:, 1], x_1[:, 0], color=get_color(0))
+            x_os = [x_reconstructs[j] for j in ids]
+            for k, x in enumerate(x_os):
+                plt.scatter(x[:, 1], x[:, 0], color=get_color(k+1))
 
             # Set plot labels and legend
             plt.title('Storm Events')
             plt.xlabel('Conductivity')
             plt.ylabel('Q')
+            patches = [plt.Line2D([0], [0], color=colors[j], marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
+            labels = [f"Storm {j}" for j in range(len(ids))]
+            plt.legend(handles=patches, labels=labels)
             plt.tight_layout()
-            plt.legend()
-            plt.savefig("storm_events_{}_{}.pdf".format(i, self.exp_name))
-            plt.close()
-
+            plt.savefig("{}/storm_events_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
+            plt.clf()
 Train()

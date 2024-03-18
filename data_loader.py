@@ -48,17 +48,18 @@ class CustomDataLoader:
         valid = X[train_len:train_len + valid_len]
         test = X[train_len + valid_len:train_len + valid_len + test_len]
 
-        def get_sampler(source):
+        def get_sampler(source, num_samples=-1):
+            num_samples = len(source) if num_samples == -1 else num_samples
             batch_sampler = BatchSampler(
-                sampler=torch.utils.data.RandomSampler(source),
+                sampler=torch.utils.data.RandomSampler(source, num_samples=num_samples),
                 batch_size=self.batch_size,
                 drop_last=True,
             )
             return batch_sampler
 
-        self.train_loader = DataLoader(train, batch_sampler=get_sampler(train))
-        self.valid_loader = DataLoader(valid, batch_sampler=get_sampler(valid))
-        self.test_loader = DataLoader(test, batch_sampler=get_sampler(test))
+        self.train_loader = DataLoader(train, batch_sampler=get_sampler(train, max_train_sample))
+        self.valid_loader = DataLoader(valid, batch_sampler=get_sampler(valid, max_test_sample))
+        self.test_loader = DataLoader(test, batch_sampler=get_sampler(test, max_test_sample))
 
         train_x = next(iter(self.train_loader))
         self.input_size = train_x.shape[2]
