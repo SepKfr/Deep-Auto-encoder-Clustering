@@ -171,7 +171,7 @@ class ClusterForecasting(nn.Module):
         x_rec = self.auto_encoder(x)
         x_enc = self.auto_encoder.encoder(x)
 
-        mse_loss = nn.MSELoss()(x, x_rec)
+        mse_loss = nn.MSELoss(reduction="sum")(x, x_rec)
 
         # auto-regressive generative
         output = self.seq_model(x_enc)
@@ -185,7 +185,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.mean() + mse_loss
+        loss = dist_knn.sum() + mse_loss
 
         if y is not None:
             y = y[:, -1, :]
