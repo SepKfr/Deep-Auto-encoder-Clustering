@@ -40,20 +40,22 @@ class CustomDataLoader:
         X = self.create_dataloader(data, max_train_sample)
 
         total_batches = int(len(X) / self.batch_size)
-        train_len = int(total_batches * batch_size * 0.6)
-        valid_len = int(total_batches * batch_size * 0.2)
-        test_len = int(total_batches * batch_size * 0.2)
+        train_len = int(total_batches * batch_size * 0.8)
+        valid_len = int(total_batches * batch_size * 0.1)
+        test_len = int(total_batches * batch_size * 0.1)
 
         train = X[:train_len]
         valid = X[train_len:train_len + valid_len]
         test = X[train_len + valid_len:train_len + valid_len + test_len]
 
+        get_num_sample = lambda l: 2 ** round(np.log2(l))
+
         def get_sampler(source, num_samples=-1):
-            num_samples = len(source) if num_samples == -1 else num_samples
+            num_samples = get_num_sample(len(source)) if num_samples == -1 else num_samples
             batch_sampler = BatchSampler(
                 sampler=torch.utils.data.RandomSampler(source, num_samples=num_samples),
                 batch_size=self.batch_size,
-                drop_last=True,
+                drop_last=False,
             )
             return batch_sampler
 
@@ -115,7 +117,7 @@ class CustomDataLoader:
 
             val = df["Q"].values
             covar = df["Conductivity"].values
-            list_of_inner, trg, cov = detect_significant_events_ma(val, covar, window_size=30, threshold_factor=3)
+            list_of_inner, trg, cov = detect_significant_events_ma(val, covar, window_size=7, threshold_factor=3)
             list_of_lens.append(len(list_of_inner))
             total_ind.append(list_of_inner)
             total_tensors_q.append(trg)
