@@ -25,6 +25,7 @@ from Kmeans import TrainableKMeans
 from transformers import Adafactor
 from transformers.optimization import AdafactorSchedule
 from matplotlib.patches import Circle
+from matplotlib.colors import to_rgba
 
 
 torch.manual_seed(1234)
@@ -247,16 +248,17 @@ class Train:
         knns = np.vstack(knns)
         x_reconstructs = np.vstack(x_reconstructs)
 
-        colors = np.random.rand(6, 3)
-        alpha_arr = [(i+1)/x_reconstructs.shape[1] for i in range(x_reconstructs.shape[1])]
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#17becf', '#d62728', '#9467bd',
+                  '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22']
+
+        alpha_arr = 0.1 + 0.9 * (1 - torch.arange(x_reconstructs.shape[1]) / x_reconstructs.shape[1])
 
         path_to_pdfs = "storm_events"
         if not os.path.exists(path_to_pdfs):
             os.makedirs(path_to_pdfs)
 
         def get_color(ind):
-            r, g, b = colors[ind]
-            # r, g, b, _ = to_rgba(color)
+            r, g, b, _ = to_rgba(colors[ind])
             color = [(r, g, b, alpha) for alpha in alpha_arr]
             return color
 
@@ -274,8 +276,9 @@ class Train:
             plt.title('Storm Events')
             plt.xlabel('Conductivity')
             plt.ylabel('Q')
-            patches = [plt.Line2D([0], [0], color=colors[j], marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
-            labels = [f"Storm {j}" for j in range(len(ids))]
+
+            patches = [plt.Line2D([0], [0], color=to_rgba(colors[j]), marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
+            labels = [f"Storm {j+1}" for j in range(len(ids))]
             plt.legend(handles=patches, labels=labels)
             plt.tight_layout()
             plt.savefig("{}/storm_events_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
