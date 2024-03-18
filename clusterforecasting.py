@@ -123,7 +123,7 @@ class Autoencoder(nn.Module):
     def __init__(self, input_dim, encoding_dim):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Linear(input_dim, 128),
+            nn.Linear(encoding_dim, 128),
             nn.ReLU(),
             nn.Linear(128, encoding_dim)
         )
@@ -154,6 +154,7 @@ class ClusterForecasting(nn.Module):
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
+        self.proj_down = nn.Linear(d_model, input_size)
 
         #self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
         self.auto_encoder = Autoencoder(input_dim=input_size, encoding_dim=d_model)
@@ -168,13 +169,10 @@ class ClusterForecasting(nn.Module):
 
     def forward(self, x, y=None):
 
-        x_rec = self.auto_encoder(x)
-        x_enc = self.auto_encoder.encoder(x)
-
-        mse_loss = nn.MSELoss(reduction="sum")(x, x_rec)
-
+        x_enc = self.enc_embedding(x)
         # auto-regressive generative
         output = self.seq_model(x_enc)
+        x_rec = self.proj_down(output)
 
         diff = output.unsqueeze(1) - output.unsqueeze(0)
 
@@ -185,7 +183,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.sum() + mse_loss
+        loss = dist_knn.mean() + nn.MSELoss(reduction="mean")(x, x_rec)
 
         if y is not None:
             y = y[:, -1, :]
