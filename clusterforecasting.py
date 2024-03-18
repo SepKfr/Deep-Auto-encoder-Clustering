@@ -149,6 +149,7 @@ class ClusterForecasting(nn.Module):
         super(ClusterForecasting, self).__init__()
 
         self.device = device
+        self.enc_embedding = nn.Linear(input_size, d_model)
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
@@ -167,10 +168,11 @@ class ClusterForecasting(nn.Module):
 
     def forward(self, x, y=None):
 
-        x_reconstruct = self.auto_encoder(x)
-
-        rec_loss = nn.MSELoss()(x, x_reconstruct)
+        x_rec = self.auto_encoder(x)
         x_enc = self.auto_encoder.encoder(x)
+
+        mse_loss = nn.MSELoss()(x, x_rec)
+
         # auto-regressive generative
         output = self.seq_model(x_enc)
 
@@ -183,7 +185,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.mean() + rec_loss
+        loss = dist_knn.mean() + mse_loss
 
         if y is not None:
             y = y[:, -1, :]
@@ -199,4 +201,4 @@ class ClusterForecasting(nn.Module):
         else:
             adj_rand_index = torch.tensor(0, device=self.device)
 
-        return loss, adj_rand_index, [x_reconstruct, k_nearest]
+        return loss, adj_rand_index, [k_nearest, x_rec]

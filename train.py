@@ -36,15 +36,15 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="watershed")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=10)
+        parser.add_argument("--num_epochs", type=int, default=5)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=32000)
-        parser.add_argument("--max_test_sample", type=int, default=3840)
-        parser.add_argument("--batch_size", type=int, default=256)
+        parser.add_argument("--max_train_sample", type=int, default=64)
+        parser.add_argument("--max_test_sample", type=int, default=64)
+        parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -205,8 +205,8 @@ class Train:
                 valid_loss += loss.item()
                 valid_adj_loss += adj_loss.item()
 
-                if valid_adj_loss < best_trial_valid_loss:
-                    best_trial_valid_loss = valid_adj_loss
+                if valid_loss < best_trial_valid_loss:
+                    best_trial_valid_loss = valid_loss
                     if best_trial_valid_loss < self.best_overall_valid_loss:
                         self.best_overall_valid_loss = best_trial_valid_loss
                         self.best_forecasting_model = model
@@ -238,31 +238,34 @@ class Train:
         knns = []
 
         for x in self.data_loader.test_loader:
-
             _, _, outputs = self.best_forecasting_model(x.to(self.device))
-            x_reconstructs.append(outputs[0].detach().cpu().numpy())
-            knns.append(outputs[1].detach().cpu().numpy())
+            x_reconstructs.append(outputs[1].detach().cpu().numpy())
+            knns.append(outputs[0].detach().cpu().numpy())
 
         x_reconstructs = np.vstack(x_reconstructs)
         knns = np.vstack(knns)
 
         colors = np.random.rand(11, 3)
 
+        indices = np.arange(x_reconstructs.shape[1])
+        alphas = (indices + 1) / x_reconstructs.shape[1]
 
         # Plot the clusters
-        ids = knns[0]
-        x_1 = x_reconstructs[0]
-        plt.scatter(x_1[:, 0], x_1[:, 1], color=colors[0], label=f'Cluster {0}')
-        x_os = [x_reconstructs[i] for i in ids]
-        for i, x in enumerate(x_os):
-            plt.scatter(x[:, 0], x[:, 1], color=colors[i+1], label=f'Cluster {i+1}')
+        for i in range(len(x_reconstructs)):
+            ids = knns[0]
+            x_1 = x_reconstructs[0]
+            plt.scatter(x_1[:, 0], x_1[:, 1], color=colors[0], label=f'Cluster {0}', alpha=alphas)
+            x_os = [x_reconstructs[i] for i in ids]
+            for i, x in enumerate(x_os):
+                plt.scatter(x[:, 0], x[:, 1], color=colors[i+1], label=f'Cluster {i+1}', alpha=alphas)
 
-        # Set plot labels and legend
-        plt.title('Clustering Assignments')
-        plt.xlabel('Dimension 1')
-        plt.ylabel('Dimension 2')
-        plt.tight_layout()
-        plt.legend()
-        plt.savefig("cluster_assignments_{}.pdf".format(self.exp_name))
+            # Set plot labels and legend
+            plt.title('Storm Events')
+            plt.xlabel('Conductivity')
+            plt.ylabel('Q')
+            plt.tight_layout()
+            plt.legend()
+            plt.savefig("storm_events_{}_{}.pdf".format(i, self.exp_name))
+            plt.close()
 
 Train()

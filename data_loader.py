@@ -6,7 +6,8 @@ import ruptures as rpt
 from scipy.stats import ks_2samp
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, BatchSampler
 from torch.nn.utils.rnn import pad_sequence
-from scipy.signal import find_peaks
+from itertools import accumulate
+
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
@@ -36,16 +37,7 @@ class CustomDataLoader:
         self.num_features = 2
         self.device = device
 
-        dataset = pd.DataFrame(
-            dict(
-                value=data[target_col],
-                reals=data[real_inputs] if len(real_inputs) > 0 else None,
-                group=data["id"],
-                time_idx=np.arange(len(data)),
-            )
-        )
-
-        X = self.create_dataloader(dataset, max_train_sample)
+        X = self.create_dataloader(data, max_train_sample)
 
         total_batches = int(len(X) / self.batch_size)
         train_len = int(total_batches * batch_size * 0.6)
@@ -56,17 +48,17 @@ class CustomDataLoader:
         valid = X[train_len:train_len + valid_len]
         test = X[train_len + valid_len:train_len + valid_len + test_len]
 
-        def get_sampler(source, num_samples):
+        def get_sampler(source):
             batch_sampler = BatchSampler(
-                sampler=torch.utils.data.RandomSampler(source, num_samples=num_samples),
+                sampler=torch.utils.data.RandomSampler(source),
                 batch_size=self.batch_size,
                 drop_last=True,
             )
             return batch_sampler
 
-        self.train_loader = DataLoader(train, batch_sampler=get_sampler(train, max_train_sample))
-        self.valid_loader = DataLoader(valid, batch_sampler=get_sampler(valid, max_test_sample))
-        self.test_loader = DataLoader(test, batch_sampler=get_sampler(test, max_test_sample))
+        self.train_loader = DataLoader(train, batch_sampler=get_sampler(train))
+        self.valid_loader = DataLoader(valid, batch_sampler=get_sampler(valid))
+        self.test_loader = DataLoader(test, batch_sampler=get_sampler(test))
 
         train_x = next(iter(self.train_loader))
         self.input_size = train_x.shape[2]
@@ -112,51 +104,55 @@ class CustomDataLoader:
                              significant_events[start:end+1] for start, end in
                              zip(change_point_indices[:-1], split_starts)]
 
-            expansion_percentage = 0.10
+            return split_tensors, data, covar
 
-            # Filter out chunks with less than 10 data points and expand others
-            expanded_chunks = []
-            expanded_chunks_covar = []
-            max_length = max(len(tensor) for tensor in split_tensors)
-
-            for tensor_chunk in split_tensors:
-
-                    num_to_add = (max_length - len(tensor_chunk)) // 2
-
-                    # Get the index range for expanding the chunk
-                    start_index = max(0, tensor_chunk[0] - num_to_add)
-                    end_index = min(len(data), tensor_chunk[-1] + num_to_add + 1)
-
-                    chunk_to_add = torch.from_numpy(data[start_index:end_index])
-                    if covar is not None:
-
-                        expanded_chunks_covar.append(torch.from_numpy(covar[start_index:end_index]))
-
-                    expanded_chunks.append(chunk_to_add)
-
-            return expanded_chunks, expanded_chunks_covar, threshold
-
+        total_ind = []
         total_tensors_q = []
         total_tensors_c = []
-        for identifier, df in data.groupby("group"):
-            val = df["value"].values
-            covar = df["reals"].values
-            list_of_events_q, list_of_events_c, _ = detect_significant_events_ma(val, covar, window_size=30,
-                                                                                 threshold_factor=3)
-            padded_tensor_q = pad_sequence(list_of_events_q, padding_value=0)
-            padded_tensor_c = pad_sequence(list_of_events_c, padding_value=0)
-            total_tensors_q.append(padded_tensor_q)
-            total_tensors_c.append(padded_tensor_c)
+        list_of_lens = []
+        for identifier, df in data.groupby("id"):
 
-        max_size_1 = max(tensor.size(0) for tensor in total_tensors_q)
-        max_size_2 = max(tensor.size(1) for tensor in total_tensors_q)
-        tensors_final = torch.zeros(len(total_tensors_q), max_size_1, max_size_2, self.num_features)
-        for i in range(len(total_tensors_q)):
+            val = df["Q"].values
+            covar = df["Conductivity"].values
+            list_of_inner, trg, cov = detect_significant_events_ma(val, covar, window_size=30, threshold_factor=3)
+            list_of_lens.append(len(list_of_inner))
+            total_ind.append(list_of_inner)
+            total_tensors_q.append(trg)
+            total_tensors_c.append(cov)
 
-            q = total_tensors_q[i]
-            c = total_tensors_c[i]
-            tensors_final[i, :q.shape[0], :q.shape[1], 0] = q
-            tensors_final[i, :q.shape[0], :q.shape[1], 1] = c
+        total_ind = [item for sublist in total_ind for item in sublist]
 
-        X = tensors_final.reshape(-1, tensors_final.shape[2], self.num_features)
+        max_length = max(len(t) for t in total_ind)
+
+        tot_chunk_q = []
+        tot_chunk_c = []
+        cumulative_sum = list(accumulate(list_of_lens))
+
+        def get_index(ind):
+            for j, x in enumerate(cumulative_sum):
+                if x - ind > 0:
+                    return j
+
+        for i, tensor_chunk in enumerate(total_ind):
+
+            num_to_add = (max_length - len(tensor_chunk)) // 2
+
+            # Get the index range for expanding the chunk
+            start_index = max(0, tensor_chunk[0] - num_to_add)
+            end_index = min(len(data), tensor_chunk[-1] + num_to_add + 1)
+
+            tgt = total_tensors_q[get_index(i)]
+            cov = total_tensors_c[get_index(i)]
+
+            q = torch.tensor(tgt[start_index:end_index])
+            c = torch.tensor(cov[start_index:end_index])
+            tot_chunk_q.append(q)
+            tot_chunk_c.append(c)
+
+        padded_tensor_q = pad_sequence(tot_chunk_q, padding_value=0)
+        padded_tensor_c = pad_sequence(tot_chunk_c, padding_value=0)
+        padded_tensor_q = padded_tensor_q.permute(1, 0).unsqueeze(-1)
+        padded_tensor_c = padded_tensor_c.permute(1, 0).unsqueeze(-1)
+
+        X = torch.cat([padded_tensor_q, padded_tensor_c], dim=-1).to(torch.float)
         return X
