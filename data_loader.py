@@ -38,6 +38,8 @@ class CustomDataLoader:
         self.device = device
 
         X = self.create_dataloader(data, max_train_sample)
+        permuted_indices = torch.randperm(len(X))
+        X = X[permuted_indices]
 
         total_batches = int(len(X) / self.batch_size)
         train_len = int(total_batches * batch_size * 0.8)
