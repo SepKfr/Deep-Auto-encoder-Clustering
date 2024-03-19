@@ -199,8 +199,4 @@ class ClusterForecasting(nn.Module):
         else:
             adj_rand_index = torch.tensor(0, device=self.device)
 
-        x_rec_norm = torch.zeros_like(x_rec)
-        x_rec_norm[:, :, 0] = (x_rec[:, :, 0] - torch.min(x_rec[:, :, 0])) / (torch.max(x_rec[:, :, 0]) - torch.min(x_rec[:, :, 0]))
-        x_rec_norm[:, :, 1] = (x_rec[:, :, 1] - torch.min(x_rec[:, :, 1])) / (torch.max(x_rec[:, :, 1]) - torch.min(x_rec[:, :, 1]))
-
-        return loss, adj_rand_index, [k_nearest, x_rec_norm]
+        return loss, adj_rand_index, [k_nearest, x_rec]

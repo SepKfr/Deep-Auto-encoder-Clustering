@@ -99,9 +99,9 @@ class DataFormatter:
             if len(targets.shape) == 1:
                 targets = targets.reshape(-1, 1)
 
-            self.real_scalers[identifier] = sklearn.preprocessing.MinMaxScaler().fit(data)
+            self.real_scalers[identifier] = sklearn.preprocessing.StandardScaler().fit(data)
 
-            self.target_scaler[identifier] = sklearn.preprocessing.MinMaxScaler().fit(targets)
+            self.target_scaler[identifier] = sklearn.preprocessing.StandardScaler().fit(targets)
 
             identifiers.append(identifier)
 
