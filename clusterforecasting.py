@@ -175,7 +175,7 @@ class ClusterForecasting(nn.Module):
         output = self.seq_model(x_enc)[:, -self.time_proj:, :]
         #x_rec = self.proj_down(output)
 
-        x_1 = torch.zeros(self.batch_size, self.batch_size, self.time_proj, self.d_model)
+        x_1 = torch.zeros(self.batch_size, self.batch_size, self.time_proj, self.d_model, device=self.device)
         for i in range(self.batch_size):
             x_1[i, :, :, :] = output[i, :, :].unsqueeze(0).repeat(self.batch_size, 1, 1)
 
