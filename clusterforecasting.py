@@ -10,6 +10,7 @@ from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 from sklearn.cluster import KMeans
 from torchmetrics.clustering import AdjustedRandScore
+from tslearn.metrics import SoftDTWLossPyTorch
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)
@@ -171,19 +172,33 @@ class ClusterForecasting(nn.Module):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output = self.seq_model(x_enc)
-        x_rec = self.proj_down(output)
+        output = self.seq_model(x_enc)[:, -self.time_proj:, :]
+        #x_rec = self.proj_down(output)
 
-        diff = output.unsqueeze(1) - output.unsqueeze(0)
+        x_1 = torch.zeros(self.batch_size, self.batch_size, self.time_proj, self.d_model)
+        for i in range(self.batch_size):
+            x_1[i, :, :, :] = output[i, :, :].unsqueeze(0).repeat(self.batch_size, 1, 1)
+
+        x_2 = output.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
+        x_1 = x_1.reshape(-1, self.time_proj, self.d_model)
+        x_2 = x_2.reshape(-1, self.time_proj, self.d_model)
+
+        dtw = SoftDTWLossPyTorch(gamma=0.1)
+        dtw_dist = dtw(x_1, x_2)
+        print(dtw_dist.shape)
+
+        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
+
 
         dist = torch.einsum('lbsd,lbsd-> lbs', diff, diff)
+
         dist_2d = torch.einsum('lbs, lbs -> lb', dist, dist)
 
-        dist_softmax = torch.softmax(-dist_2d, dim=-1)
+        dist_softmax = torch.softmax(-dtw_matrix, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
-        dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.mean() + nn.MSELoss(reduction="mean")(x, x_rec)
+        dist_knn = dtw_matrix[torch.arange(self.batch_size)[:, None], k_nearest]
+        loss = dist_knn.mean()
 
         if y is not None:
             y = y[:, -1, :]
