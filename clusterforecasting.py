@@ -161,7 +161,7 @@ class ClusterForecasting(nn.Module):
         x_1 = x_1.reshape(-1, x.shape[1], 2)
         x_2 = x_2.reshape(-1, x.shape[1], 2)
 
-        dtw = SoftDTWLossPyTorch(gamma=0.1)
+        dtw = SoftDTWLossPyTorch()
         dtw_dist = dtw(x_1, x_2)
         loss = dtw_dist.mean()
 
