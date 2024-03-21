@@ -167,6 +167,7 @@ class ClusterForecasting(nn.Module):
         # create the SoftDTW distance function
         sdtw = pysdtw.SoftDTW(gamma=1.0, dist_func=fun, use_cuda=True)
         dtw_dist = sdtw(x_1, x_2)
+        loss = dtw_dist.sum()
 
         dtw_dist = dtw_dist.reshape(-1, self.batch_size)
 
