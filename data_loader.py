@@ -41,17 +41,7 @@ class CustomDataLoader:
         permuted_indices = torch.randperm(len(X))
         X = X[permuted_indices]
 
-        total_batches = int(len(X) / self.batch_size)
-        train_len = int(total_batches * batch_size * 0.8)
-        valid_len = int(total_batches * batch_size * 0.1)
-        test_len = int(total_batches * batch_size * 0.1)
-
-        train = X[:train_len]
-        valid = X[train_len:train_len + valid_len]
-        test = X[train_len + valid_len:train_len + valid_len + test_len]
-
         get_num_sample = lambda l: 2 ** round(np.log2(l))
-
         def get_sampler(source, num_samples=-1):
             num_samples = get_num_sample(len(source)) if num_samples == -1 else num_samples
             batch_sampler = BatchSampler(
@@ -61,11 +51,26 @@ class CustomDataLoader:
             )
             return batch_sampler
 
-        self.train_loader = DataLoader(train, batch_sampler=get_sampler(train, max_train_sample))
-        self.valid_loader = DataLoader(valid, batch_sampler=get_sampler(valid, max_test_sample))
-        self.test_loader = DataLoader(test, batch_sampler=get_sampler(test, max_test_sample))
+        total_batches = int(len(X) / self.batch_size)
+        self.n_folds = total_batches - 1
+        all_inds = np.arange(0, len(X))
+        self.hold_out_test = DataLoader(X[:self.batch_size], batch_sampler=get_sampler(X[:self.batch_size], max_train_sample))
 
-        train_x = next(iter(self.train_loader))
+        self.list_of_train_loader = []
+        self.list_of_test_loader = []
+
+        for i in range(self.n_folds):
+
+            test_inds = np.arange(batch_size * i, batch_size * (i+1))
+            train_inds = list(filter(lambda x: x not in test_inds, all_inds))
+
+            train = X[train_inds]
+            test = X[test_inds]
+
+            self.list_of_train_loader.append(DataLoader(train, batch_sampler=get_sampler(train, max_train_sample)))
+            self.list_of_test_loader.append(DataLoader(test, batch_sampler=get_sampler(test, max_train_sample)))
+
+        train_x = next(iter(self.list_of_train_loader[0]))
         self.input_size = train_x.shape[2]
         self.output_size = train_x.shape[2]
 
@@ -74,8 +79,7 @@ class CustomDataLoader:
         def detect_significant_events_ma(data, covar, window_size, threshold_factor):
 
             moving_avg = np.convolve(data, np.ones(window_size) / window_size, mode='valid')
-            moving_avg2 = np.convolve(moving_avg, np.ones(window_size) / window_size, mode='valid')
-            residuals = np.abs(moving_avg[window_size - 1:] - moving_avg2)
+            residuals = np.abs(data[window_size - 1:] - moving_avg)
 
             # Calculate the standard deviation of the residuals
             residual_std = np.std(residuals)
@@ -85,10 +89,13 @@ class CustomDataLoader:
 
             # Find indices of significant events where residuals exceed the threshold
             significant_events = np.where(residuals > threshold)[0]
+            #print(significant_events)
             significant_events = torch.tensor(significant_events)
+            #print(significant_events)
 
-            cp = torch.where(torch.roll(significant_events, shifts=-1) - significant_events > 1, torch.tensor(1),
+            cp = torch.where(torch.roll(significant_events, shifts=-1) - significant_events > 5, torch.tensor(1),
                              torch.tensor(0))
+
             change_point_indices = torch.nonzero(cp).squeeze()
 
             # Add the first and last indices to capture the entire range
@@ -99,14 +106,13 @@ class CustomDataLoader:
             split_sizes = change_point_indices[1:] - change_point_indices[:-1]
 
             # Filter out zero-sized splits (if any)
-            non_zero_splits = split_sizes[split_sizes != 0]
+            #non_zero_splits = split_sizes[split_sizes != 0]
 
             # Compute the starting indices for each split
-            split_starts = torch.cumsum(non_zero_splits, dim=0)
+            split_starts = torch.cumsum(split_sizes, dim=0)
 
             # Split the tensor based on change points, excluding the last index of each chunk
-            split_tensors = [significant_events[start+1:end+1] if start > change_point_indices[0] else
-                             significant_events[start:end+1] for start, end in
+            split_tensors = [significant_events[start+1:end] for start, end in
                              zip(change_point_indices[:-1], split_starts)]
 
             return split_tensors, data, covar
@@ -119,7 +125,7 @@ class CustomDataLoader:
 
             val = df["Q"].values
             covar = df["Conductivity"].values
-            list_of_inner, trg, cov = detect_significant_events_ma(val, covar, window_size=7, threshold_factor=3)
+            list_of_inner, trg, cov = detect_significant_events_ma(val, covar, window_size=30, threshold_factor=5)
             list_of_lens.append(len(list_of_inner))
             total_ind.append(list_of_inner)
             total_tensors_q.append(trg)
@@ -140,19 +146,45 @@ class CustomDataLoader:
 
         for i, tensor_chunk in enumerate(total_ind):
 
-            num_to_add = (max_length - len(tensor_chunk)) // 2
+            if len(tensor_chunk) >= 1:
 
-            # Get the index range for expanding the chunk
-            start_index = max(0, tensor_chunk[0] - num_to_add)
-            end_index = min(len(data), tensor_chunk[-1] + num_to_add + 1)
+                tgt_check = total_tensors_q[get_index(i)][tensor_chunk[0]:tensor_chunk[-1]+1]
 
-            tgt = total_tensors_q[get_index(i)]
-            cov = total_tensors_c[get_index(i)]
+                max_id = np.argmax(tgt_check)
+                inds = torch.arange(tensor_chunk[0].item(), tensor_chunk[-1].item()+1)
 
-            q = torch.tensor(tgt[start_index:end_index])
-            c = torch.tensor(cov[start_index:end_index])
-            tot_chunk_q.append(q)
-            tot_chunk_c.append(c)
+                num_to_add = max_length // 2
+
+                # Get the index range for expanding the chunk
+                start_index = max(0, inds[max_id] - num_to_add)
+                end_index = min(len(data), inds[max_id] + num_to_add + 1)
+
+                tgt = total_tensors_q[get_index(i)]
+                cov = total_tensors_c[get_index(i)]
+
+                i = 0
+                while i <= 100:
+
+                    try:
+                        q = torch.tensor(tgt[start_index:end_index])
+                        c = torch.tensor(cov[start_index:end_index])
+
+                        diff = np.argmax(q) - num_to_add
+                        if abs(diff) > 5:
+                            if diff < 0:
+                                start_index = max(0, start_index-5)
+                                end_index = max(0, end_index-5)
+                            else:
+                                start_index = min(len(data), start_index + 5)
+                                end_index = min(len(data), end_index + 5)
+                            i += 1
+                        else:
+                            break
+                    except ValueError:
+                        break
+
+                tot_chunk_q.append(q)
+                tot_chunk_c.append(c)
 
         padded_tensor_q = pad_sequence(tot_chunk_q, padding_value=0)
         padded_tensor_c = pad_sequence(tot_chunk_c, padding_value=0)

@@ -148,6 +148,7 @@ class ClusterForecasting(nn.Module):
         padding_value = kernel_size // 2
         x_smooth = torch.nn.AvgPool1d(kernel_size=kernel_size, padding=padding_value, stride=1)(x.permute(0, 2, 1))
         x_smooth = x_smooth.permute(0, 2, 1)[:, :self.time_proj, :]
+
         x_enc = self.enc_embedding(x_smooth)
         # auto-regressive generative
         output = self.seq_model(x_enc)
@@ -180,4 +181,4 @@ class ClusterForecasting(nn.Module):
         # else:
         #     adj_rand_index = torch.tensor(0, device=self.device)
 
-        return loss, [k_nearest, x_rec]
+        return loss, [k_nearest, x_smooth]

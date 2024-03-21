@@ -2,7 +2,7 @@ import argparse
 import os
 from itertools import product
 import random
-
+import statistics
 import matplotlib.lines
 from torchmetrics.clustering import AdjustedRandScore
 import matplotlib.pyplot as plt
@@ -39,7 +39,7 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="watershed")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=10)
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
@@ -47,7 +47,7 @@ class Train:
         parser.add_argument("--pred_len", type=int, default=24)
         parser.add_argument("--max_train_sample", type=int, default=-1)
         parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=64)
+        parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -182,39 +182,51 @@ class Train:
 
         for epoch in range(self.num_epochs):
 
-            model.train()
-            train_mse_loss = 0
+            list_of_valid_loss = []
+            list_of_train_loss = []
 
-            for x in self.data_loader.train_loader:
+            for i in range(self.data_loader.n_folds):
+                print(f"running on {i} fold...")
 
-                loss, _ = model(x.to(self.device))
+                model.train()
+                train_mse_loss = 0
 
-                forecast_optimizer.zero_grad()
-                loss.backward()
-                forecast_optimizer.step()
-                scheduler.step()
-                train_mse_loss += loss.item()
+                for x in self.data_loader.list_of_train_loader[i]:
 
-            model.eval()
-            valid_loss = 0
+                    loss, _ = model(x.to(self.device))
 
-            for x in self.data_loader.valid_loader:
+                    forecast_optimizer.zero_grad()
+                    loss.backward()
+                    forecast_optimizer.step()
+                    scheduler.step()
+                    train_mse_loss += loss.item()
 
-                loss, _ = model(x.to(self.device))
-                valid_loss += loss.item()
+                list_of_train_loss.append(train_mse_loss)
 
-                if valid_loss < best_trial_valid_loss:
-                    best_trial_valid_loss = valid_loss
-                    if best_trial_valid_loss < self.best_overall_valid_loss:
-                        self.best_overall_valid_loss = best_trial_valid_loss
-                        self.best_forecasting_model = model
-                        torch.save(self.best_forecasting_model.state_dict(),
-                                   os.path.join(self.model_path,
-                                                "{}_forecast.pth".format(self.model_name)))
+                model.eval()
+                valid_loss = 0
 
-            if epoch % 5 == 0:
-                print("train MSE loss: {:.3f}, epoch: {}".format(train_mse_loss/len(self.data_loader.train_loader), epoch))
-                print("valid MSE loss: {:.3f}, epoch: {}".format(valid_loss/len(self.data_loader.valid_loader), epoch))
+                for x in self.data_loader.list_of_test_loader[i]:
+
+                    loss, _ = model(x.to(self.device))
+                    valid_loss += loss.item()
+
+                list_of_valid_loss.append(valid_loss)
+
+                if i == self.data_loader.n_folds - 1:
+                    valid_tmp = statistics.mean(list_of_valid_loss)
+                    if valid_tmp < best_trial_valid_loss:
+                        best_trial_valid_loss = valid_tmp
+                        if best_trial_valid_loss < self.best_overall_valid_loss:
+                            self.best_overall_valid_loss = best_trial_valid_loss
+                            self.best_forecasting_model = model
+                            torch.save(self.best_forecasting_model.state_dict(),
+                                       os.path.join(self.model_path,
+                                                    "{}_forecast.pth".format(self.model_name)))
+
+                if epoch % 5 == 0:
+                    print("train MSE loss: {:.3f}, epoch: {}".format(statistics.mean(list_of_train_loss), epoch))
+                    print("valid MSE loss: {:.3f}, epoch: {}".format(statistics.mean(list_of_valid_loss), epoch))
 
         return best_trial_valid_loss
 
@@ -231,7 +243,7 @@ class Train:
         x_reconstructs = []
         knns = []
 
-        for x in self.data_loader.test_loader:
+        for x in self.data_loader.hold_out_test:
             _, outputs = self.best_forecasting_model(x.to(self.device))
             x_reconstructs.append(outputs[1].detach().cpu().numpy())
             knns.append(outputs[0].detach().cpu().numpy())
