@@ -166,7 +166,6 @@ class ClusterForecasting(nn.Module):
 
         dtw = SoftDTWLossPyTorch(gamma=0.1)
         dtw_dist = dtw(x_1, x_2)
-        dtw_dist = dtw_dist.reshape(-1, self.batch_size)
         print(dtw_dist.shape)
 
         dist_softmax = torch.softmax(-dtw_dist, dim=-1)
