@@ -163,13 +163,12 @@ class ClusterForecasting(nn.Module):
 
         dtw = SoftDTWLossPyTorch(gamma=0.1)
         dtw_dist = dtw(x_1, x_2)
+        loss = dtw_dist.mean()
+
         dtw_dist = dtw_dist.reshape(-1, self.batch_size)
 
         dist_softmax = torch.softmax(-dtw_dist, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
-
-        dist_knn = dtw_dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.mean()
 
         # if y is not None:
         #     y = y[:, -1, :]
