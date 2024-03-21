@@ -181,4 +181,4 @@ class ClusterForecasting(nn.Module):
         # else:
         #     adj_rand_index = torch.tensor(0, device=self.device)
 
-        return loss, [k_nearest, x_smooth]
+        return loss, [k_nearest, x_rec]
