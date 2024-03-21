@@ -154,8 +154,6 @@ class Train:
 
         if self.cluster == "yes":
             model = ClusterForecasting(input_size=self.data_loader.input_size,
-                                       output_size=self.data_loader.output_size,
-                                       len_snippets=1,
                                        n_clusters=num_clusters,
                                        d_model=d_model,
                                        nheads=8,
@@ -190,21 +188,20 @@ class Train:
 
             for x in self.data_loader.train_loader:
 
-                loss, adj_loss, _ = model(x.to(self.device))
+                loss, _ = model(x.to(self.device))
 
                 forecast_optimizer.zero_grad()
                 loss.backward()
                 forecast_optimizer.step()
                 scheduler.step()
                 train_mse_loss += loss.item()
-                train_adj_loss += adj_loss.item()
 
             model.eval()
             valid_loss = 0
             valid_adj_loss = 0
             for x in self.data_loader.valid_loader:
 
-                loss, adj_loss, _ = model(x.to(self.device))
+                loss, _ = model(x.to(self.device))
                 valid_loss += loss.item()
                 valid_adj_loss += adj_loss.item()
 
@@ -218,12 +215,8 @@ class Train:
                                                 "{}_forecast.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
-                print("train MSE loss: {:.3f}, train adj loss: "
-                      "{:.3f} epoch: {}".format(train_mse_loss/len(self.data_loader.train_loader),
-                                                train_adj_loss/len(self.data_loader.train_loader), epoch))
-                print("valid MSE loss: {:.3f}, valid adj loss: "
-                      "{:.3f} epoch: {}".format(valid_loss/len(self.data_loader.valid_loader),
-                                                valid_adj_loss/len(self.data_loader.valid_loader), epoch))
+                print("train MSE loss: {:.3f}, epoch: {}".format(train_mse_loss/len(self.data_loader.train_loader), epoch))
+                print("valid MSE loss: {:.3f}, epoch: {}".format(valid_loss/len(self.data_loader.valid_loader), epoch))
 
         return best_trial_valid_loss
 
@@ -241,7 +234,7 @@ class Train:
         knns = []
 
         for x in self.data_loader.test_loader:
-            _, _, outputs = self.best_forecasting_model(x.to(self.device))
+            _, outputs = self.best_forecasting_model(x.to(self.device))
             x_reconstructs.append(outputs[1].detach().cpu().numpy())
             knns.append(outputs[0].detach().cpu().numpy())
 
