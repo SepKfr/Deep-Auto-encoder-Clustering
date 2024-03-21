@@ -90,7 +90,7 @@ class DeepGPp(DeepGP):
         preds = self.likelihood(dist)
         preds_mean = preds.mean.mean(0)
 
-        return preds_mean, dist
+        return preds_mean
 
 
 class Autoencoder(nn.Module):
