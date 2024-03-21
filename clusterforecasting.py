@@ -161,12 +161,11 @@ class ClusterForecasting(nn.Module):
             x_1[i, :, :, :] = x_rec[i, :, :].unsqueeze(0).repeat(self.batch_size, 1, 1)
 
         x_2 = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
-        x_1 = x_1.reshape(-1, self.time_proj, self.d_model)
-        x_2 = x_2.reshape(-1, self.time_proj, self.d_model)
+        x_1 = x_1.reshape(-1, self.time_proj, 2)
+        x_2 = x_2.reshape(-1, self.time_proj, 2)
 
         dtw = SoftDTWLossPyTorch(gamma=0.1)
         dtw_dist = dtw(x_1, x_2)
-        print(dtw_dist.shape)
 
         dist_softmax = torch.softmax(-dtw_dist, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
