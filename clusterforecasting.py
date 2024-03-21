@@ -150,10 +150,7 @@ class ClusterForecasting(nn.Module):
 
         x_rec = self.proj_down(output)
 
-        x_rec, dist = self.gp_model.predict(x_rec)
-        mll = DeepApproximateMLL(
-            VariationalELBO(self.gp_model.likelihood, self.gp_model, 2))
-        rec_loss = -mll(dist, x)
+        x_rec = self.gp_model.predict(x_rec)
 
         x_1 = torch.zeros(self.batch_size, self.batch_size, x.shape[1], 2, device=self.device)
 
@@ -172,7 +169,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dtw_dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.mean() + 0.01 * rec_loss.mean()
+        loss = dist_knn.mean()
 
         # if y is not None:
         #     y = y[:, -1, :]
