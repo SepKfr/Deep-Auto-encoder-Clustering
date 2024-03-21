@@ -132,7 +132,7 @@ class ClusterForecasting(nn.Module):
 
         #self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
         self.auto_encoder = Autoencoder(input_dim=input_size, encoding_dim=d_model)
-        self.gp_model = DeepGPp(num_inducing=batch_size, num_hidden_dims=2)
+        self.gp_model = DeepGPp(num_inducing=batch_size, num_hidden_dims=d_model)
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -148,9 +148,8 @@ class ClusterForecasting(nn.Module):
         # auto-regressive generative
         output = self.seq_model(x_enc)[:, -self.time_proj:, :]
 
+        output = self.gp_model.predict(output)
         x_rec = self.proj_down(output)
-
-        x_rec = self.gp_model.predict(x_rec)
 
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
@@ -161,7 +160,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.sum()
+        loss = dist_knn.sum() + nn.MSELoss()(x_rec, x)
 
         # if y is not None:
         #     y = y[:, -1, :]
