@@ -184,7 +184,6 @@ class Train:
 
             model.train()
             train_mse_loss = 0
-            train_adj_loss = 0
 
             for x in self.data_loader.train_loader:
 
@@ -198,12 +197,11 @@ class Train:
 
             model.eval()
             valid_loss = 0
-            valid_adj_loss = 0
+
             for x in self.data_loader.valid_loader:
 
                 loss, _ = model(x.to(self.device))
                 valid_loss += loss.item()
-                valid_adj_loss += adj_loss.item()
 
                 if valid_loss < best_trial_valid_loss:
                     best_trial_valid_loss = valid_loss
