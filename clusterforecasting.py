@@ -172,7 +172,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dtw_dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.mean() + rec_loss.mean()
+        loss = dist_knn.mean() + 0.01 * rec_loss.mean()
 
         # if y is not None:
         #     y = y[:, -1, :]
