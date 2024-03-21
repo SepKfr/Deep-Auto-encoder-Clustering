@@ -18,7 +18,6 @@ from gpytorch.means import ConstantMean, LinearMean
 from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
 from gpytorch.variational import VariationalStrategy, MeanFieldVariationalDistribution
 from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
-import pysdtw
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)
@@ -147,32 +146,22 @@ class ClusterForecasting(nn.Module):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output = self.seq_model(x_enc)
+        output = self.seq_model(x_enc)[:, -self.time_proj, :]
 
         x_rec = self.proj_down(output)
 
         x_rec = self.gp_model.predict(x_rec)
 
-        x_1 = torch.zeros(self.batch_size, self.batch_size, x.shape[1], 2, device=self.device)
+        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
-        for i in range(self.batch_size):
-            x_1[i, :, :, :] = x_rec[i, :, :].unsqueeze(0).repeat(self.batch_size, 1, 1)
+        dist = torch.einsum('lbsd,lbsd-> lbs', diff, diff)
+        dist_2d = torch.einsum('lbs, lbs -> lb', dist, dist)
 
-        x_2 = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
-        x_1 = x_1.reshape(-1, x.shape[1], 2)
-        x_2 = x_2.reshape(-1, x.shape[1], 2)
-
-        fun = pysdtw.distance.pairwise_l2_squared
-
-        # create the SoftDTW distance function
-        sdtw = pysdtw.SoftDTW(gamma=1e-5, dist_func=fun, use_cuda=True)
-        dtw_dist = sdtw(x_1, x_2)
-        loss = dtw_dist.sum()
-
-        dtw_dist = dtw_dist.reshape(-1, self.batch_size)
-
-        dist_softmax = torch.softmax(-dtw_dist, dim=-1)
+        dist_softmax = torch.softmax(-dist_2d, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
+
+        dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
+        loss = dist_knn.sum()
 
         # if y is not None:
         #     y = y[:, -1, :]
