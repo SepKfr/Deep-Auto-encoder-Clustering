@@ -18,6 +18,7 @@ from gpytorch.means import ConstantMean, LinearMean
 from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
 from gpytorch.variational import VariationalStrategy, MeanFieldVariationalDistribution
 from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
+import pysdtw
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)
@@ -161,9 +162,11 @@ class ClusterForecasting(nn.Module):
         x_1 = x_1.reshape(-1, x.shape[1], 2)
         x_2 = x_2.reshape(-1, x.shape[1], 2)
 
-        dtw = SoftDTWLossPyTorch(gamma=1)
-        dtw_dist = dtw(x_1, x_2)
-        loss = dtw_dist.mean()
+        fun = pysdtw.distance.pairwise_l2_squared
+
+        # create the SoftDTW distance function
+        sdtw = pysdtw.SoftDTW(gamma=1.0, dist_func=fun, use_cuda=True)
+        dtw_dist = sdtw(x_1, x_2)
 
         dtw_dist = dtw_dist.reshape(-1, self.batch_size)
 
