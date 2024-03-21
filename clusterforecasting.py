@@ -146,7 +146,7 @@ class ClusterForecasting(nn.Module):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output = self.seq_model(x_enc)[:, -self.time_proj, :]
+        output = self.seq_model(x_enc)[:, -self.time_proj:, :]
 
         x_rec = self.proj_down(output)
 
