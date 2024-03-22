@@ -51,21 +51,23 @@ class CustomDataLoader:
             )
             return batch_sampler
 
-        total_batches = int(len(X) / self.batch_size)
-        hold_out_num = 7
+        total_batches = len(X) // self.batch_size
         self.n_folds = 5
+        test_num = total_batches // self.n_folds
 
-        all_inds = np.arange(0, len(X) - (hold_out_num * self.batch_size))
+        all_inds = np.arange(0, len(X) - (test_num * self.batch_size))
 
-        self.hold_out_test = DataLoader(X[:hold_out_num*self.batch_size], batch_sampler=get_sampler(X[:hold_out_num*self.batch_size], max_test_sample))
+        self.hold_out_test = DataLoader(X[:test_num*self.batch_size],
+                                        batch_sampler=get_sampler(X[:test_num*self.batch_size],
+                                                                  max_test_sample))
 
         self.list_of_train_loader = []
         self.list_of_test_loader = []
-        X = X[hold_out_num*self.batch_size:]
+        X = X[test_num*self.batch_size:]
 
-        for i in range(self.n_folds):
+        for i in range(self.n_folds - 1):
 
-            test_inds = np.arange(batch_size * hold_out_num * i, batch_size * hold_out_num * (i+1))
+            test_inds = np.arange(batch_size * test_num * i, batch_size * test_num * (i+1))
             train_inds = list(filter(lambda x: x not in test_inds, all_inds))
 
             train = X[train_inds]
