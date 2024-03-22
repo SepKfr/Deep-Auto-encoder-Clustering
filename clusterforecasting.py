@@ -125,8 +125,10 @@ class ClusterForecasting(nn.Module):
         self.device = device
         f = 9
 
-        self.conv = nn.Conv1d(in_channels=input_size, out_channels=d_model,
-                              kernel_size=f, padding=int((f - 1) / 2))
+        self.conv = nn.Sequential(nn.Conv1d(in_channels=input_size, out_channels=d_model,
+                                  kernel_size=f, padding=int((f - 1) / 2)),
+                                  nn.BatchNorm1d(d_model),
+                                  nn.ReLU())
 
         self.enc_embedding = nn.Linear(input_size, d_model)
 
