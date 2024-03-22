@@ -129,7 +129,7 @@ class CustomDataLoader:
 
             val = df["Q"].values
             covar = df["Conductivity"].values
-            list_of_inner, trg, cov = detect_significant_events_ma(val, covar, window_size=30, threshold_factor=5)
+            list_of_inner, trg, cov = detect_significant_events_ma(val, covar, window_size=30, threshold_factor=10)
             list_of_lens.append(len(list_of_inner))
             total_ind.append(list_of_inner)
             total_tensors_q.append(trg)
