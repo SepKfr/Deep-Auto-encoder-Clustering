@@ -61,10 +61,11 @@ class CustomDataLoader:
 
         self.list_of_train_loader = []
         self.list_of_test_loader = []
+        X = X[hold_out_num*self.batch_size:]
 
         for i in range(self.n_folds):
 
-            test_inds = np.arange(batch_size * i, batch_size * (i+1))
+            test_inds = np.arange(batch_size * hold_out_num * i, batch_size * hold_out_num * (i+1))
             train_inds = list(filter(lambda x: x not in test_inds, all_inds))
 
             train = X[train_inds]
