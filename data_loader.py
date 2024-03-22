@@ -52,7 +52,7 @@ class CustomDataLoader:
             return batch_sampler
 
         total_batches = len(X) // self.batch_size
-        self.n_folds = 5
+        self.n_folds = 6
         test_num = total_batches // self.n_folds
 
         all_inds = np.arange(0, len(X) - (test_num * self.batch_size))
@@ -64,8 +64,9 @@ class CustomDataLoader:
         self.list_of_train_loader = []
         self.list_of_test_loader = []
         X = X[test_num*self.batch_size:]
+        self.n_folds -= 1
 
-        for i in range(self.n_folds - 1):
+        for i in range(self.n_folds):
 
             test_inds = np.arange(batch_size * test_num * i, batch_size * test_num * (i+1))
             train_inds = list(filter(lambda x: x not in test_inds, all_inds))
