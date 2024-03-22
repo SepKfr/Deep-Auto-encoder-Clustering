@@ -151,12 +151,12 @@ class ClusterForecasting(nn.Module):
 
     def forward(self, x, y=None):
 
-        output = nn.ReLU()(self.enc_embedding(x))
+        output = nn.Sigmoid()(self.enc_embedding(x))
         # auto-regressive generative
         #output = self.seq_model(x_enc)
 
         #output = self.gp_model.predict(output)
-        x_rec = nn.ReLU()(self.proj_down(output))
+        x_rec = nn.Sigmoid()(self.proj_down(output))
 
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
