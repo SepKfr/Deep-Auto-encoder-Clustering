@@ -131,6 +131,7 @@ class ClusterForecasting(nn.Module):
                                   nn.ReLU())
 
         self.enc_embedding = nn.Linear(input_size, d_model)
+        self.norm = nn.LayerNorm(d_model)
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
@@ -155,7 +156,7 @@ class ClusterForecasting(nn.Module):
         # auto-regressive generative
         output_seq = self.seq_model(x_enc)
 
-        output = self.gp_model.predict(output_seq) + output_seq
+        output = self.norm(self.gp_model.predict(output_seq) + output_seq)
         x_rec = self.proj_down(output)
 
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
