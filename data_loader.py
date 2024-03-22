@@ -52,7 +52,7 @@ class CustomDataLoader:
             return batch_sampler
 
         total_batches = len(X) // self.batch_size
-        self.n_folds = 3
+        self.n_folds = 2
         test_num = total_batches // self.n_folds
 
         all_inds = np.arange(0, len(X) - (test_num * self.batch_size))

@@ -148,7 +148,7 @@ class ClusterForecasting(nn.Module):
         # auto-regressive generative
         output = self.seq_model(x_enc)
 
-        #output = self.gp_model.predict(output)
+        output = self.gp_model.predict(output)
         x_rec = self.proj_down(output)
 
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
