@@ -140,7 +140,7 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.input_size = input_size
         self.time_proj = 200
-        self.num_clusters = 10
+        self.num_clusters = 9
 
     def forward(self, x, y=None):
 
