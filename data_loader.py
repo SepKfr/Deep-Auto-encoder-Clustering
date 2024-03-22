@@ -52,9 +52,12 @@ class CustomDataLoader:
             return batch_sampler
 
         total_batches = int(len(X) / self.batch_size)
-        self.n_folds = total_batches - 1
-        all_inds = np.arange(0, len(X))
-        self.hold_out_test = DataLoader(X[:self.batch_size], batch_sampler=get_sampler(X[:self.batch_size], max_train_sample))
+        hold_out_num = 7
+        self.n_folds = 5
+
+        all_inds = np.arange(0, len(X) - (hold_out_num * self.batch_size))
+
+        self.hold_out_test = DataLoader(X[:hold_out_num*self.batch_size], batch_sampler=get_sampler(X[:hold_out_num*self.batch_size], max_test_sample))
 
         self.list_of_train_loader = []
         self.list_of_test_loader = []
@@ -68,7 +71,7 @@ class CustomDataLoader:
             test = X[test_inds]
 
             self.list_of_train_loader.append(DataLoader(train, batch_sampler=get_sampler(train, max_train_sample)))
-            self.list_of_test_loader.append(DataLoader(test, batch_sampler=get_sampler(test, max_train_sample)))
+            self.list_of_test_loader.append(DataLoader(test, batch_sampler=get_sampler(test, max_test_sample)))
 
         train_x = next(iter(self.list_of_train_loader[0]))
         self.input_size = train_x.shape[2]
@@ -170,7 +173,9 @@ class CustomDataLoader:
                         c = torch.tensor(cov[start_index:end_index])
 
                         diff = np.argmax(q) - num_to_add
+
                         if abs(diff) > 5:
+
                             if diff < 0:
                                 start_index = max(0, start_index-5)
                                 end_index = max(0, end_index-5)
@@ -179,12 +184,20 @@ class CustomDataLoader:
                                 end_index = min(len(data), end_index + 5)
                             i += 1
                         else:
+                            tot_chunk_q.append(q)
+                            tot_chunk_c.append(c)
+                            for j in range(4):
+                                s = min(len(data), start_index + j)
+                                e = min(len(data), end_index + j)
+                                tot_chunk_q.append(torch.tensor(tgt[s:e]))
+                                tot_chunk_c.append(torch.tensor(cov[s:e]))
+                                s = max(0, start_index - j)
+                                e = max(0, end_index - j)
+                                tot_chunk_q.append(torch.tensor(tgt[s:e]))
+                                tot_chunk_c.append(torch.tensor(cov[s:e]))
                             break
                     except ValueError:
                         break
-
-                tot_chunk_q.append(q)
-                tot_chunk_c.append(c)
 
         padded_tensor_q = pad_sequence(tot_chunk_q, padding_value=0)
         padded_tensor_c = pad_sequence(tot_chunk_c, padding_value=0)

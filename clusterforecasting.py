@@ -140,16 +140,11 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.input_size = input_size
         self.time_proj = 200
-        self.num_clusters = 5
+        self.num_clusters = 10
 
     def forward(self, x, y=None):
 
-        kernel_size = 30
-        padding_value = kernel_size // 2
-        x_smooth = torch.nn.AvgPool1d(kernel_size=kernel_size, padding=padding_value, stride=1)(x.permute(0, 2, 1))
-        x_smooth = x_smooth.permute(0, 2, 1)[:, :self.time_proj, :]
-
-        x_enc = self.enc_embedding(x_smooth)
+        x_enc = self.enc_embedding(x)
         # auto-regressive generative
         output = self.seq_model(x_enc)
 
