@@ -139,7 +139,7 @@ class ClusterForecasting(nn.Module):
         self.batch_size = batch_size
         self.d_model = d_model
         self.input_size = input_size
-        self.time_proj = 200
+        self.time_proj = 100
         self.num_clusters = 9
 
     def forward(self, x, y=None):
@@ -160,7 +160,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.sum() + nn.MSELoss()(x_rec, x)
+        loss = dist_knn.sum() + nn.MSELoss()(x_rec, x[:, :-1, :])
         # if y is not None:
         #     y = y[:, -1, :]
         #     y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
