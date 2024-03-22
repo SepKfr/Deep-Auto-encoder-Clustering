@@ -130,7 +130,7 @@ class ClusterForecasting(nn.Module):
                                   nn.BatchNorm1d(d_model),
                                   nn.ReLU())
 
-        self.enc_embedding = nn.Linear(input_size, input_size)
+        self.enc_embedding = nn.Linear(input_size, d_model)
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
@@ -150,12 +150,13 @@ class ClusterForecasting(nn.Module):
         self.num_clusters = 9
 
     def forward(self, x, y=None):
-        x_rec = self.enc_embedding(x)
+
+        output = self.enc_embedding(x)
         # auto-regressive generative
         #output = self.seq_model(x_enc)
 
         #output = self.gp_model.predict(output)
-        #x_rec = self.proj_down(output)
+        x_rec = self.proj_down(output)
 
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
