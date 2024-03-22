@@ -45,8 +45,8 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=256)
-        parser.add_argument("--max_test_sample", type=int, default=32)
+        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -266,24 +266,25 @@ class Train:
             return color
 
         # Plot the clusters
-        for i in range(len(x_reconstructs)):
-            ids = knns[i]
-            x_1 = x_reconstructs[i]
 
-            plt.scatter(x_1[:, 1], x_1[:, 0], color=get_color(0))
-            x_os = [x_reconstructs[j] for j in ids]
-            for k, x in enumerate(x_os):
-                plt.scatter(x[:, 1], x[:, 0], color=get_color(k+1))
+        i = random.randint(0, len(x_reconstructs))
+        ids = knns[i]
+        x_1 = x_reconstructs[i]
 
-            # Set plot labels and legend
-            plt.title('Storm Events')
-            plt.xlabel('Conductivity')
-            plt.ylabel('Q')
+        plt.scatter(x_1[:, 1], x_1[:, 0], color=get_color(0))
+        x_os = [x_reconstructs[j] for j in ids]
+        for k, x in enumerate(x_os):
+            plt.scatter(x[:, 1], x[:, 0], color=get_color(k+1))
 
-            patches = [plt.Line2D([0], [0], color=to_rgba(colors[j]), marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
-            labels = [f"Storm {j+1}" for j in range(len(ids))]
-            plt.legend(handles=patches, labels=labels)
-            plt.tight_layout()
-            plt.savefig("{}/storm_events_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
-            plt.clf()
+        # Set plot labels and legend
+        plt.title('Storm Events')
+        plt.xlabel('Conductivity')
+        plt.ylabel('Q')
+
+        patches = [plt.Line2D([0], [0], color=to_rgba(colors[j]), marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
+        labels = [f"Storm {j+1}" for j in range(len(ids))]
+        plt.legend(handles=patches, labels=labels)
+        plt.tight_layout()
+        plt.savefig("{}/storm_events_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
+        plt.clf()
 Train()
