@@ -148,7 +148,7 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.input_size = input_size
         self.time_proj = 100
-        self.num_clusters = 5
+        self.num_clusters = 9
 
     def forward(self, x, y=None):
 
@@ -158,7 +158,7 @@ class ClusterForecasting(nn.Module):
 
         x_rec = self.proj_down(output_seq)
         diffs = torch.diff(x_rec, dim=1)
-        kernel = 31
+        kernel = 3
         padding = (kernel - 1) // 2
         mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
         res = torch.abs(diffs - mv_avg)
