@@ -148,13 +148,13 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.input_size = input_size
         self.time_proj = 100
-        self.num_clusters = 9
+        self.num_clusters = 5
 
     def forward(self, x, y=None):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output_seq = self.seq_model(x_enc)[:, -self.time_proj:, :]
+        output_seq = self.seq_model(x_enc)
 
         x_rec = self.proj_down(output_seq)
 
@@ -167,7 +167,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.sum()
+        loss = dist_knn.sum() + nn.MSELoss()(x_rec, x[:, :-1, :])
         # if y is not None:
         #     y = y[:, -1, :]
         #     y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
