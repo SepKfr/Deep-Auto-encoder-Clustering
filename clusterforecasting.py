@@ -157,6 +157,11 @@ class ClusterForecasting(nn.Module):
         output_seq = self.seq_model(x_enc)
 
         x_rec = self.proj_down(output_seq)
+        diffs = torch.diff(x_rec, dim=1)
+        kernel = 7
+        padding = (kernel - 1) // 2
+        mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
+        res = torch.abs(diffs - mv_avg)
 
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
@@ -167,7 +172,7 @@ class ClusterForecasting(nn.Module):
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
-        loss = dist_knn.sum() + nn.MSELoss()(x_rec, x[:, :-1, :])
+        loss = dist_knn.sum() + res.sum()
         # if y is not None:
         #     y = y[:, -1, :]
         #     y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)

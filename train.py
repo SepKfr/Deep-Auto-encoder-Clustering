@@ -267,24 +267,25 @@ class Train:
 
         # Plot the clusters
 
-        i = random.randint(0, len(x_reconstructs))
-        ids = knns[i]
-        x_1 = x_reconstructs[i]
+        inds = np.random.randint(0, len(x_reconstructs), 20)
+        for i in inds:
+            ids = knns[i]
+            x_1 = x_reconstructs[i]
 
-        plt.scatter(x_1[:, 1], x_1[:, 0], color=get_color(0))
-        x_os = [x_reconstructs[j] for j in ids]
-        for k, x in enumerate(x_os):
-            plt.scatter(x[:, 1], x[:, 0], color=get_color(k+1))
+            plt.scatter(x_1[:, 1], x_1[:, 0], color=get_color(0))
+            x_os = [x_reconstructs[j] for j in ids]
+            for k, x in enumerate(x_os):
+                plt.scatter(x[:, 1], x[:, 0], color=get_color(k+1))
 
-        # Set plot labels and legend
-        plt.title('Storm Events')
-        plt.xlabel('Conductivity')
-        plt.ylabel('Q')
+            # Set plot labels and legend
+            plt.title('Storm Events')
+            plt.xlabel('Conductivity')
+            plt.ylabel('Q')
 
-        patches = [plt.Line2D([0], [0], color=to_rgba(colors[j]), marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
-        labels = [f"Storm {j+1}" for j in range(len(ids))]
-        plt.legend(handles=patches, labels=labels)
-        plt.tight_layout()
-        plt.savefig("{}/storm_events_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
-        plt.clf()
+            patches = [plt.Line2D([0], [0], color=to_rgba(colors[j]), marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
+            labels = [f"Storm {j+1}" for j in range(len(ids))]
+            plt.legend(handles=patches, labels=labels)
+            plt.tight_layout()
+            plt.savefig("{}/storm_events_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
+            plt.clf()
 Train()
