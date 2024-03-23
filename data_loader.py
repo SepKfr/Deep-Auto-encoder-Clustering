@@ -53,7 +53,7 @@ class CustomDataLoader:
 
         total_batches = len(X) // self.batch_size
         self.n_folds = 2
-        test_num = total_batches // self.n_folds
+        test_num = total_batches // 5
 
         all_inds = np.arange(0, len(X) - (test_num * self.batch_size))
 
