@@ -45,8 +45,8 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
-        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--max_train_sample", type=int, default=64)
+        parser.add_argument("--max_test_sample", type=int, default=64)
         parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -268,7 +268,9 @@ class Train:
         # Plot the clusters
 
         inds = np.random.randint(0, len(x_reconstructs), 20)
+
         for i in inds:
+
             ids = knns[i]
             x_1 = x_reconstructs[i]
 
