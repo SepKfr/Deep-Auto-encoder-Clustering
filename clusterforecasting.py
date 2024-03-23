@@ -177,7 +177,7 @@ class ClusterForecasting(nn.Module):
         diff_knns = torch.abs(torch.diff(selected, dim=1)).sum()
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        loss = dist_knn.sum() + 0.1 * res.sum() + 0.1 * diff_knns
+        loss = dist_knn.sum() + 0.01 * res.sum() + 0.01 * diff_knns
         # if y is not None:
         #     y = y[:, -1, :]
         #     y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
