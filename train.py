@@ -243,7 +243,7 @@ class Train:
         x_reconstructs = []
         knns = []
 
-        for x in self.data_loader.hold_out_test:
+        for x in self.data_loader.list_of_test_loader[0]:
             _, outputs = self.best_forecasting_model(x.to(self.device))
             x_reconstructs.append(outputs[1].detach().cpu().numpy())
             knns.append(outputs[0].detach().cpu().numpy())
