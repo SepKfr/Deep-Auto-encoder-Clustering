@@ -26,14 +26,6 @@ class UserDataLoader:
         self.max_test_sample = max_test_sample * batch_size
         self.batch_size = batch_size
 
-        total_batches = int(len(data) / self.batch_size)
-        train_len = int(total_batches * batch_size * 0.6)
-        valid_len = int(total_batches * batch_size * 0.2)
-        test_len = int(total_batches * batch_size * 0.2)
-
-        train = data[:train_len]
-        valid = data[train_len:train_len+valid_len]
-        test = data[train_len+valid_len:train_len+valid_len+test_len]
         self.real_inputs = real_inputs
 
         self.num_features = 4
@@ -41,15 +33,45 @@ class UserDataLoader:
 
         self.total_time_steps = self.max_encoder_length
 
-        self.train_loader = self.create_dataloader(train, max_train_sample)
-        self.valid_loader = self.create_dataloader(valid, max_test_sample)
-        self.test_loader = self.create_dataloader(test, max_test_sample)
+        X = self.create_dataloader(data)
 
-        train_x, train_y = next(iter(self.train_loader))
-        self.input_size = train_x.shape[2]
-        self.output_size = train_y.shape[1]
+        get_num_sample = lambda l: 2 ** round(np.log2(l))
 
-    def create_dataloader(self, data, max_samples):
+        def get_sampler(source, num_samples=-1):
+            num_samples = get_num_sample(len(source)) if num_samples == -1 else num_samples
+            batch_sampler = BatchSampler(
+                sampler=torch.utils.data.RandomSampler(source, num_samples=num_samples),
+                batch_size=self.batch_size,
+                drop_last=False,
+            )
+            return batch_sampler
+
+        total_batches = len(X) // self.batch_size
+        self.n_folds = 5
+        test_num = total_batches // 5
+
+        all_inds = np.arange(0, len(X))
+
+        self.hold_out_test = DataLoader(X[:test_num * self.batch_size],
+                                        batch_sampler=get_sampler(X[:test_num * self.batch_size],
+                                                                  max_test_sample))
+
+        self.list_of_train_loader = []
+        self.list_of_test_loader = []
+        X = X[test_num * self.batch_size:]
+        self.n_folds -= 1
+
+        for i in range(self.n_folds):
+            test_inds = np.arange(batch_size * test_num * i, batch_size * test_num * (i + 1))
+            train_inds = list(filter(lambda x: x not in test_inds, all_inds))
+
+            train = X[train_inds]
+            test = X[test_inds]
+
+            self.list_of_train_loader.append(DataLoader(train, batch_sampler=get_sampler(train, max_train_sample)))
+            self.list_of_test_loader.append(DataLoader(test, batch_sampler=get_sampler(test, max_test_sample)))
+
+    def create_dataloader(self, data):
 
         valid_sampling_locations, split_data_map = zip(
             *[
@@ -65,8 +87,7 @@ class UserDataLoader:
         valid_sampling_locations = list(valid_sampling_locations)
         split_data_map = dict(split_data_map)
 
-        ranges = [valid_sampling_locations[i] for i in np.random.choice(
-                  len(valid_sampling_locations), max_samples, replace=False)]
+        ranges = valid_sampling_locations
 
         X = torch.zeros(max_samples, self.total_time_steps, self.num_features+1)
         Y = torch.zeros(max_samples, self.total_time_steps, 1)
@@ -82,7 +103,4 @@ class UserDataLoader:
             Y[i] = cluster_id
             X[i] = final_tensor
 
-        dataset = TensorDataset(X, Y)
-        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True, drop_last=True)
-
-        return dataloader
+        return X, Y

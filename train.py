@@ -39,14 +39,14 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="watershed")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=1)
+        parser.add_argument("--num_epochs", type=int, default=25)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=192)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
-        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--max_train_sample", type=int, default=64)
+        parser.add_argument("--max_test_sample", type=int, default=64)
         parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -114,7 +114,7 @@ class Train:
         self.best_forecasting_model = nn.Module()
         self.run_optuna(args)
 
-        self.evaluate()
+        #self.evaluate()
 
     def run_optuna(self, args):
 
