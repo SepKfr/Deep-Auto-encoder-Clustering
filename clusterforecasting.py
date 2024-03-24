@@ -171,13 +171,14 @@ class ClusterForecasting(nn.Module):
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
-        # x_rec_expand = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
-        # selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
-        #
-        # diff_knns = torch.abs(torch.diff(selected, dim=1)).sum()
+        x_rec_expand = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
+        selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
+
+        diff_knns = torch.abs(torch.diff(selected, dim=1)).sum()
+
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        loss = dist_knn.sum() + 0.1 * res.sum()
+        loss = dist_knn.sum() + 0.1 * res.sum() + 0.1 * diff_knns
         # if y is not None:
         #     y = y[:, -1, :]
         #     y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
