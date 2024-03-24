@@ -56,7 +56,7 @@ class CustomDataLoader:
         test_num = total_batches // self.n_folds
         test_num = test_num if test_num <= 2 else 2
 
-        all_inds = np.arange(0, len(X))
+        all_inds = np.arange(0, len(X) - test_num*self.batch_size)
 
         self.hold_out_test = DataLoader(X[:test_num*self.batch_size],
                                         batch_sampler=get_sampler(X[:test_num*self.batch_size],

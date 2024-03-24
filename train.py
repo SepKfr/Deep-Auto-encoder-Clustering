@@ -243,7 +243,7 @@ class Train:
         x_reconstructs = []
         knns = []
 
-        for x in self.data_loader.list_of_test_loader[0]:
+        for x in self.data_loader.hold_out_test:
             _, outputs = self.best_forecasting_model(x.to(self.device))
             x_reconstructs.append(outputs[1].detach().cpu().numpy())
             knns.append(outputs[0].detach().cpu().numpy())
@@ -267,7 +267,7 @@ class Train:
 
         # Plot the clusters
 
-        inds = np.random.randint(0, len(x_reconstructs), 20)
+        inds = np.random.randint(0, len(x_reconstructs), 32)
 
         for i in inds:
 
