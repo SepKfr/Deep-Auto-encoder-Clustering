@@ -42,6 +42,7 @@ class CustomDataLoader:
         X = X[permuted_indices]
 
         get_num_sample = lambda l: 2 ** round(np.log2(l))
+
         def get_sampler(source, num_samples=-1):
             num_samples = get_num_sample(len(source)) if num_samples == -1 else num_samples
             batch_sampler = BatchSampler(
@@ -82,48 +83,49 @@ class CustomDataLoader:
         self.input_size = train_x.shape[2]
         self.output_size = train_x.shape[2]
 
+    @staticmethod
+    def detect_significant_events_ma(data, covar, window_size, threshold_factor):
+
+        moving_avg = np.convolve(data, np.ones(window_size) / window_size, mode='valid')
+        residuals = data[window_size - 1:] - moving_avg
+
+        # Calculate the standard deviation of the residuals
+        residual_std = np.std(residuals)
+
+        # Set the threshold as a multiple of the standard deviation
+        threshold = threshold_factor * residual_std
+
+        # Find indices of significant events where residuals exceed the threshold
+        significant_events = np.where(residuals > threshold)[0]
+        # print(significant_events)
+        significant_events = torch.tensor(significant_events)
+        # print(significant_events)
+
+        cp = torch.where(torch.roll(significant_events, shifts=-1) - significant_events > 5, torch.tensor(1),
+                         torch.tensor(0))
+
+        change_point_indices = torch.nonzero(cp).squeeze()
+
+        # Add the first and last indices to capture the entire range
+        change_point_indices = torch.cat(
+            (torch.tensor([0]), change_point_indices, torch.tensor([len(significant_events)])))
+
+        # Calculate split sizes
+        split_sizes = change_point_indices[1:] - change_point_indices[:-1]
+
+        # Filter out zero-sized splits (if any)
+        # non_zero_splits = split_sizes[split_sizes != 0]
+
+        # Compute the starting indices for each split
+        split_starts = torch.cumsum(split_sizes, dim=0)
+
+        # Split the tensor based on change points, excluding the last index of each chunk
+        split_tensors = [significant_events[start + 1:end] for start, end in
+                         zip(change_point_indices[:-1], split_starts)]
+
+        return split_tensors, data, covar
+
     def create_dataloader(self, data, max_samples):
-
-        def detect_significant_events_ma(data, covar, window_size, threshold_factor):
-
-            moving_avg = np.convolve(data, np.ones(window_size) / window_size, mode='valid')
-            residuals = np.abs(data[window_size - 1:] - moving_avg)
-
-            # Calculate the standard deviation of the residuals
-            residual_std = np.std(residuals)
-
-            # Set the threshold as a multiple of the standard deviation
-            threshold = threshold_factor * residual_std
-
-            # Find indices of significant events where residuals exceed the threshold
-            significant_events = np.where(residuals > threshold)[0]
-            #print(significant_events)
-            significant_events = torch.tensor(significant_events)
-            #print(significant_events)
-
-            cp = torch.where(torch.roll(significant_events, shifts=-1) - significant_events > 5, torch.tensor(1),
-                             torch.tensor(0))
-
-            change_point_indices = torch.nonzero(cp).squeeze()
-
-            # Add the first and last indices to capture the entire range
-            change_point_indices = torch.cat(
-                (torch.tensor([0]), change_point_indices, torch.tensor([len(significant_events)])))
-
-            # Calculate split sizes
-            split_sizes = change_point_indices[1:] - change_point_indices[:-1]
-
-            # Filter out zero-sized splits (if any)
-            #non_zero_splits = split_sizes[split_sizes != 0]
-
-            # Compute the starting indices for each split
-            split_starts = torch.cumsum(split_sizes, dim=0)
-
-            # Split the tensor based on change points, excluding the last index of each chunk
-            split_tensors = [significant_events[start+1:end] for start, end in
-                             zip(change_point_indices[:-1], split_starts)]
-
-            return split_tensors, data, covar
 
         total_ind = []
         total_tensors_q = []
@@ -133,7 +135,7 @@ class CustomDataLoader:
 
             val = df["Q"].values
             covar = df["Conductivity"].values
-            list_of_inner, trg, cov = detect_significant_events_ma(val, covar, window_size=30, threshold_factor=10)
+            list_of_inner, trg, cov = self.detect_significant_events_ma(val, covar, window_size=30, threshold_factor=10)
             list_of_lens.append(len(list_of_inner))
             total_ind.append(list_of_inner)
             total_tensors_q.append(trg)

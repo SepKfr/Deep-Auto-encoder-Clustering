@@ -143,9 +143,10 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
+        kernel = trial.suggest_categorical("kernel", [3, 7, 15])
         num_clusters = 2
 
-        tup_params = [d_model, num_layers]
+        tup_params = [d_model, num_layers, kernel]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -162,7 +163,8 @@ class Train:
                                        seed=1234,
                                        device=self.device,
                                        pred_len=self.pred_len,
-                                       batch_size=self.batch_size).to(self.device)
+                                       batch_size=self.batch_size,
+                                       kernel=kernel).to(self.device)
         else:
             model = Forecasting(input_size=self.data_loader.input_size,
                                 output_size=self.data_loader.output_size,
