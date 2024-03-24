@@ -114,7 +114,7 @@ class Train:
         self.best_forecasting_model = nn.Module()
         self.run_optuna(args)
 
-        #self.evaluate()
+        self.evaluate()
 
     def run_optuna(self, args):
 
