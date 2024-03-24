@@ -53,6 +53,7 @@ class CustomDataLoader:
             return batch_sampler
 
         total_batches = len(X) // self.batch_size
+        print(total_batches)
         self.n_folds = 3
         test_num = total_batches // self.n_folds
         test_num = test_num if test_num <= 2 else 2

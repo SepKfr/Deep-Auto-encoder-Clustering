@@ -47,6 +47,7 @@ class UserDataLoader:
             return batch_sampler
 
         total_batches = len(X) // self.batch_size
+
         self.n_folds = 5
         test_num = total_batches // 5
 
