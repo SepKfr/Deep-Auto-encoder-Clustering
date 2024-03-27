@@ -38,16 +38,16 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="User_id")
+        parser.add_argument("--exp_name", type=str, default="synthetic")
         parser.add_argument("--model_name", type=str, default="basic_attn")
         parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
-        parser.add_argument("--max_encoder_length", type=int, default=192)
+        parser.add_argument("--max_encoder_length", type=int, default=100)
         parser.add_argument("--pred_len", type=int, default=24)
         parser.add_argument("--max_train_sample", type=int, default=-1)
-        parser.add_argument("--max_test_sample", type=int, default=32)
+        parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=128)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -239,9 +239,9 @@ class Train:
 
                 if epoch % 5 == 0:
                     print("train KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
-                          .format(statistics.mean(list_of_train_loss), train_adj_loss, epoch))
+                          .format(statistics.mean(list_of_train_loss), train_adj_loss/self.data_loader.len_train, epoch))
                     print("valid KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
-                          .format(statistics.mean(list_of_valid_loss), valid_adj_loss, epoch))
+                          .format(statistics.mean(list_of_valid_loss), valid_adj_loss/self.data_loader.len_test, epoch))
 
         return best_trial_valid_loss
 

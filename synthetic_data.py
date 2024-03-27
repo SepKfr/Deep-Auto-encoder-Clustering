@@ -48,6 +48,8 @@ class SyntheticDataLoader:
         self.n_folds = 1
         self.input_size = 1
         self.output_size = 1
+        self.len_train = len(self.list_of_train_loader[0])
+        self.len_test = len(self.list_of_test_loader[0])
 
     def get_synthetic_samples(self):
 
