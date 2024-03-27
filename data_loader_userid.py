@@ -53,6 +53,8 @@ class UserDataLoader:
 
         all_inds = np.arange(0, len(X) - test_num * self.batch_size)
 
+
+
         self.hold_out_test = DataLoader(X[:test_num * self.batch_size],
                                         batch_sampler=get_sampler(X[:test_num * self.batch_size],
                                                                   max_test_sample))

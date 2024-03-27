@@ -25,7 +25,7 @@ class SyntheticDataLoader:
 
         hold_out_tensor_data = TensorDataset(sample_hold_out, labels_hold_out)
 
-        self.hold_out_test = DataLoader(hold_out_tensor_data, batch_size=batch_size)
+        self.hold_out_test = DataLoader(hold_out_tensor_data, batch_size=batch_size, drop_last=True)
 
         self.list_of_test_loader = []
         self.list_of_train_loader = []
@@ -43,7 +43,8 @@ class SyntheticDataLoader:
         self.list_of_train_loader.append(DataLoader(train_data, batch_sampler=batch_sampler))
         self.list_of_test_loader.append(DataLoader(TensorDataset(samples[:tot_test],
                                                                  labels[:tot_test]),
-                                                                 batch_size=batch_size))
+                                                                 batch_size=batch_size,
+                                                                 drop_last=True))
         self.n_folds = 1
         self.input_size = 1
         self.output_size = 1
