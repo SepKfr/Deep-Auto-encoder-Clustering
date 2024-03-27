@@ -151,6 +151,7 @@ class CustomDataLoader:
         cumulative_sum = list(accumulate(list_of_lens))
 
         def get_index(ind):
+
             for j, x in enumerate(cumulative_sum):
                 if x - ind > 0:
                     return j

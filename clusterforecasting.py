@@ -136,7 +136,7 @@ class ClusterForecasting(nn.Module):
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
-        self.proj_down = nn.Linear(d_model, input_size)
+        self.proj_down = nn.Linear(d_model, 1)
 
         #self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
         self.auto_encoder = Autoencoder(input_dim=input_size, encoding_dim=d_model)
@@ -148,7 +148,7 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.input_size = input_size
         self.time_proj = 100
-        self.num_clusters = 9
+        self.num_clusters = 5
 
     def forward(self, x, y=None):
 
@@ -178,19 +178,20 @@ class ClusterForecasting(nn.Module):
 
         dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        loss = dist_knn.sum() + 0.1 * res.sum() + 0.05 * diff_knns
-        # if y is not None:
-        #     y = y[:, -1, :]
-        #     y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
-        #
-        #     labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
-        #
-        #     assigned_labels = torch.mode(labels, dim=-1).values
-        #     assigned_labels = assigned_labels.reshape(-1)
-        #     y = y.reshape(-1)
-        #
-        #     adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-        # else:
-        #     adj_rand_index = torch.tensor(0, device=self.device)
+        loss = dist_knn.sum() # + 0.1 * res.sum() + 0.05 * diff_knns
+        if y is not None:
 
-        return loss, [k_nearest, x_rec]
+            y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
+
+            labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
+
+            assigned_labels = torch.mode(labels, dim=-1).values
+            assigned_labels = assigned_labels.reshape(-1)
+            y = y.reshape(-1)
+
+            adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+
+        else:
+            adj_rand_index = torch.tensor(0, device=self.device)
+
+        return loss, adj_rand_index, [k_nearest, x_rec]

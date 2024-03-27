@@ -4,7 +4,7 @@ import pandas as pd
 import torch
 import ruptures as rpt
 from scipy.stats import ks_2samp
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, BatchSampler
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
@@ -33,7 +33,7 @@ class UserDataLoader:
 
         self.total_time_steps = self.max_encoder_length
 
-        X = self.create_dataloader(data)
+        X, Y = self.create_dataloader(data, max_train_sample)
 
         get_num_sample = lambda l: 2 ** round(np.log2(l))
 
@@ -48,10 +48,10 @@ class UserDataLoader:
 
         total_batches = len(X) // self.batch_size
 
-        self.n_folds = 5
-        test_num = total_batches // 5
+        self.n_folds = 3
+        test_num = total_batches // self.n_folds
 
-        all_inds = np.arange(0, len(X))
+        all_inds = np.arange(0, len(X) - test_num * self.batch_size)
 
         self.hold_out_test = DataLoader(X[:test_num * self.batch_size],
                                         batch_sampler=get_sampler(X[:test_num * self.batch_size],
@@ -63,6 +63,7 @@ class UserDataLoader:
         self.n_folds -= 1
 
         for i in range(self.n_folds):
+
             test_inds = np.arange(batch_size * test_num * i, batch_size * test_num * (i + 1))
             train_inds = list(filter(lambda x: x not in test_inds, all_inds))
 
@@ -72,7 +73,11 @@ class UserDataLoader:
             self.list_of_train_loader.append(DataLoader(train, batch_sampler=get_sampler(train, max_train_sample)))
             self.list_of_test_loader.append(DataLoader(test, batch_sampler=get_sampler(test, max_test_sample)))
 
-    def create_dataloader(self, data):
+        train_x = next(iter(self.list_of_train_loader[0]))
+        self.input_size = train_x.shape[2]
+        self.output_size = train_x.shape[2]
+
+    def create_dataloader(self, data, max_samples):
 
         valid_sampling_locations, split_data_map = zip(
             *[
@@ -88,7 +93,11 @@ class UserDataLoader:
         valid_sampling_locations = list(valid_sampling_locations)
         split_data_map = dict(split_data_map)
 
-        ranges = valid_sampling_locations
+        if max_samples == -1:
+            ranges = valid_sampling_locations
+        else:
+            ranges = [valid_sampling_locations[i] for i in np.random.choice(
+                len(valid_sampling_locations), max_samples, replace=False)]
 
         X = torch.zeros(max_samples, self.total_time_steps, self.num_features+1)
         Y = torch.zeros(max_samples, self.total_time_steps, 1)

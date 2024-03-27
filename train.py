@@ -26,6 +26,7 @@ from transformers import Adafactor
 from transformers.optimization import AdafactorSchedule
 from matplotlib.patches import Circle
 from matplotlib.colors import to_rgba
+from synthetic_data import SyntheticDataLoader
 
 
 torch.manual_seed(1234)
@@ -37,9 +38,9 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="watershed")
+        parser.add_argument("--exp_name", type=str, default="synthetic")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=3)
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
@@ -47,7 +48,7 @@ class Train:
         parser.add_argument("--pred_len", type=int, default=24)
         parser.add_argument("--max_train_sample", type=int, default=-1)
         parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=128)
+        parser.add_argument("--batch_size", type=int, default=64)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -55,7 +56,9 @@ class Train:
         args = parser.parse_args()
         self.exp_name = args.exp_name
 
-        if self.exp_name == "User_id":
+        if self.exp_name == "synthetic":
+            pass
+        elif self.exp_name == "User_id":
             data_path = "{}.csv".format(args.exp_name)
             data = pd.read_csv(data_path)
             data.sort_values(by=["id", "time"], inplace=True)
@@ -85,7 +88,11 @@ class Train:
         self.cluster = args.cluster
         self.best_centroids = None
 
-        if self.exp_name == "User_id":
+        if self.exp_name == "synthetic":
+
+            self.data_loader = SyntheticDataLoader(batch_size=args.batch_size, max_samples=args.max_train_sample)
+
+        elif self.exp_name == "User_id":
             self.data_loader = UserDataLoader(real_inputs=["time", "x", "y", "z"],
                                               max_encoder_length=args.max_encoder_length,
                                               max_train_sample=args.max_train_sample,
@@ -191,29 +198,33 @@ class Train:
                 print(f"running on {i} fold...")
 
                 model.train()
-                train_mse_loss = 0
+                train_knn_loss = 0
+                train_adj_loss = 0
 
-                for x in self.data_loader.list_of_train_loader[i]:
+                for _, x, y in self.data_loader.list_of_train_loader[i]:
 
-                    loss, _ = model(x.to(self.device))
+                    loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
 
                     forecast_optimizer.zero_grad()
                     loss.backward()
                     forecast_optimizer.step()
                     scheduler.step()
-                    train_mse_loss += loss.item()
+                    train_knn_loss += loss.item()
+                    train_adj_loss += adj_rand_index.item()
 
-                list_of_train_loss.append(train_mse_loss)
+                list_of_train_loss.append(train_knn_loss)
 
                 model.eval()
-                valid_loss = 0
+                valid_knn_loss = 0
+                valid_adj_loss = 0
 
-                for x in self.data_loader.list_of_test_loader[i]:
+                for _, x, y in self.data_loader.list_of_test_loader[i]:
 
-                    loss, _ = model(x.to(self.device))
-                    valid_loss += loss.item()
+                    loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
+                    valid_knn_loss += loss.item()
+                    valid_adj_loss += adj_rand_index.item()
 
-                list_of_valid_loss.append(valid_loss)
+                list_of_valid_loss.append(valid_knn_loss)
 
                 if i == self.data_loader.n_folds - 1:
                     valid_tmp = statistics.mean(list_of_valid_loss)
@@ -227,8 +238,10 @@ class Train:
                                                     "{}_forecast.pth".format(self.model_name)))
 
                 if epoch % 5 == 0:
-                    print("train MSE loss: {:.3f}, epoch: {}".format(statistics.mean(list_of_train_loss), epoch))
-                    print("valid MSE loss: {:.3f}, epoch: {}".format(statistics.mean(list_of_valid_loss), epoch))
+                    print("train KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
+                          .format(statistics.mean(list_of_train_loss), train_adj_loss, epoch))
+                    print("valid KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
+                          .format(statistics.mean(list_of_valid_loss), valid_adj_loss, epoch))
 
         return best_trial_valid_loss
 
@@ -243,22 +256,29 @@ class Train:
         self.best_forecasting_model.eval()
 
         x_reconstructs = []
+        inps = []
         knns = []
+        tot_adj_loss = 0
 
-        for x in self.data_loader.hold_out_test:
-            _, outputs = self.best_forecasting_model(x.to(self.device))
+        for inp, x, labels in self.data_loader.hold_out_test:
+            _, adj_loss, outputs = self.best_forecasting_model(x.to(self.device), labels.to(self.device))
             x_reconstructs.append(outputs[1].detach().cpu().numpy())
+            inps.append(inp.detach().cpu().numpy())
             knns.append(outputs[0].detach().cpu().numpy())
+            tot_adj_loss += adj_loss.item()
 
         knns = np.vstack(knns)
         x_reconstructs = np.vstack(x_reconstructs)
+        inps = np.vstack(inps)
+
+        print("adj rand index %.3f" % (adj_loss / len(self.data_loader.hold_out_test)))
 
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#17becf', '#d62728', '#9467bd',
                   '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22']
 
         alpha_arr = 0.1 + 0.9 * (1 - torch.arange(x_reconstructs.shape[1]) / x_reconstructs.shape[1])
 
-        path_to_pdfs = "storm_events"
+        path_to_pdfs = "populations"
         if not os.path.exists(path_to_pdfs):
             os.makedirs(path_to_pdfs)
 
@@ -274,22 +294,23 @@ class Train:
         for i in inds:
 
             ids = knns[i]
-            x_1 = x_reconstructs[i]
+            x_1 = x_reconstructs[i].squeeze()
+            inp = inps[i].squeeze()
 
-            plt.scatter(x_1[:, 1], x_1[:, 0], color=get_color(0))
+            plt.scatter(inp, x_1, color=get_color(0))
             x_os = [x_reconstructs[j] for j in ids]
             for k, x in enumerate(x_os):
-                plt.scatter(x[:, 1], x[:, 0], color=get_color(k+1))
+                plt.scatter(inp, x, color=get_color(k+1))
 
             # Set plot labels and legend
-            plt.title('Storm Events')
-            plt.xlabel('Conductivity')
-            plt.ylabel('Q')
+            plt.title('')
+            plt.xlabel('x')
+            plt.ylabel('y')
 
             patches = [plt.Line2D([0], [0], color=to_rgba(colors[j]), marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
-            labels = [f"Storm {j+1}" for j in range(len(ids))]
+            labels = [f"Sample {j+1}" for j in range(len(ids))]
             plt.legend(handles=patches, labels=labels)
             plt.tight_layout()
-            plt.savefig("{}/storm_events_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
+            plt.savefig("{}/synthetic_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
             plt.clf()
 Train()
