@@ -8,21 +8,18 @@ class SyntheticDataLoader:
 
     def __init__(self, batch_size, max_samples):
 
-        inputs, samples, labels = self.get_synthetic_samples()
-        permuted_indices = torch.randperm(len(inputs))
-        inputs = inputs[permuted_indices]
+        samples, labels = self.get_synthetic_samples()
+        permuted_indices = torch.randperm(len(samples))
         samples = samples[permuted_indices]
         labels = labels[permuted_indices]
 
-        input_hold_out = inputs[:batch_size]
         sample_hold_out = samples[:batch_size]
         labels_hold_out = labels[:batch_size]
 
-        inputs = inputs[batch_size:]
         samples = samples[batch_size:]
         labels = labels[batch_size:]
 
-        hold_out_tensor_data = TensorDataset(input_hold_out, sample_hold_out, labels_hold_out)
+        hold_out_tensor_data = TensorDataset(sample_hold_out, labels_hold_out)
 
         self.hold_out_test = DataLoader(hold_out_tensor_data, batch_size=batch_size)
 
@@ -31,7 +28,7 @@ class SyntheticDataLoader:
 
         max_samples = max_samples if max_samples != -1 else len(samples)
 
-        train_data = TensorDataset(inputs[batch_size:], samples[batch_size:], labels[batch_size:])
+        train_data = TensorDataset(samples[batch_size:], labels[batch_size:])
 
         batch_sampler = BatchSampler(
             sampler=torch.utils.data.RandomSampler(train_data, num_samples=max_samples),
@@ -40,8 +37,7 @@ class SyntheticDataLoader:
         )
 
         self.list_of_train_loader.append(DataLoader(train_data, batch_sampler=batch_sampler))
-        self.list_of_test_loader.append(DataLoader(TensorDataset(inputs[:batch_size],
-                                                                 samples[:batch_size],
+        self.list_of_test_loader.append(DataLoader(TensorDataset(samples[:batch_size],
                                                                  labels[:batch_size]),
                                                                  batch_size=batch_size))
         self.n_folds = 1
@@ -71,6 +67,7 @@ class SyntheticDataLoader:
                 )
 
             def forward(self, x):
+
                 mean_x = self.mean_module(x)
                 covar_x = self.covar_module(x)
                 return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
@@ -102,28 +99,27 @@ class SyntheticDataLoader:
             # print('Iter %d/%d - Loss: %.3f' % (i + 1, training_iter, loss.item()))
             optimizer.step()
 
-        inputs = []
         samples = []
         labels = []
 
         with torch.no_grad():
-            for i in range(1024):
 
-                test_x = torch.linspace(0, 1, 100).view(1, -1, 1).repeat(4, 1, 1)
-                observed_pred = likelihood(model(test_x))
+            test_x = torch.linspace(0, 1, 100).view(1, -1, 1).repeat(4, 1, 1)
+
+            for i in range(128):
+
+                observed_pred = likelihood(model(test_x)).sample()
                 # Get mean
-                mean = observed_pred.mean.detach().cpu()
+                mean = observed_pred.detach().cpu()
                 mean = mean.reshape(4, -1)
                 label = torch.tensor([1, 2, 3, 4]).reshape(-1, 1)
                 labels.append(label)
                 samples.append(mean)
-                inputs.append(test_x)
 
         labels = torch.cat(labels, dim=0)
         samples = torch.cat(samples, dim=0).unsqueeze(-1)
-        inputs = torch.cat(inputs, dim=0)
 
-        return inputs, samples, labels
+        return samples, labels
 
 
 

@@ -201,7 +201,7 @@ class Train:
                 train_knn_loss = 0
                 train_adj_loss = 0
 
-                for _, x, y in self.data_loader.list_of_train_loader[i]:
+                for x, y in self.data_loader.list_of_train_loader[i]:
 
                     loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
 
@@ -218,7 +218,7 @@ class Train:
                 valid_knn_loss = 0
                 valid_adj_loss = 0
 
-                for _, x, y in self.data_loader.list_of_test_loader[i]:
+                for x, y in self.data_loader.list_of_test_loader[i]:
 
                     loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
                     valid_knn_loss += loss.item()
@@ -260,16 +260,15 @@ class Train:
         knns = []
         tot_adj_loss = 0
 
-        for inp, x, labels in self.data_loader.hold_out_test:
+        for x, labels in self.data_loader.hold_out_test:
             _, adj_loss, outputs = self.best_forecasting_model(x.to(self.device), labels.to(self.device))
             x_reconstructs.append(outputs[1].detach().cpu().numpy())
-            inps.append(inp.detach().cpu().numpy())
             knns.append(outputs[0].detach().cpu().numpy())
             tot_adj_loss += adj_loss.item()
 
         knns = np.vstack(knns)
         x_reconstructs = np.vstack(x_reconstructs)
-        inps = np.vstack(inps)
+        test_x = torch.linspace(0, 1, 100)
 
         print("adj rand index %.3f" % (adj_loss / len(self.data_loader.hold_out_test)))
 
@@ -295,12 +294,13 @@ class Train:
 
             ids = knns[i]
             x_1 = x_reconstructs[i].squeeze()
-            inp = inps[i].squeeze()
 
-            plt.scatter(inp, x_1, color=get_color(0))
+            plt.scatter(test_x, x_1, color=get_color(0))
+
             x_os = [x_reconstructs[j] for j in ids]
             for k, x in enumerate(x_os):
-                plt.scatter(inp, x, color=get_color(k+1))
+
+                plt.scatter(test_x, x, color=get_color(k+1))
 
             # Set plot labels and legend
             plt.title('')
