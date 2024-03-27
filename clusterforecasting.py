@@ -154,31 +154,35 @@ class ClusterForecasting(nn.Module):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output_seq = self.seq_model(x_enc)
+        output_seq = self.seq_model(x_enc)[:, -1, :]
 
         x_rec = self.proj_down(output_seq)
-        diffs = torch.diff(x_rec, dim=1)
-        kernel = 3
-        padding = (kernel - 1) // 2
-        mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
-        res = torch.abs(diffs - mv_avg)
+        # diffs = torch.diff(x_rec, dim=1)
+        # kernel = 3
+        # padding = (kernel - 1) // 2
+        # mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
+        # res = torch.abs(diffs - mv_avg)
 
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
-        dist = torch.einsum('lbsd,lbsd-> lbs', diff, diff)
-        dist_2d = torch.einsum('lbs, lbs -> lb', dist, dist)
+        # dist = torch.einsum('lbsd,lbsd-> lbs', diff, diff)
+
+        # dist_2d = torch.einsum('lbs, lbs -> lb', dist, dist)
+
+        dist_2d = torch.einsum('lbs, lbs -> lb', diff, diff)
 
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
-        x_rec_expand = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
-        selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
+        # x_rec_expand = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
+        # selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
+        #
+        # diff_knns = torch.abs(torch.diff(selected, dim=1)).sum()
 
-        diff_knns = torch.abs(torch.diff(selected, dim=1)).sum()
+        dist_knn = dist_2d[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
+        loss = dist_knn.sum() # + 0.1 * res.sum() + 0.05 * diff_knns
 
-        loss = dist_knn.sum() + 0.1 * res.sum() + 0.05 * diff_knns
         if y is not None:
 
             y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
