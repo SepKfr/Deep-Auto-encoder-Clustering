@@ -9,15 +9,19 @@ class SyntheticDataLoader:
     def __init__(self, batch_size, max_samples):
 
         samples, labels = self.get_synthetic_samples()
-        permuted_indices = torch.randperm(len(samples))
+        len_samples = len(samples)
+        permuted_indices = torch.randperm(len_samples)
         samples = samples[permuted_indices]
         labels = labels[permuted_indices]
 
-        sample_hold_out = samples[:batch_size]
-        labels_hold_out = labels[:batch_size]
+        tot_train = int(len_samples * 0.6)
+        tot_test = int(len_samples * 0.2)
 
-        samples = samples[batch_size:]
-        labels = labels[batch_size:]
+        sample_hold_out = samples[:tot_test]
+        labels_hold_out = labels[:tot_test]
+
+        samples = samples[tot_test:]
+        labels = labels[tot_test:]
 
         hold_out_tensor_data = TensorDataset(sample_hold_out, labels_hold_out)
 
@@ -28,7 +32,7 @@ class SyntheticDataLoader:
 
         max_samples = max_samples if max_samples != -1 else len(samples)
 
-        train_data = TensorDataset(samples[batch_size:], labels[batch_size:])
+        train_data = TensorDataset(samples[tot_test:], labels[tot_test:])
 
         batch_sampler = BatchSampler(
             sampler=torch.utils.data.RandomSampler(train_data, num_samples=max_samples),
@@ -37,8 +41,8 @@ class SyntheticDataLoader:
         )
 
         self.list_of_train_loader.append(DataLoader(train_data, batch_sampler=batch_sampler))
-        self.list_of_test_loader.append(DataLoader(TensorDataset(samples[:batch_size],
-                                                                 labels[:batch_size]),
+        self.list_of_test_loader.append(DataLoader(TensorDataset(samples[:tot_test],
+                                                                 labels[:tot_test]),
                                                                  batch_size=batch_size))
         self.n_folds = 1
         self.input_size = 1
@@ -106,7 +110,7 @@ class SyntheticDataLoader:
 
             test_x = torch.linspace(0, 1, 100).view(1, -1, 1).repeat(4, 1, 1)
 
-            for i in range(128):
+            for i in range(512):
 
                 observed_pred = likelihood(model(test_x)).sample()
                 # Get mean
