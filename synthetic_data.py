@@ -14,9 +14,8 @@ class SyntheticDataLoader:
         samples = samples[permuted_indices]
         labels = labels[permuted_indices]
 
-        tot_train = int(len_samples * 0.8)
-        tot_test = int(len_samples * 0.2) // 2
-        print(tot_test)
+        tot_batches = len_samples // batch_size
+        tot_test = tot_batches // 8
 
         sample_hold_out = samples[:tot_test]
         labels_hold_out = labels[:tot_test]
