@@ -161,24 +161,25 @@ class ClusterForecasting(nn.Module):
         kernel = 3
         padding = (kernel - 1) // 2
         mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
-        res = torch.abs(diffs - mv_avg)
+        res = nn.MSELoss()(diffs, mv_avg)
 
-        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
+        x_dist = x_rec.reshape(self.batch_size, -1)
 
-        dist = torch.einsum('lbsd,lbsd-> lbs', diff, diff)
-        dist_2d = torch.einsum('lbs, lbs -> lb', dist, dist)
+        diff = x_dist.unsqueeze(1) - x_dist.unsqueeze(0)
+
+        dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
 
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
-        x_rec_expand = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
+        x_rec_expand = x_dist.unsqueeze(0).repeat(self.batch_size, 1, 1)
         selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        diff_knns = torch.abs(torch.diff(selected, dim=1)).sum()
+        diff_knns = (torch.diff(selected, dim=1) ** 2).sum()
 
-        dist_knn = dist[torch.arange(self.batch_size)[:, None], k_nearest]
+        dist_knn = dist_2d[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        loss = dist_knn.sum() + 0.1 * res.sum() + 0.1 * diff_knns
+        loss = dist_knn.sum() + res.sum() + diff_knns
         if y is not None:
 
             y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
