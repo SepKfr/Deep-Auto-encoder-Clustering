@@ -10,14 +10,6 @@ from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 from sklearn.cluster import KMeans
 from torchmetrics.clustering import AdjustedRandScore
-from tslearn.metrics import SoftDTWLossPyTorch
-from gpytorch.distributions import MultivariateNormal, MultitaskMultivariateNormal
-from gpytorch.kernels import ScaleKernel, RBFKernel
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
-from gpytorch.means import ConstantMean, LinearMean
-from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
-from gpytorch.variational import VariationalStrategy, MeanFieldVariationalDistribution
-from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)
@@ -25,86 +17,120 @@ np.random.seed(1234)
 random.seed(1234)
 
 
-class ToyDeepGPHiddenLayer(DeepGPLayer):
-    def __init__(self, input_dims, output_dims, num_inducing=32, mean_type='linear'):
+class Encoder(nn.Module):
+    def __init__(self, d_model, n_heads, num_layers, attn_type, seed, device):
+        super(Encoder, self).__init__()
 
-        if output_dims is None:
-            inducing_points = torch.randn(num_inducing, input_dims)
-            batch_shape = torch.Size([])
-        else:
-            inducing_points = torch.randn(output_dims, num_inducing, input_dims)
-            batch_shape = torch.Size([output_dims])
+        self.encoder = Transformer(input_size=d_model, d_model=d_model*2,
+                                   nheads=n_heads, num_layers=num_layers,
+                                   attn_type=attn_type, seed=seed, device=device)
+        self.d_model = d_model
 
-        variational_distribution = MeanFieldVariationalDistribution(
-            num_inducing_points=num_inducing,
-            batch_shape=batch_shape
-        )
+    def reparameterize(self, mean, logvar):
 
-        variational_strategy = VariationalStrategy(
-            self,
-            inducing_points,
-            variational_distribution,
-            learn_inducing_locations=True
-        )
-
-        super(ToyDeepGPHiddenLayer, self).__init__(variational_strategy, input_dims, output_dims)
-
-        if mean_type == 'constant':
-            self.mean_module = ConstantMean(batch_shape=batch_shape)
-        else:
-            self.mean_module = LinearMean(input_dims)
-        self.covar_module = ScaleKernel(
-            RBFKernel(batch_shape=batch_shape, ard_num_dims=input_dims),
-            batch_shape=batch_shape, ard_num_dims=None
-        )
+        std = torch.exp(0.5 * logvar)
+        eps = torch.randn_like(std)
+        return mean + eps * std
 
     def forward(self, x):
-        mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
-        return MultivariateNormal(mean_x, covar_x)
+
+        output = self.encoder(x)
+        mean = output[:, :, :self.d_model]
+        log_var = output[:, :, -self.d_model:]
+        f_output = self.reparameterize(mean, log_var)
+        return f_output, mean, log_var
 
 
-class DeepGPp(DeepGP):
-    def __init__(self, num_hidden_dims, num_inducing):
+def assign_clusters(points, centroids, rate, device):
+    """
+    Assign each point to the nearest cluster centroid.
 
-        hidden_layer = ToyDeepGPHiddenLayer(
-            input_dims=num_hidden_dims,
-            output_dims=num_hidden_dims,
-            mean_type='linear',
-            num_inducing=num_inducing
-        )
+    Args:
+        points (torch.Tensor): Tensor of shape (num_points, dimension) representing data points.
+        centroids (torch.Tensor): Tensor of shape (num_clusters, dimension) representing cluster centroids.
 
-        super().__init__()
+    Returns:
+        cluster_indices (torch.Tensor): Tensor of shape (num_points,) containing the index of the nearest centroid for each point.
+    """
+    # Compute squared distances between each point and each centroid
+    num_clusters = centroids.shape[0]
 
-        self.hidden_layer = hidden_layer
-        self.likelihood = MultitaskGaussianLikelihood(num_tasks=num_hidden_dims)
+    distances = torch.cdist(points, centroids, p=2)**2  # Shape: (num_points, num_clusters)
+    # Assign each point to the cluster with the smallest distance
+    # distances_norm = torch.randn_like(distances)
+    # distances_log_prob = torch.log(torch.softmax(distances, dim=-1))
+    # distances_norm_log_prob = torch.log(torch.softmax(distances_norm, dim=-1))
+    # kl_loss = nn.functional.kl_div(distances_log_prob, distances_norm_log_prob, reduction="batchmean", log_target=True)
+    kl_loss = torch.tensor(0, device=device)
+    cluster_indices = torch.argmin(distances, dim=1)
 
-    def forward(self, inputs):
+    return cluster_indices, kl_loss
 
-        dist = self.hidden_layer(inputs)
-        return dist
 
-    def predict(self, x):
+def compute_inter_cluster_loss(points, centroids, cluster_indices):
+    """
+    Compute the inter-cluster loss based on squared Euclidean distance.
 
-        dist = self(x)
-        preds = self.likelihood(dist)
-        preds_mean = preds.mean.mean(0)
+    Args:
+        points (torch.Tensor): Tensor of shape (num_points, dimension) representing data points.
+        centroids (torch.Tensor): Tensor of shape (num_clusters, dimension) representing cluster centroids.
+        cluster_indices (torch.Tensor): Tensor of shape (num_points,) containing the index of the nearest centroid for each point.
 
-        return preds_mean
+    Returns:
+        inter_cluster_loss (torch.Tensor): Inter-cluster loss.
+    """
+    # Gather centroids corresponding to assigned clusters
+    assigned_centroids = centroids[cluster_indices]  # Shape: (num_points, dimension)
+
+    # Compute squared Euclidean distance between points and centroids
+    inter_cluster_loss = torch.mean(torch.sum((points - assigned_centroids)**2, dim=1))
+
+    return inter_cluster_loss
+
+
+def compute_intra_cluster_loss(points, centroids, cluster_indices):
+    """
+    Compute the intra-cluster loss based on squared Euclidean distance.
+
+    Args:
+        points (torch.Tensor): Tensor of shape (num_points, dimension) representing data points.
+        centroids (torch.Tensor): Tensor of shape (num_clusters, dimension) representing cluster centroids.
+        cluster_indices (torch.Tensor): Tensor of shape (num_points,) containing the index of the nearest centroid for each point.
+
+    Returns:
+        intra_cluster_loss (torch.Tensor): Intra-cluster loss.
+    """
+    intra_cluster_losses = []
+    for i in range(centroids.size(0)):
+        # Mask points belonging to cluster i
+        mask = cluster_indices == i
+        cluster_points = points[mask]
+
+        # Compute squared Euclidean distance between cluster points and centroid
+        if len(cluster_points) > 0:
+            centroid = centroids[i].unsqueeze(0)  # Add singleton dimension to match cluster_points
+            distances = torch.sum((cluster_points - centroid)**2, dim=1)
+            intra_cluster_loss_i = torch.mean(distances)
+            intra_cluster_losses.append(intra_cluster_loss_i)
+
+    # Compute overall intra-cluster loss as the mean of individual cluster losses
+    intra_cluster_loss = torch.mean(torch.stack(intra_cluster_losses))
+
+    return intra_cluster_loss
 
 
 class Autoencoder(nn.Module):
     def __init__(self, input_dim, encoding_dim):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Linear(encoding_dim, 128),
+            nn.Linear(input_dim, 128),
             nn.ReLU(),
             nn.Linear(128, encoding_dim)
         )
         self.decoder = nn.Sequential(
             nn.Linear(encoding_dim, 128),
             nn.ReLU(),
-            nn.Linear(128, input_dim),
+            nn.Linear(128, encoding_dim),
         )
 
     def forward(self, x):
@@ -116,90 +142,60 @@ class Autoencoder(nn.Module):
 class ClusterForecasting(nn.Module):
 
     def __init__(self, input_size,
-                 d_model, nheads, n_clusters,
+                 d_model, nheads,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size, kernel):
+                 device, pred_len, batch_size, n_clusters):
 
         super(ClusterForecasting, self).__init__()
 
         self.device = device
-        f = 9
-
-        self.conv = nn.Sequential(nn.Conv1d(in_channels=input_size, out_channels=d_model,
-                                  kernel_size=f, padding=int((f - 1) / 2)),
-                                  nn.BatchNorm1d(d_model),
-                                  nn.ReLU())
 
         self.enc_embedding = nn.Linear(input_size, d_model)
-        self.norm = nn.LayerNorm(d_model)
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
-        self.proj_down = nn.Linear(d_model, 1)
 
-        #self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
-        self.auto_encoder = Autoencoder(input_dim=input_size, encoding_dim=d_model)
-        self.gp_model = DeepGPp(num_inducing=batch_size, num_hidden_dims=d_model)
+        self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
+        self.auto_encoder = Autoencoder(input_dim=d_model, encoding_dim=d_model)
 
         self.pred_len = pred_len
         self.nheads = nheads
         self.batch_size = batch_size
         self.d_model = d_model
-        self.input_size = input_size
-        self.time_proj = 100
-        self.num_clusters = 5
+        self.num_clusters = n_clusters
 
-    def forward(self, x, y=None):
+    def forward(self, x, y):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output_seq = self.seq_model(x_enc)
-        s_l = output_seq.shape[1]
+        output = self.seq_model(x_enc)
 
-        #x_rec = self.proj_down(output_seq)
+        # input_to_cluster = self.auto_encoder(output)
+        input_to_cluster = output
 
-        x_rec = output_seq
-        diffs = torch.diff(x_rec, dim=1)
-        kernel = 3
-        padding = (kernel - 1) // 2
-        mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
-        res = nn.MSELoss()(diffs, mv_avg)
+        diff = input_to_cluster.unsqueeze(1) - input_to_cluster.unsqueeze(0)
+        diff = diff.permute(2, 0, 1, 3)
 
-        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
+        k = self.batch_size // self.num_clusters
 
-        dist_3d = torch.einsum('lbsd,lbsd-> lbs', diff, diff)
+        dist = torch.einsum('lbcd,lbcd-> lbc', diff, diff)
+        dist_softmax = torch.softmax(-dist, dim=-1)
+        _, k_nearest = torch.topk(dist_softmax, k=k, dim=-1)
 
-        k_num = self.batch_size // self.num_clusters
+        y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1, 1).squeeze(-1)
+        y_c = y_c.permute(2, 0, 1)
+        labels = y_c[torch.arange(y_c.shape[0])[:, None, None],
+                     torch.arange(self.batch_size)[None, :, None], k_nearest]
+        dist_knn = dist[torch.arange(y_c.shape[0])[:, None, None],
+                        torch.arange(self.batch_size)[None, :, None], k_nearest]
 
-        dist_softmax = torch.softmax(-dist_3d, dim=-1)
-        _, k_nearest = torch.topk(dist_softmax, k=k_num, dim=1)
+        assigned_labels = torch.mode(labels, dim=-1).values
+        assigned_labels = assigned_labels.reshape(-1)
+        y = y.permute(1, 0, 2).reshape(-1)
 
-        # x_rec_expand = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
-        # selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
-        #
-        # diff_knns = (torch.diff(selected, dim=1) ** 2).sum()
+        loss = dist_knn.sum()
 
-        dist_knn = dist_3d[torch.arange(self.batch_size)[:, None, None],
-                           k_nearest,
-                           torch.arange(s_l)[None, None, :]]
-
-        loss = dist_knn.sum() # + res.sum() + diff_knns
-        if y is not None:
-
-            y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
-
-            labels = y_c[torch.arange(self.batch_size)[:, None, None],
-                         k_nearest,
-                         torch.arange(s_l)[None, None, :]]
-
-            assigned_labels = torch.mode(labels, dim=1).values
-            assigned_labels = assigned_labels.reshape(-1)
-            y = y.reshape(-1)
-            adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-
-        else:
-
-            adj_rand_index = torch.tensor(0, device=self.device)
+        adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
 
         return loss, adj_rand_index, torch.randn(2)

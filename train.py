@@ -46,8 +46,8 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=100)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
-        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--max_train_sample", type=int, default=128)
+        parser.add_argument("--max_test_sample", type=int, default=128)
         parser.add_argument("--batch_size", type=int, default=128)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -171,7 +171,7 @@ class Train:
                                        device=self.device,
                                        pred_len=self.pred_len,
                                        batch_size=self.batch_size,
-                                       kernel=kernel).to(self.device)
+                                       ).to(self.device)
         else:
             model = Forecasting(input_size=self.data_loader.input_size,
                                 output_size=self.data_loader.output_size,

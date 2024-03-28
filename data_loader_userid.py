@@ -110,7 +110,7 @@ class UserDataLoader:
                 len(valid_sampling_locations), max_samples, replace=False)]
 
         X = torch.zeros(max_samples, self.total_time_steps, self.num_features)
-        Y = torch.zeros(max_samples, 1)
+        Y = torch.zeros(max_samples, self.total_time_steps, 1)
 
         for i, tup in enumerate(ranges):
 
@@ -118,7 +118,7 @@ class UserDataLoader:
             sliced = split_data_map[identifier].iloc[start_idx - self.total_time_steps: start_idx]
             val = sliced[self.real_inputs].values
             tensor = torch.tensor(val)
-            Y[i] = identifier
+            Y[i] = torch.zeros(self.total_time_steps).fill_(identifier).unsqueeze(-1)
             X[i] = tensor
 
         return X, Y
