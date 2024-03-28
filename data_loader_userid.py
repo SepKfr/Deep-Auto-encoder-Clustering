@@ -103,10 +103,9 @@ class UserDataLoader:
         valid_sampling_locations = list(valid_sampling_locations)
         split_data_map = dict(split_data_map)
 
-        if max_samples == -1:
-            ranges = valid_sampling_locations
-        else:
-            ranges = [valid_sampling_locations[i] for i in np.random.choice(
+        max_samples = len(valid_sampling_locations) if max_samples == -1 else max_samples
+
+        ranges = [valid_sampling_locations[i] for i in np.random.choice(
                 len(valid_sampling_locations), max_samples, replace=False)]
 
         X = torch.zeros(max_samples, self.total_time_steps, self.num_features)
