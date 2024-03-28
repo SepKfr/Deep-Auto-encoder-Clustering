@@ -175,11 +175,10 @@ class GmmFull(MixtureModel):
         mixture = Categorical(logits=self.logits)
         components = MultivariateNormal(self.mus, self.scale_tril)
         mixture_model = MixtureSameFamily(mixture, components)
-        sample = mixture_model.sample(x.shape[:-1])
 
         nll_loss = -1 * mixture_model.log_prob(x).mean()
 
-        return nll_loss, sample
+        return nll_loss
 
     def constrain_parameters(self, epsilon: float = 1e-6):
         with torch.no_grad():
@@ -231,11 +230,9 @@ class GmmDiagonal(MixtureModel):
         components = Independent(Normal(self.mus, self.sigmas_diag), 1)
         mixture_model = MixtureSameFamily(mixture, components)
 
-        sample = mixture_model.sample(x.shape[:-1])
-
         nll_loss = -1 * mixture_model.log_prob(x).mean()
 
-        return nll_loss, sample
+        return nll_loss
 
     def constrain_parameters(self, epsilon: float = 1e-6):
         with torch.no_grad():

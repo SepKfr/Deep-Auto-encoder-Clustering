@@ -18,6 +18,8 @@ from gpytorch.means import ConstantMean, LinearMean
 from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
 from gpytorch.variational import VariationalStrategy, MeanFieldVariationalDistribution
 from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
+from GMM import GmmDiagonal
+
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)
@@ -155,6 +157,7 @@ class ClusterForecasting(nn.Module):
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
         output_seq = self.seq_model(x_enc)
+
 
         #x_rec = self.proj_down(output_seq)
 

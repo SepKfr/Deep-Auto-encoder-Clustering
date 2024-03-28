@@ -151,7 +151,7 @@ class Train:
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
         kernel = trial.suggest_categorical("kernel", [3])
-        num_clusters = 2
+        num_clusters = 22
 
         tup_params = [d_model, num_layers, kernel]
 
