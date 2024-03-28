@@ -148,13 +148,14 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.input_size = input_size
         self.time_proj = 100
-        self.num_clusters = n_clusters
+        self.num_clusters = 5
 
     def forward(self, x, y=None):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
         output_seq = self.seq_model(x_enc)
+        s_l = output_seq.shape[1]
 
         #x_rec = self.proj_down(output_seq)
 
@@ -165,38 +166,40 @@ class ClusterForecasting(nn.Module):
         mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
         res = nn.MSELoss()(diffs, mv_avg)
 
-        x_dist = x_rec.reshape(self.batch_size, -1)
+        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
-        diff = x_dist.unsqueeze(1) - x_dist.unsqueeze(0)
-
-        dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
+        dist_3d = torch.einsum('lbsd,lbsd-> lbs', diff, diff)
 
         k_num = self.batch_size // self.num_clusters
 
-        dist_softmax = torch.softmax(-dist_2d, dim=-1)
-        _, k_nearest = torch.topk(dist_softmax, k=k_num, dim=-1)
+        dist_softmax = torch.softmax(-dist_3d, dim=-1)
+        _, k_nearest = torch.topk(dist_softmax, k=k_num, dim=1)
 
-        x_rec_expand = x_dist.unsqueeze(0).repeat(self.batch_size, 1, 1)
-        selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
+        # x_rec_expand = x_rec.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
+        # selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
+        #
+        # diff_knns = (torch.diff(selected, dim=1) ** 2).sum()
 
-        diff_knns = (torch.diff(selected, dim=1) ** 2).sum()
-
-        dist_knn = dist_2d[torch.arange(self.batch_size)[:, None], k_nearest]
+        dist_knn = dist_3d[torch.arange(self.batch_size)[:, None, None],
+                           k_nearest,
+                           torch.arange(s_l)[None, None, :]]
 
         loss = dist_knn.sum() # + res.sum() + diff_knns
         if y is not None:
 
-            y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
+            y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1, 1)
 
-            labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
+            labels = y_c[torch.arange(self.batch_size)[:, None, None],
+                         k_nearest,
+                         torch.arange(s_l)[None, None, :]]
 
-            assigned_labels = torch.mode(labels, dim=-1).values
+            assigned_labels = torch.mode(labels, dim=1).values
             assigned_labels = assigned_labels.reshape(-1)
             y = y.reshape(-1)
-
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
 
         else:
+
             adj_rand_index = torch.tensor(0, device=self.device)
 
-        return loss, adj_rand_index
+        return loss, adj_rand_index, torch.randn(2)

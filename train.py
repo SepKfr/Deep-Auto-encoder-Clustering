@@ -121,7 +121,7 @@ class Train:
         self.best_forecasting_model = nn.Module()
         self.run_optuna(args)
 
-        # self.evaluate()
+        self.evaluate()
 
     def run_optuna(self, args):
 
@@ -203,7 +203,7 @@ class Train:
 
                 for x, y in self.data_loader.list_of_train_loader[i]:
 
-                    loss, adj_rand_index = model(x.to(self.device), y.to(self.device))
+                    loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
 
                     forecast_optimizer.zero_grad()
                     loss.backward()
@@ -220,7 +220,7 @@ class Train:
 
                 for x, y in self.data_loader.list_of_test_loader[i]:
 
-                    loss, adj_rand_index = model(x.to(self.device), y.to(self.device))
+                    loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
                     valid_knn_loss += loss.item()
                     valid_adj_loss += adj_rand_index.item()
 
@@ -258,19 +258,19 @@ class Train:
         x_reconstructs = []
         inps = []
         knns = []
-        tot_adj_loss = 0
+        tot_adj_loss = []
 
         for x, labels in self.data_loader.hold_out_test:
             _, adj_loss, outputs = self.best_forecasting_model(x.to(self.device), labels.to(self.device))
             x_reconstructs.append(outputs[1].detach().cpu().numpy())
             knns.append(outputs[0].detach().cpu().numpy())
-            tot_adj_loss += adj_loss.item()
+            tot_adj_loss.append(adj_loss.item())
 
         knns = np.vstack(knns)
         x_reconstructs = np.vstack(x_reconstructs)
         test_x = torch.linspace(0, 1, 100)
 
-        print("adj rand index %.3f" % (adj_loss / len(self.data_loader.hold_out_test)))
+        print("adj rand index %.3f" % statistics.mean(tot_adj_loss))
 
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#17becf', '#d62728', '#9467bd',
                   '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22']
