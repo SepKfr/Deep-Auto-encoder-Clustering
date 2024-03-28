@@ -196,7 +196,6 @@ class ClusterForecasting(nn.Module):
             assigned_labels = torch.mode(labels, dim=-1).values
             assigned_labels = assigned_labels.reshape(-1)
             y = y.reshape(-1)
-
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
 
         else:
