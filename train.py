@@ -46,9 +46,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=100)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
-        parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=128)
+        parser.add_argument("--max_train_sample", type=int, default=8)
+        parser.add_argument("--max_test_sample", type=int, default=8)
+        parser.add_argument("--batch_size", type=int, default=8)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -151,7 +151,7 @@ class Train:
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
         kernel = trial.suggest_categorical("kernel", [3])
-        num_clusters = 22
+        num_clusters = 4
 
         tup_params = [d_model, num_layers, kernel]
 
