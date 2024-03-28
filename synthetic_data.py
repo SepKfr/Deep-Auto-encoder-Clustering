@@ -54,12 +54,12 @@ class SyntheticDataLoader:
     def get_synthetic_samples(self):
 
         # Training data is 100 points in [0,1] inclusive regularly spaced
-        train_x = torch.linspace(0, 1, 100).view(1, -1, 1).repeat(4, 1, 1)
+        train_x = torch.linspace(0, 1, 10).view(1, -1, 1).repeat(4, 1, 1)
         # True functions are sin(2pi x), cos(2pi x), sin(pi x), cos(pi x)
-        sin_y = torch.sin(train_x[0] * (2 * math.pi)) + 0.5 * torch.rand(1, 100, 1)
-        sin_y_short = torch.sin(train_x[0] * math.pi) + 0.5 * torch.rand(1, 100, 1)
-        cos_y = torch.cos(train_x[0] * (2 * math.pi)) + 0.5 * torch.rand(1, 100, 1)
-        cos_y_short = torch.cos(train_x[0] * math.pi) + 0.5 * torch.rand(1, 100, 1)
+        sin_y = torch.sin(train_x[0] * (2 * math.pi)) + 0.5 * torch.rand(1, 10, 1)
+        sin_y_short = torch.sin(train_x[0] * math.pi) + 0.5 * torch.rand(1, 10, 1)
+        cos_y = torch.cos(train_x[0] * (2 * math.pi)) + 0.5 * torch.rand(1, 10, 1)
+        cos_y_short = torch.cos(train_x[0] * math.pi) + 0.5 * torch.rand(1, 10, 1)
         train_y = torch.cat((sin_y, sin_y_short, cos_y, cos_y_short)).squeeze(-1)
 
         # We will use the simplest form of GP model, exact inference
@@ -111,7 +111,7 @@ class SyntheticDataLoader:
 
         with torch.no_grad():
 
-            test_x = torch.linspace(0, 1, 100).view(1, -1, 1).repeat(4, 1, 1)
+            test_x = torch.linspace(0, 1, 10).view(1, -1, 1).repeat(4, 1, 1)
 
             for i in range(512):
 
@@ -120,7 +120,7 @@ class SyntheticDataLoader:
                 mean = observed_pred.detach().cpu()
                 mean = mean.reshape(4, -1)
                 label = torch.tensor([0, 1, 2, 3])
-                label = label.unsqueeze(-1).repeat(1, 100)
+                label = label.unsqueeze(-1).repeat(1, 10)
                 labels.append(label)
                 samples.append(mean)
 
