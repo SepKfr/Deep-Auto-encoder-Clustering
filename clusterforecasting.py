@@ -134,10 +134,6 @@ class ClusterForecasting(nn.Module):
 
         self.enc_embedding = nn.Linear(input_size, d_model)
         self.norm = nn.LayerNorm(d_model)
-        self.gmm = GmmDiagonal(num_components=n_clusters,
-                               num_dims=d_model,
-                               num_feat=d_model,
-                               )
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
@@ -154,38 +150,36 @@ class ClusterForecasting(nn.Module):
         self.d_model = d_model
         self.input_size = input_size
         self.time_proj = 100
-        self.num_clusters = 4
+        self.num_clusters = n_clusters
 
     def forward(self, x, y=None):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
         output_seq = self.seq_model(x_enc)
-        gmm_loss = self.gmm(output_seq)
-        cluster_assign = self.gmm.get_cluster_assign(output_seq)
-        assigned_labels = torch.mode(cluster_assign, dim=-1).values
 
-        y = y.reshape(-1)
+        inds = torch.randperm(self.batch_size)
+        inds_centroids = inds[:self.num_clusters]
+        centroids = output_seq[inds_centroids]
 
-        with torch.no_grad():
-            adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+        x_rec = output_seq
 
-        #x_rec = self.proj_down(output_seq)
+        diffs = torch.diff(x_rec, dim=1)
+        kernel = 3
+        padding = (kernel - 1) // 2
+        mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
+        res = nn.MSELoss()(diffs, mv_avg)
 
-        # x_rec = output_seq
-        # diffs = torch.diff(x_rec, dim=1)
-        # kernel = 3
-        # padding = (kernel - 1) // 2
-        # mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
-        # res = nn.MSELoss()(diffs, mv_avg)
-        #
-        # x_dist = x_rec.reshape(self.batch_size, -1)
-        #
-        # diff = x_dist.unsqueeze(1) - x_dist.unsqueeze(0)
-        #
-        # dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
-        #
-        # dist_softmax = torch.softmax(-dist_2d, dim=-1)
+        x_dist = x_rec.reshape(self.batch_size, -1)
+        centroids = centroids.reshape(self.num_clusters, -1)
+
+        diff = x_dist.unsqueeze(1) - centroids.unsqueeze(0)
+
+        dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
+
+        dist_softmax = torch.softmax(-dist_2d, dim=-1)
+
+
         # _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
         #
         # x_rec_expand = x_dist.unsqueeze(0).repeat(self.batch_size, 1, 1)
@@ -194,21 +188,23 @@ class ClusterForecasting(nn.Module):
         # diff_knns = (torch.diff(selected, dim=1) ** 2).sum()
         #
         # dist_knn = dist_2d[torch.arange(self.batch_size)[:, None], k_nearest]
-        #
-        # loss = dist_knn.sum() # + res.sum() + diff_knns
-        # if y is not None:
-        #
-        #     y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
-        #
-        #     labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
-        #
-        #     assigned_labels = torch.mode(labels, dim=-1).values
-        #     assigned_labels = assigned_labels.reshape(-1)
-        #     y = y.reshape(-1)
-        #
-        #     adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-        #
-        # else:
-        #     adj_rand_index = torch.tensor(0, device=self.device)
 
-        return gmm_loss, adj_rand_index
+        loss = dist_2d.sum() # + res.sum() + diff_knns
+
+        if y is not None:
+
+            y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
+
+            # labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
+            #
+            # assigned_labels = torch.mode(labels, dim=-1).values
+            assigned_labels = torch.argmax(dist_softmax, dim=-1)
+            assigned_labels = assigned_labels.reshape(-1)
+            y = y.reshape(-1)
+
+            adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+
+        else:
+            adj_rand_index = torch.tensor(0, device=self.device)
+
+        return loss, adj_rand_index
