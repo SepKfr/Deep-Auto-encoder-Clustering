@@ -5,6 +5,7 @@ import torch
 import ruptures as rpt
 from scipy.stats import ks_2samp
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, BatchSampler
+
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
