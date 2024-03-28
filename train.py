@@ -46,9 +46,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=100)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=32000)
-        parser.add_argument("--max_test_sample", type=int, default=3840)
-        parser.add_argument("--batch_size", type=int, default=256)
+        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--batch_size", type=int, default=128)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -121,7 +121,7 @@ class Train:
         self.best_forecasting_model = nn.Module()
         self.run_optuna(args)
 
-        self.evaluate()
+        # self.evaluate()
 
     def run_optuna(self, args):
 
@@ -203,7 +203,7 @@ class Train:
 
                 for x, y in self.data_loader.list_of_train_loader[i]:
 
-                    loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
+                    loss, adj_rand_index = model(x.to(self.device), y.to(self.device))
 
                     forecast_optimizer.zero_grad()
                     loss.backward()
@@ -220,7 +220,7 @@ class Train:
 
                 for x, y in self.data_loader.list_of_test_loader[i]:
 
-                    loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
+                    loss, adj_rand_index = model(x.to(self.device), y.to(self.device))
                     valid_knn_loss += loss.item()
                     valid_adj_loss += adj_rand_index.item()
 

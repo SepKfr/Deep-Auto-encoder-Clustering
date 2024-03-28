@@ -230,9 +230,25 @@ class GmmDiagonal(MixtureModel):
         components = Independent(Normal(self.mus, self.sigmas_diag), 1)
         mixture_model = MixtureSameFamily(mixture, components)
 
-        nll_loss = -1 * mixture_model.log_prob(x).mean()
+        prob = mixture_model.log_prob(x)
+
+        nll_loss = -1 * prob.mean()
 
         return nll_loss
+
+    def get_cluster_assign(self, x):
+
+        probs = []
+
+        with torch.no_grad():
+            for i in range(self.num_components):
+                component = Independent(Normal(self.mus[i], self.sigmas_diag[i]), 1)
+                prob = component.log_prob(x)
+                probs.append(prob)
+            log_probs = torch.stack(probs, dim=-1)
+            cluster_assign = torch.argmax(log_probs, dim=-1)
+            return cluster_assign
+
 
     def constrain_parameters(self, epsilon: float = 1e-6):
         with torch.no_grad():

@@ -119,7 +119,7 @@ class SyntheticDataLoader:
                 # Get mean
                 mean = observed_pred.detach().cpu()
                 mean = mean.reshape(4, -1)
-                label = torch.tensor([1, 2, 3, 4]).reshape(-1, 1)
+                label = torch.tensor([0, 1, 2, 3]).reshape(-1, 1)
                 labels.append(label)
                 samples.append(mean)
 
