@@ -275,42 +275,42 @@ class Train:
         colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#17becf', '#d62728', '#9467bd',
                   '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22']
 
-        alpha_arr = 0.1 + 0.9 * (1 - torch.arange(x_reconstructs.shape[1]) / x_reconstructs.shape[1])
-
-        path_to_pdfs = "populations"
-        if not os.path.exists(path_to_pdfs):
-            os.makedirs(path_to_pdfs)
-
-        def get_color(ind):
-            r, g, b, _ = to_rgba(colors[ind])
-            color = [(r, g, b, alpha) for alpha in alpha_arr]
-            return color
-
-        # Plot the clusters
-
-        inds = np.random.randint(0, len(x_reconstructs), 32)
-
-        for i in inds:
-
-            ids = knns[i]
-            x_1 = x_reconstructs[i].squeeze()
-
-            plt.scatter(test_x, x_1, color=get_color(0))
-
-            x_os = [x_reconstructs[j] for j in ids]
-            for k, x in enumerate(x_os):
-
-                plt.scatter(test_x, x, color=get_color(k+1))
-
-            # Set plot labels and legend
-            plt.title('')
-            plt.xlabel('x')
-            plt.ylabel('y')
-
-            patches = [plt.Line2D([0], [0], color=to_rgba(colors[j]), marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
-            labels = [f"Sample {j+1}" for j in range(len(ids))]
-            plt.legend(handles=patches, labels=labels)
-            plt.tight_layout()
-            plt.savefig("{}/synthetic_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
-            plt.clf()
+        # alpha_arr = 0.1 + 0.9 * (1 - torch.arange(x_reconstructs.shape[1]) / x_reconstructs.shape[1])
+        #
+        # path_to_pdfs = "populations"
+        # if not os.path.exists(path_to_pdfs):
+        #     os.makedirs(path_to_pdfs)
+        #
+        # def get_color(ind):
+        #     r, g, b, _ = to_rgba(colors[ind])
+        #     color = [(r, g, b, alpha) for alpha in alpha_arr]
+        #     return color
+        #
+        # # Plot the clusters
+        #
+        # inds = np.random.randint(0, len(x_reconstructs), 32)
+        #
+        # for i in inds:
+        #
+        #     ids = knns[i]
+        #     x_1 = x_reconstructs[i].squeeze()
+        #
+        #     plt.scatter(test_x, x_1, color=get_color(0))
+        #
+        #     x_os = [x_reconstructs[j] for j in ids]
+        #     for k, x in enumerate(x_os):
+        #
+        #         plt.scatter(test_x, x, color=get_color(k+1))
+        #
+        #     # Set plot labels and legend
+        #     plt.title('')
+        #     plt.xlabel('x')
+        #     plt.ylabel('y')
+        #
+        #     patches = [plt.Line2D([0], [0], color=to_rgba(colors[j]), marker='o', markersize=5, linestyle='None') for j in range(len(ids))]
+        #     labels = [f"Sample {j+1}" for j in range(len(ids))]
+        #     plt.legend(handles=patches, labels=labels)
+        #     plt.tight_layout()
+        #     plt.savefig("{}/synthetic_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
+        #     plt.clf()
 Train()
