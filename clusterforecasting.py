@@ -18,8 +18,6 @@ from gpytorch.means import ConstantMean, LinearMean
 from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
 from gpytorch.variational import VariationalStrategy, MeanFieldVariationalDistribution
 from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
-from GMM import GmmDiagonal
-
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)
@@ -158,12 +156,9 @@ class ClusterForecasting(nn.Module):
         # auto-regressive generative
         output_seq = self.seq_model(x_enc)
 
-        inds = torch.randperm(self.batch_size)
-        inds_centroids = inds[:self.num_clusters]
-        centroids = output_seq[inds_centroids]
+        #x_rec = self.proj_down(output_seq)
 
         x_rec = output_seq
-
         diffs = torch.diff(x_rec, dim=1)
         kernel = 3
         padding = (kernel - 1) // 2
@@ -171,34 +166,31 @@ class ClusterForecasting(nn.Module):
         res = nn.MSELoss()(diffs, mv_avg)
 
         x_dist = x_rec.reshape(self.batch_size, -1)
-        centroids = centroids.reshape(self.num_clusters, -1)
 
-        diff = x_dist.unsqueeze(1) - centroids.unsqueeze(0)
+        diff = x_dist.unsqueeze(1) - x_dist.unsqueeze(0)
 
         dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
 
+        k_num = self.batch_size // self.num_clusters
+
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
+        _, k_nearest = torch.topk(dist_softmax, k=k_num, dim=-1)
 
+        x_rec_expand = x_dist.unsqueeze(0).repeat(self.batch_size, 1, 1)
+        selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        # _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
-        #
-        # x_rec_expand = x_dist.unsqueeze(0).repeat(self.batch_size, 1, 1)
-        # selected = x_rec_expand[torch.arange(self.batch_size)[:, None], k_nearest]
-        #
-        # diff_knns = (torch.diff(selected, dim=1) ** 2).sum()
-        #
-        # dist_knn = dist_2d[torch.arange(self.batch_size)[:, None], k_nearest]
+        diff_knns = (torch.diff(selected, dim=1) ** 2).sum()
 
-        loss = dist_2d.sum() # + res.sum() + diff_knns
+        dist_knn = dist_2d[torch.arange(self.batch_size)[:, None], k_nearest]
 
+        loss = dist_knn.sum() # + res.sum() + diff_knns
         if y is not None:
 
             y_c = y.unsqueeze(0).repeat(self.batch_size, 1, 1).squeeze(-1)
 
-            # labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
-            #
-            # assigned_labels = torch.mode(labels, dim=-1).values
-            assigned_labels = torch.argmax(dist_softmax, dim=-1)
+            labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
+
+            assigned_labels = torch.mode(labels, dim=-1).values
             assigned_labels = assigned_labels.reshape(-1)
             y = y.reshape(-1)
 
@@ -207,4 +199,4 @@ class ClusterForecasting(nn.Module):
         else:
             adj_rand_index = torch.tensor(0, device=self.device)
 
-        return loss, adj_rand_index
+        return loss, adj_rand_index, [k_nearest, x_rec]
