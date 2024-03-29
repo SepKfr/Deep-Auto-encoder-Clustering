@@ -174,8 +174,8 @@ class ClusterForecasting(nn.Module):
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
-        x_rec_expand = x_rec.unsqueeze(-1).repeat(1, 1, self.batch_size*s_l)
-        k_nearest_e = k_nearest.unsqueeze(1).repeat(1, self.d_model, 1)
+        x_rec_expand = x_rec.unsqueeze(-1).expand(-1, -1, self.batch_size*s_l)
+        k_nearest_e = k_nearest.unsqueeze(1).expand(-1, self.d_model, -1)
         selected = x_rec_expand[torch.arange(self.batch_size*s_l)[:, None, None],
                                 torch.arange(self.d_model)[None, :, None], k_nearest_e]
 
@@ -188,14 +188,18 @@ class ClusterForecasting(nn.Module):
         loss = dist_knn.sum() # + res.sum() + diff_knns
         if y is not None:
 
-            y_c = y.unsqueeze(-1).repeat(1, 1, 1, self.batch_size*s_l)
-            y_c = y_c.reshape(-1, self.batch_size*s_l)
+            y_c = y.reshape(-1)
+
+            y_c = y_c.unsqueeze(0).expand(self.batch_size*s_l, -1)
 
             labels = y_c[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
+            labels = labels.reshape(self.batch_size, -1)
 
             assigned_labels = torch.mode(labels, dim=-1).values
+
+            y = y[:, 0, :].reshape(-1)
             assigned_labels = assigned_labels.reshape(-1)
-            y = y.reshape(-1)
+
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
 
         else:
