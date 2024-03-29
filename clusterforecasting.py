@@ -118,27 +118,20 @@ class ClusterForecasting(nn.Module):
     def __init__(self, input_size,
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
-                 device, pred_len, batch_size):
+                 device, pred_len, batch_size,
+                 var=1):
 
         super(ClusterForecasting, self).__init__()
 
         self.device = device
-        f = 9
-
-        self.conv = nn.Sequential(nn.Conv1d(in_channels=input_size, out_channels=d_model,
-                                  kernel_size=f, padding=int((f - 1) / 2)),
-                                  nn.BatchNorm1d(d_model),
-                                  nn.ReLU())
 
         self.enc_embedding = nn.Linear(input_size, d_model)
-        self.norm = nn.LayerNorm(d_model)
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
         self.proj_down = nn.Linear(d_model, 1)
 
-        #self.cluster_centers = nn.Parameter(torch.randn((n_clusters, input_size), device=device))
         self.auto_encoder = Autoencoder(input_dim=input_size, encoding_dim=d_model)
         self.gp_model = DeepGPp(num_inducing=batch_size, num_hidden_dims=d_model)
 
@@ -149,6 +142,7 @@ class ClusterForecasting(nn.Module):
         self.input_size = input_size
         self.time_proj = 100
         self.num_clusters = n_clusters
+        self.var = var
 
     def forward(self, x, y=None):
 
@@ -160,11 +154,11 @@ class ClusterForecasting(nn.Module):
         #x_rec = self.proj_down(output_seq)
 
         x_rec = output_seq
-        diffs = torch.diff(x_rec, dim=1)
-        kernel = 3
-        padding = (kernel - 1) // 2
-        mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
-        res = nn.MSELoss()(diffs, mv_avg)
+        # diffs = torch.diff(x_rec, dim=1)
+        # kernel = 3
+        # padding = (kernel - 1) // 2
+        # mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
+        # res = nn.MSELoss()(diffs, mv_avg)
 
         x_rec = x_rec.reshape(-1, self.d_model)
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
@@ -174,18 +168,22 @@ class ClusterForecasting(nn.Module):
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
-        x_rec_expand = x_rec.unsqueeze(-1).expand(-1, -1, self.batch_size*s_l)
-        k_nearest_e = k_nearest.unsqueeze(1).expand(-1, self.d_model, -1)
+        x_rec_expand = x_rec.unsqueeze(0).expand(self.batch_size*s_l, -1, -1)
+        k_nearest_e = k_nearest.unsqueeze(-1).repeat(1, 1, self.d_model)
+
         selected = x_rec_expand[torch.arange(self.batch_size*s_l)[:, None, None],
-                                torch.arange(self.d_model)[None, :, None], k_nearest_e]
+                                k_nearest_e,
+                                torch.arange(self.d_model)[None, None, :]]
 
         selected = selected.reshape(self.batch_size, s_l, self.d_model, -1)
+
         diff_knns = (torch.diff(selected, dim=-1) ** 2).sum()
         diff_steps = (torch.diff(selected, dim=1) ** 2).sum()
 
         dist_knn = dist_2d[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
 
-        loss = dist_knn.sum() # + res.sum() + diff_knns
+        loss = dist_knn.sum() + diff_steps + diff_knns if self.var == 2 else dist_knn.sum()
+
         if y is not None:
 
             y_c = y.reshape(-1)
