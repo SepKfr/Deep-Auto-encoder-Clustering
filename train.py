@@ -128,7 +128,7 @@ class Train:
     def run_optuna(self, args):
 
         study = optuna.create_study(study_name=args.model_name,
-                                    direction="minimize")
+                                    direction="maximize")
         study.optimize(self.objective, n_trials=args.n_trials, n_jobs=4)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
