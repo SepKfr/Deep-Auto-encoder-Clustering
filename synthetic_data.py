@@ -20,14 +20,15 @@ class SyntheticDataLoader:
         samples = samples[permuted_indices]
         labels = labels[permuted_indices]
 
-        tot_batches = len_samples // batch_size
-        tot_test = (tot_batches // 8) * batch_size
+        len_set = len(samples) // 8
+        len_train = len_set * 6
 
-        sample_hold_out = samples[:tot_test]
-        labels_hold_out = labels[:tot_test]
-
-        samples = samples[tot_test:]
-        labels = labels[tot_test:]
+        train_set_s = samples[:len_train]
+        train_set_l = labels[:len_train]
+        valid_set_s = samples[len_train:len_set+len_train]
+        valid_set_l = labels[len_train:len_set+len_train]
+        sample_hold_out = samples[-len_set:]
+        labels_hold_out = labels[-len_set:]
 
         hold_out_tensor_data = TensorDataset(sample_hold_out, labels_hold_out)
 
@@ -36,19 +37,11 @@ class SyntheticDataLoader:
         self.list_of_test_loader = []
         self.list_of_train_loader = []
 
-        max_samples = max_samples if max_samples != -1 else len(samples)
+        train_data = TensorDataset(train_set_s, train_set_l)
 
-        train_data = TensorDataset(samples[tot_test:], labels[tot_test:])
-
-        batch_sampler = BatchSampler(
-            sampler=torch.utils.data.RandomSampler(train_data, num_samples=max_samples),
-            batch_size=batch_size,
-            drop_last=True,
-        )
-
-        self.list_of_train_loader.append(DataLoader(train_data, batch_sampler=batch_sampler))
-        self.list_of_test_loader.append(DataLoader(TensorDataset(samples[:tot_test],
-                                                                 labels[:tot_test]),
+        self.list_of_train_loader.append(DataLoader(train_data, batch_size=batch_size, drop_last=True))
+        self.list_of_test_loader.append(DataLoader(TensorDataset(valid_set_s,
+                                                                 valid_set_l),
                                                                  batch_size=batch_size,
                                                                  drop_last=True))
         self.n_folds = 1
