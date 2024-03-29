@@ -216,8 +216,8 @@ class Train:
                     train_knn_loss += loss.item()
                     train_adj_loss += adj_rand_index.item()
 
-                list_of_train_loss.append(train_knn_loss)
-                list_of_train_adj.append(train_adj_loss)
+                list_of_train_loss.append(train_knn_loss/self.data_loader.len_train)
+                list_of_train_adj.append(train_adj_loss/self.data_loader.len_train)
 
                 model.eval()
                 valid_knn_loss = 0
@@ -229,8 +229,8 @@ class Train:
                     valid_knn_loss += loss.item()
                     valid_adj_loss += adj_rand_index.item()
 
-                list_of_valid_loss.append(valid_knn_loss)
-                list_of_valid_adj.append(valid_adj_loss)
+                list_of_valid_loss.append(valid_knn_loss/self.data_loader.len_test)
+                list_of_valid_adj.append(valid_adj_loss/self.data_loader.len_test)
 
                 if i == self.data_loader.n_folds - 1:
                     valid_tmp = statistics.mean(list_of_valid_adj)
@@ -245,9 +245,10 @@ class Train:
 
                 if epoch % 5 == 0:
                     print("train KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
-                          .format(list_of_train_loss/self.data_loader.len_train, list_of_train_adj/self.data_loader.len_train, epoch))
+                          .format(statistics.mean(list_of_train_loss),
+                                  statistics.mean(list_of_train_adj), epoch))
                     print("valid KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
-                          .format(list_of_valid_loss/self.data_loader.len_test, list_of_valid_adj/self.data_loader.len_test, epoch))
+                          .format(statistics.mean(list_of_valid_loss), statistics.mean(list_of_valid_adj), epoch))
 
         return best_trial_valid_loss
 
