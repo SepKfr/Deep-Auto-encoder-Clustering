@@ -245,9 +245,9 @@ class Train:
 
                 if epoch % 5 == 0:
                     print("train KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
-                          .format(statistics.mean(list_of_train_loss), statistics.mean(list_of_train_adj), epoch))
+                          .format(list_of_train_loss/self.data_loader.len_train, list_of_train_adj/self.data_loader.len_train, epoch))
                     print("valid KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
-                          .format(statistics.mean(list_of_valid_loss), statistics.mean(list_of_valid_adj), epoch))
+                          .format(list_of_valid_loss/self.data_loader.len_test, list_of_valid_adj/self.data_loader.len_test, epoch))
 
         return best_trial_valid_loss
 
