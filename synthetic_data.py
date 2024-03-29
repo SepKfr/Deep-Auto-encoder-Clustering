@@ -1,6 +1,8 @@
 import math
 import torch
 import gpytorch
+import numpy as np
+import random
 from torch.utils.data import TensorDataset, DataLoader, BatchSampler
 
 torch.manual_seed(1234)
