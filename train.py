@@ -296,7 +296,6 @@ class Train:
                     for x, labels in self.data_loader.hold_out_test:
 
                         _, adj_loss, outputs = model(x.to(self.device), labels.to(self.device))
-                        print(outputs)
                         x_reconstructs.append(outputs[1].detach().cpu())
                         knns.append(outputs[0].detach().cpu())
                         tot_adj_loss.append(adj_loss.item())
