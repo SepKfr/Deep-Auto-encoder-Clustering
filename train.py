@@ -323,7 +323,7 @@ class Train:
                     torch.save({"outputs": x_reconstructs, "knns": knns},
                                os.path.join(tensor_path, f"{self.model_name}.pt"))
 
-                except ValueError:
+                except RuntimeError:
                     pass
 
         # knns = np.vstack(knns)
