@@ -300,16 +300,16 @@ class Train:
                         knns.append(outputs[0].detach().cpu())
                         tot_adj_loss.append(adj_loss.item())
 
-                    print("Done...")
-
                     x_reconstructs = torch.cat(x_reconstructs)
                     knns = torch.cat(knns)
 
-                    print("adj rand index %.3f" % statistics.mean(tot_adj_loss))
+                    adj_loss = statistics.mean(tot_adj_loss)
+
+                    print("adj rand index {:3f}".format(adj_loss))
 
                     data = {
                         "model_name": self.model_name,
-                        "adj": "{:.3f}".format(statistics.mean(tot_adj_loss))
+                        "adj": "{:.3f}".format(adj_loss)
                     }
 
                     # Specify the file path
