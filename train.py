@@ -300,33 +300,33 @@ class Train:
                         knns.append(outputs[0].detach().cpu())
                         tot_adj_loss.append(adj_loss.item())
 
-                    x_reconstructs = torch.cat(x_reconstructs)
-                    knns = torch.cat(knns)
-
-                    adj_loss = statistics.mean(tot_adj_loss)
-
-                    print("adj rand index {:3f}".format(adj_loss))
-
-                    data = {
-                        "model_name": self.model_name,
-                        "adj": "{:.3f}".format(adj_loss)
-                    }
-
-                    # Specify the file path
-                    file_path = "adj_{}".format(self.exp_name)
-
-                    # Save data to JSON file
-                    with open(file_path, "w") as json_file:
-                        json.dump(data, json_file)
-
-                    tensor_path = f"{self.exp_name}"
-                    if not os.path.exists(tensor_path):
-                        os.makedirs(tensor_path)
-                    torch.save({"outputs": x_reconstructs, "knns": knns},
-                               os.path.join(tensor_path, f"{self.model_name}.pt"))
-
                 except RuntimeError:
                     pass
+
+        x_reconstructs = torch.cat(x_reconstructs)
+        knns = torch.cat(knns)
+
+        adj_loss = statistics.mean(tot_adj_loss)
+
+        print("adj rand index {:3f}".format(adj_loss))
+
+        data = {
+            "model_name": self.model_name,
+            "adj": "{:.3f}".format(adj_loss)
+        }
+
+        # Specify the file path
+        file_path = "adj_{}".format(self.exp_name)
+
+        # Save data to JSON file
+        with open(file_path, "w") as json_file:
+            json.dump(data, json_file)
+
+        tensor_path = f"{self.exp_name}"
+        if not os.path.exists(tensor_path):
+            os.makedirs(tensor_path)
+        torch.save({"outputs": x_reconstructs, "knns": knns},
+                   os.path.join(tensor_path, f"{self.model_name}.pt"))
 
         # knns = np.vstack(knns)
         # x_reconstructs = np.vstack(x_reconstructs)
