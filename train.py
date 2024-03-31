@@ -47,9 +47,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=128)
-        parser.add_argument("--max_test_sample", type=int, default=8)
-        parser.add_argument("--batch_size", type=int, default=8)
+        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -316,7 +316,7 @@ class Train:
         }
 
         # Specify the file path
-        file_path = "adj_{}".format(self.exp_name)
+        file_path = "adj_{}.json".format(self.exp_name)
 
         # Save data to JSON file
         with open(file_path, "w") as json_file:
