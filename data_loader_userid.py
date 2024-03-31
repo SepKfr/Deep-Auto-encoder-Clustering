@@ -37,7 +37,7 @@ class UserDataLoader:
         X = X[permuted_indices]
         Y = Y[permuted_indices]
 
-        len_set = self.max_train_sample // 8
+        len_set = len(X) // 8
         len_train = len_set * 6
 
         train_set_s = X[:len_train]
