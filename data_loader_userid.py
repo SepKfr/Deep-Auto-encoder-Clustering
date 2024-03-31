@@ -15,7 +15,6 @@ class UserDataLoader:
     def __init__(self,
                  max_encoder_length,
                  max_train_sample,
-                 max_test_sample,
                  batch_size,
                  device,
                  data,
@@ -24,7 +23,6 @@ class UserDataLoader:
 
         self.max_encoder_length = max_encoder_length
         self.max_train_sample = max_train_sample * batch_size
-        self.max_test_sample = max_test_sample * batch_size
         self.batch_size = batch_size
 
         self.real_inputs = real_inputs
@@ -34,57 +32,36 @@ class UserDataLoader:
 
         self.total_time_steps = self.max_encoder_length
 
-        X, Y = self.create_dataloader(data, max_train_sample)
+        X, Y = self.create_dataloader(data, self.max_train_sample)
         permuted_indices = torch.randperm(len(X))
         X = X[permuted_indices]
         Y = Y[permuted_indices]
 
-        get_num_sample = lambda l: 2 ** round(np.log2(l))
+        len_set = self.max_train_sample // 8
+        len_train = len_set * 6
 
-        def get_sampler(source, num_samples=-1):
-            num_samples = get_num_sample(len(source)) if num_samples == -1 else num_samples
-            batch_sampler = BatchSampler(
-                sampler=torch.utils.data.RandomSampler(source, num_samples=num_samples),
-                batch_size=self.batch_size,
-                drop_last=False,
-            )
-            return batch_sampler
+        train_set_s = X[:len_train]
+        train_set_l = Y[:len_train]
+        valid_set_s = X[len_train:len_set + len_train]
+        valid_set_l = Y[len_train:len_set + len_train]
+        sample_hold_out = X[-len_set:]
+        labels_hold_out = Y[-len_set:]
+
+        self.list_of_test_loader = []
+        self.list_of_train_loader = []
+
+        train_data = TensorDataset(train_set_s, train_set_l)
+        test_hold_out_data = TensorDataset(sample_hold_out, labels_hold_out)
+        valid_data = TensorDataset(valid_set_s, valid_set_l)
+
+        self.hold_out_test = DataLoader(test_hold_out_data, batch_size=self.batch_size, drop_last=True)
+        self.list_of_train_loader.append(DataLoader(train_data, batch_size=self.batch_size, drop_last=True))
+        self.list_of_test_loader.append(DataLoader(valid_data, batch_size=self.batch_size, drop_last=True))
 
         self.n_folds = 1
-        test_num = int(len(X) * 0.1)
-
-        all_inds = np.arange(0, len(X) - test_num)
-
-        hold_out_dataset = TensorDataset(X[:test_num],
-                                         Y[:test_num])
-
-        self.hold_out_test = DataLoader(hold_out_dataset,
-                                        batch_sampler=get_sampler(hold_out_dataset,
-                                                                  max_test_sample))
-
-        self.list_of_train_loader = []
-        self.list_of_test_loader = []
-        X = X[test_num:]
-
-        for i in range(self.n_folds):
-
-            test_inds = np.arange(test_num * i, test_num * (i + 1))
-            train_inds = list(filter(lambda x: x not in test_inds, all_inds))
-
-            train_x = X[train_inds]
-            train_y = Y[train_inds]
-            test_x = X[test_inds]
-            test_y = Y[test_inds]
-
-            train_data = TensorDataset(train_x, train_y)
-            valid_data = TensorDataset(test_x, test_y)
-
-            self.list_of_train_loader.append(DataLoader(train_data, batch_sampler=get_sampler(train_data, max_train_sample)))
-            self.list_of_test_loader.append(DataLoader(valid_data, batch_sampler=get_sampler(valid_data, max_test_sample)))
-
-        train_x, _ = next(iter(self.list_of_train_loader[0]))
-        self.input_size = train_x.shape[2]
-        self.output_size = train_x.shape[2]
+        test_x, _ = next(iter(self.hold_out_test))
+        self.input_size = test_x.shape[2]
+        self.output_size = test_x.shape[2]
         self.len_train = len(self.list_of_train_loader[0])
         self.len_test = len(self.list_of_test_loader[0])
 
@@ -118,7 +95,8 @@ class UserDataLoader:
             sliced = split_data_map[identifier].iloc[start_idx - self.total_time_steps: start_idx]
             val = sliced[self.real_inputs].values
             tensor = torch.tensor(val)
-            Y[i] = torch.zeros(self.total_time_steps).fill_(identifier).unsqueeze(-1)
+            cluster_id = torch.zeros(self.total_time_steps).fill_(identifier).unsqueeze(-1)
+            Y[i] = cluster_id
             X[i] = tensor
 
         return X, Y
