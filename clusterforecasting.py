@@ -130,10 +130,6 @@ class ClusterForecasting(nn.Module):
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
-        self.proj_down = nn.Linear(d_model, 1)
-
-        self.auto_encoder = Autoencoder(input_dim=input_size, encoding_dim=d_model)
-        self.gp_model = DeepGPp(num_inducing=batch_size, num_hidden_dims=d_model)
 
         self.pred_len = pred_len
         self.nheads = nheads
