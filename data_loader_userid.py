@@ -22,7 +22,7 @@ class UserDataLoader:
                  real_inputs):
 
         self.max_encoder_length = max_encoder_length
-        self.max_train_sample = max_train_sample * batch_size
+        self.max_train_sample = max_train_sample * batch_size if max_train_sample != -1 else -1
         self.batch_size = batch_size
 
         self.real_inputs = real_inputs
