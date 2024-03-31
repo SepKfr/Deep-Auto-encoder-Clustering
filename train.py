@@ -285,7 +285,7 @@ class Train:
                                                var=self.var).to(self.device)
 
                     checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
-                                            map_location=device)
+                                            map_location=self.device)
 
                     state_dict = checkpoint['model_state_dict']
 
