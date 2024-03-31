@@ -13,6 +13,7 @@ import dataforemater
 import pandas as pd
 import torch
 import numpy as np
+import json
 import torch.nn.functional as F
 from optuna.trial import TrialState
 from torch.nn.utils import clip_grad_norm_
@@ -38,7 +39,7 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="User_id")
+        parser.add_argument("--exp_name", type=str, default="synthetic")
         parser.add_argument("--model_name", type=str, default="basic_attn")
         parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
@@ -46,9 +47,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=3200)
-        parser.add_argument("--max_test_sample", type=int, default=320)
-        parser.add_argument("--batch_size", type=int, default=32)
+        parser.add_argument("--max_train_sample", type=int, default=8)
+        parser.add_argument("--max_test_sample", type=int, default=8)
+        parser.add_argument("--batch_size", type=int, default=8)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -151,10 +152,9 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        kernel = trial.suggest_categorical("kernel", [3])
         num_clusters = 4
 
-        tup_params = [d_model, num_layers, kernel]
+        tup_params = [d_model, num_layers]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -238,7 +238,7 @@ class Train:
                         if best_trial_valid_loss > self.best_overall_valid_loss:
                             self.best_overall_valid_loss = best_trial_valid_loss
                             self.best_forecasting_model = model
-                            torch.save(self.best_forecasting_model.state_dict(),
+                            torch.save(model.state_dict(),
                                        os.path.join(self.model_path,
                                                     "{}_forecast.pth".format(self.model_name)))
 
@@ -259,27 +259,83 @@ class Train:
         """
         Evaluate the performance of the best ForecastDenoising model on the test set.
         """
-        self.best_forecasting_model.eval()
 
         x_reconstructs = []
-        inps = []
         knns = []
         tot_adj_loss = []
 
-        for x, labels in self.data_loader.hold_out_test:
-            _, adj_loss, outputs = self.best_forecasting_model(x.to(self.device), labels.to(self.device))
-            x_reconstructs.append(outputs[1].detach().cpu().numpy())
-            knns.append(outputs[0].detach().cpu().numpy())
-            tot_adj_loss.append(adj_loss.item())
+        d_model_list = [16, 32]
+        num_layers_list = [1, 2]
+        num_clusters = 4
 
-        knns = np.vstack(knns)
-        x_reconstructs = np.vstack(x_reconstructs)
-        test_x = torch.linspace(0, 1, 100)
+        for d_model in d_model_list:
+            for num_layers in num_layers_list:
 
-        print("adj rand index %.3f" % statistics.mean(tot_adj_loss))
+                try:
+                    model = ClusterForecasting(input_size=self.data_loader.input_size,
+                                               n_clusters=num_clusters,
+                                               d_model=d_model,
+                                               nheads=8,
+                                               num_layers=num_layers,
+                                               attn_type=self.attn_type,
+                                               seed=1234,
+                                               device=self.device,
+                                               pred_len=self.pred_len,
+                                               batch_size=self.batch_size,
+                                               var=self.var).to(self.device)
 
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#17becf', '#d62728', '#9467bd',
-                  '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22']
+                    checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
+                                            map_location=device)
+
+                    state_dict = checkpoint['model_state_dict']
+
+                    model.load_state_dict(state_dict)
+
+                    model.eval()
+
+                    print("Successful...")
+
+                    for x, labels in self.data_loader.hold_out_test:
+
+                        _, adj_loss, outputs = self.best_forecasting_model(x.to(self.device), labels.to(self.device))
+                        x_reconstructs.append(outputs[1].detach().cpu())
+                        knns.append(outputs[0].detach().cpu())
+                        tot_adj_loss.append(adj_loss.item())
+
+                    x_reconstructs = torch.cat(x_reconstructs)
+                    knns = torch.cat(knns)
+
+                    print("adj rand index %.3f" % statistics.mean(tot_adj_loss))
+
+                    data = {
+                        "model_name": self.model_name,
+                        "adj": "{:.3f}".format(statistics.mean(tot_adj_loss))
+                    }
+
+                    # Specify the file path
+                    file_path = "adj_{}".format(self.exp_name)
+
+                    # Save data to JSON file
+                    with open(file_path, "w") as json_file:
+                        json.dump(data, json_file)
+
+                    tensor_path = f"{self.exp_name}"
+                    if not os.path.exists(tensor_path):
+                        os.makedirs(tensor_path)
+                    torch.save({"outputs": x_reconstructs, "knns": knns},
+                               os.path.join(tensor_path, f"{self.model_name}.pt"))
+
+                except ValueError:
+                    pass
+
+        # knns = np.vstack(knns)
+        # x_reconstructs = np.vstack(x_reconstructs)
+        # test_x = torch.linspace(0, 1, 100)
+        #
+        # print("adj rand index %.3f" % statistics.mean(tot_adj_loss))
+        #
+        # colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#17becf', '#d62728', '#9467bd',
+        #           '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22']
 
         # alpha_arr = 0.1 + 0.9 * (1 - torch.arange(x_reconstructs.shape[1]) / x_reconstructs.shape[1])
         #
