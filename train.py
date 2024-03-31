@@ -295,12 +295,12 @@ class Train:
 
                     for x, labels in self.data_loader.hold_out_test:
 
-                        print("here")
-
                         _, adj_loss, outputs = self.best_forecasting_model(x.to(self.device), labels.to(self.device))
                         x_reconstructs.append(outputs[1].detach().cpu())
                         knns.append(outputs[0].detach().cpu())
                         tot_adj_loss.append(adj_loss.item())
+
+                    print("Done...")
 
                     x_reconstructs = torch.cat(x_reconstructs)
                     knns = torch.cat(knns)
