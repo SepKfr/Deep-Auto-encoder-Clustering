@@ -41,17 +41,17 @@ class Train:
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="synthetic")
         parser.add_argument("--model_name", type=str, default="basic_attn")
-        parser.add_argument("--num_epochs", type=int, default=1)
+        parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
-        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--max_train_sample", type=int, default=32)
+        parser.add_argument("--max_test_sample", type=int, default=32)
         parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--num_clusters", type=int, default=4)
-        parser.add_argument("--var", type=int, default=1)
+        parser.add_argument("--var", type=int, default=2)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -198,6 +198,7 @@ class Train:
             list_of_train_loss = []
             list_of_valid_adj = []
             list_of_train_adj = []
+            min_grad_value = 0.5
 
             for i in range(self.data_loader.n_folds):
                 print(f"running on {i} fold...")
@@ -212,6 +213,11 @@ class Train:
 
                     forecast_optimizer.zero_grad()
                     loss.backward()
+
+                    for param in model.parameters():
+                        if param.grad is not None:
+                            param.grad.data.clamp_(min=min_grad_value)
+
                     forecast_optimizer.step()
                     scheduler.step()
                     train_knn_loss += loss.item()

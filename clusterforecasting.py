@@ -158,11 +158,12 @@ class ClusterForecasting(nn.Module):
         # res = nn.MSELoss()(diffs, mv_avg)
 
         x_rec = x_rec.reshape(-1, self.d_model)
-        diff = x_rec.unsqueeze(1) - self.centers.unsqueeze(0)
+        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
         dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
 
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
+
         _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
 
         x_rec_expand = x_rec.unsqueeze(0).expand(self.batch_size*s_l, -1, -1)
