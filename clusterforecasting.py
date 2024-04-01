@@ -199,7 +199,7 @@ class ClusterForecasting(nn.Module):
 
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
-            acc = Accuracy(task='multiclass', num_classes=self.num_clusters)(assigned_labels.to(torch.long), y.to(torch.long))
+            acc = Accuracy(task='multiclass', num_classes=self.num_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
 
         else:
             adj_rand_index = torch.tensor(0, device=self.device)
