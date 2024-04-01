@@ -155,7 +155,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1, 0.5])
         knns = trial.suggest_categorical("knns", [5, 10, 20])
         num_clusters = self.num_clusters
 
