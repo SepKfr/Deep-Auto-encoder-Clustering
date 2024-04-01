@@ -161,8 +161,10 @@ class ClusterForecasting(nn.Module):
 
         dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
 
+        k = self.batch_size*s_l // self.num_clusters
+
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
-        _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
+        _, k_nearest = torch.topk(dist_softmax, k=k, dim=-1)
 
         x_rec_expand = x_rec.unsqueeze(0).expand(self.batch_size*s_l, -1, -1)
         k_nearest_e = k_nearest.unsqueeze(-1).repeat(1, 1, self.d_model)
