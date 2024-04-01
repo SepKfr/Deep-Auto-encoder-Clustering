@@ -268,13 +268,13 @@ class Train:
                                                     "{}_forecast.pth".format(self.model_name)))
 
                 if epoch % 5 == 0:
-                    print("train KNN loss: {:.3f}, adj: {:.3f} epoch: {}, nmi: {:.3f}, acc: {:.3f}"
+                    print("train KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, epoch: {}"
                           .format(statistics.mean(list_of_train_loss),
                                   statistics.mean(list_of_train_adj),
                                   statistics.mean(list_of_train_nmi),
                                   statistics.mean(list_of_train_acc),
                                   epoch))
-                    print("valid KNN loss: {:.3f}, adj: {:.3f} epoch: {}, nmi: {:.3f}, acc: {:.3f}"
+                    print("valid KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, epoch: {}"
                           .format(statistics.mean(list_of_valid_loss),
                                   statistics.mean(list_of_valid_adj),
                                   statistics.mean(list_of_valid_nmi),
