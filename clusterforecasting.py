@@ -130,6 +130,7 @@ class ClusterForecasting(nn.Module):
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
+        self.centers = nn.Parameter(torch.randn(n_clusters, d_model))
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -157,7 +158,7 @@ class ClusterForecasting(nn.Module):
         # res = nn.MSELoss()(diffs, mv_avg)
 
         x_rec = x_rec.reshape(-1, self.d_model)
-        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
+        diff = x_rec.unsqueeze(1) - self.centers.unsqueeze(0)
 
         dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
 

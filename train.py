@@ -39,7 +39,7 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="User_id")
+        parser.add_argument("--exp_name", type=str, default="synthetic")
         parser.add_argument("--model_name", type=str, default="basic_attn")
         parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
@@ -47,10 +47,10 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=128)
-        parser.add_argument("--max_test_sample", type=int, default=32)
+        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=32)
-        parser.add_argument("--num_clusters", type=int, default=22)
+        parser.add_argument("--num_clusters", type=int, default=4)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -119,7 +119,7 @@ class Train:
 
         self.num_epochs = args.num_epochs
         self.batch_size = args.batch_size
-        self.best_overall_valid_loss = 1e-10
+        self.best_overall_valid_loss = -1e10
         self.list_explored_params = []
 
         self.best_forecasting_model = nn.Module()
@@ -190,7 +190,7 @@ class Train:
         forecast_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(forecast_optimizer, self.num_iteration)
 
-        best_trial_valid_loss = 1e-10
+        best_trial_valid_loss = -1e10
 
         for epoch in range(self.num_epochs):
 

@@ -20,6 +20,11 @@ class SyntheticDataLoader:
         samples = samples[permuted_indices]
         labels = labels[permuted_indices]
 
+        if max_samples != -1:
+
+            samples = samples[:max_samples*batch_size]
+            labels = labels[:max_samples*batch_size]
+
         len_set = len(samples) // 8
         len_train = len_set * 6
 
