@@ -131,7 +131,7 @@ class Train:
 
         study = optuna.create_study(study_name=args.model_name,
                                     direction="maximize")
-        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=4)
+        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=6)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
         complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -154,7 +154,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [0.5, 0.05, 0.005])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [0.5, 0.05])
         num_clusters = self.num_clusters
 
         tup_params = [d_model, num_layers, min_grad_value]
