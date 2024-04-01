@@ -9,7 +9,8 @@ from sklearn.decomposition import PCA
 from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 from sklearn.cluster import KMeans
-from torchmetrics.clustering import AdjustedRandScore
+from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
+from torchmetrics import Accuracy
 from tslearn.metrics import SoftDTWLossPyTorch
 from gpytorch.distributions import MultivariateNormal, MultitaskMultivariateNormal
 from gpytorch.kernels import ScaleKernel, RBFKernel
@@ -197,8 +198,12 @@ class ClusterForecasting(nn.Module):
             assigned_labels = assigned_labels.reshape(-1)
 
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+            nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
+            acc = Accuracy(task='multiclass', num_classes=self.num_clusters)(assigned_labels.to(torch.long), y.to(torch.long))
 
         else:
             adj_rand_index = torch.tensor(0, device=self.device)
+            nmi = torch.tensor(0, device=self.device)
+            acc = torch.tensor(0, device=self.device)
 
-        return loss, adj_rand_index, output_seq
+        return loss, adj_rand_index, nmi, acc, output_seq

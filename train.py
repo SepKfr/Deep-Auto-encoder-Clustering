@@ -4,7 +4,8 @@ from itertools import product
 import random
 import statistics
 import matplotlib.lines
-from torchmetrics.clustering import AdjustedRandScore
+from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
+from torchmetrics import Accuracy
 import matplotlib.pyplot as plt
 import optuna
 from torch import nn
@@ -154,7 +155,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [0.5, 0.05])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1, 0.01])
         num_clusters = self.num_clusters
 
         tup_params = [d_model, num_layers, min_grad_value]
@@ -198,8 +199,11 @@ class Train:
             list_of_valid_loss = []
             list_of_train_loss = []
             list_of_valid_adj = []
+            list_of_valid_nmi = []
+            list_of_valid_acc = []
             list_of_train_adj = []
-
+            list_of_train_nmi = []
+            list_of_train_acc = []
 
             for i in range(self.data_loader.n_folds):
                 print(f"running on {i} fold...")
@@ -207,10 +211,12 @@ class Train:
                 model.train()
                 train_knn_loss = 0
                 train_adj_loss = 0
+                train_nmi_loss = 0
+                train_acc_loss = 0
 
                 for x, y in self.data_loader.list_of_train_loader[i]:
 
-                    loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
+                    loss, adj_rand_index, nmi, acc, _ = model(x.to(self.device), y.to(self.device))
 
                     forecast_optimizer.zero_grad()
                     loss.backward()
@@ -223,22 +229,32 @@ class Train:
                     scheduler.step()
                     train_knn_loss += loss.item()
                     train_adj_loss += adj_rand_index.item()
+                    train_nmi_loss += nmi.item()
+                    train_acc_loss += acc.item()
 
                 list_of_train_loss.append(train_knn_loss/self.data_loader.len_train)
                 list_of_train_adj.append(train_adj_loss/self.data_loader.len_train)
+                list_of_train_nmi.append(train_nmi_loss/self.data_loader.len_train)
+                list_of_train_acc.append(train_acc_loss/self.data_loader.len_train)
 
                 model.eval()
                 valid_knn_loss = 0
                 valid_adj_loss = 0
+                valid_nmi_loss = 0
+                valid_acc_loss = 0
 
                 for x, y in self.data_loader.list_of_test_loader[i]:
 
-                    loss, adj_rand_index, _ = model(x.to(self.device), y.to(self.device))
+                    loss, adj_rand_index, nmi, acc, _ = model(x.to(self.device), y.to(self.device))
                     valid_knn_loss += loss.item()
                     valid_adj_loss += adj_rand_index.item()
+                    valid_nmi_loss += nmi.item()
+                    valid_acc_loss += acc.item()
 
                 list_of_valid_loss.append(valid_knn_loss/self.data_loader.len_test)
                 list_of_valid_adj.append(valid_adj_loss/self.data_loader.len_test)
+                list_of_valid_nmi.append(valid_nmi_loss/self.data_loader.len_test)
+                list_of_valid_acc.append(valid_acc_loss/self.data_loader.len_test)
 
                 if i == self.data_loader.n_folds - 1:
                     valid_tmp = statistics.mean(list_of_valid_adj)
@@ -252,11 +268,18 @@ class Train:
                                                     "{}_forecast.pth".format(self.model_name)))
 
                 if epoch % 5 == 0:
-                    print("train KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
+                    print("train KNN loss: {:.3f}, adj: {:.3f} epoch: {}, nmi: {:.3f}, acc: {:.3f}"
                           .format(statistics.mean(list_of_train_loss),
-                                  statistics.mean(list_of_train_adj), epoch))
-                    print("valid KNN loss: {:.3f}, adj loss: {:.3f} epoch: {}"
-                          .format(statistics.mean(list_of_valid_loss), statistics.mean(list_of_valid_adj), epoch))
+                                  statistics.mean(list_of_train_adj),
+                                  statistics.mean(list_of_train_nmi),
+                                  statistics.mean(list_of_train_acc),
+                                  epoch))
+                    print("valid KNN loss: {:.3f}, adj: {:.3f} epoch: {}, nmi: {:.3f}, acc: {:.3f}"
+                          .format(statistics.mean(list_of_valid_loss),
+                                  statistics.mean(list_of_valid_adj),
+                                  statistics.mean(list_of_valid_nmi),
+                                  statistics.mean(list_of_valid_acc),
+                                  epoch))
 
         return best_trial_valid_loss
 
@@ -272,6 +295,8 @@ class Train:
         x_reconstructs = []
         knns = []
         tot_adj_loss = []
+        tot_acc_loss = []
+        tot_nmi_loss = []
 
         d_model_list = [16, 32]
         num_layers_list = [1, 2]
@@ -304,10 +329,12 @@ class Train:
 
                     for x, labels in self.data_loader.hold_out_test:
 
-                        _, adj_loss, outputs = model(x.to(self.device), labels.to(self.device))
+                        _, adj_loss, nmi, acc, outputs = model(x.to(self.device), labels.to(self.device))
                         x_reconstructs.append(outputs[1].detach().cpu())
                         knns.append(outputs[0].detach().cpu())
                         tot_adj_loss.append(adj_loss.item())
+                        tot_nmi_loss.append(nmi.item())
+                        tot_acc_loss.append(acc.item())
 
                 except RuntimeError:
                     pass
@@ -315,13 +342,17 @@ class Train:
         x_reconstructs = torch.cat(x_reconstructs)
         knns = torch.cat(knns)
 
-        adj_loss = statistics.mean(tot_adj_loss)
+        adj = statistics.mean(tot_adj_loss)
+        nmi = statistics.mean(tot_nmi_loss)
+        acc = statistics.mean(tot_acc_loss)
 
-        print("adj rand index {:3f}".format(adj_loss))
+        print("adj rand index {:3f}, nmi {:.3f}, acc {:.3f}".format(adj, nmi, acc))
 
         data = {
             "model_name": self.model_name,
-            "adj": "{:.3f}".format(adj_loss)
+            "adj": "{:.3f}".format(adj),
+            "acc": "{:.3f}".format(acc),
+            "nmi": "{:.3f}".format(nmi)
         }
 
         # Specify the file path
