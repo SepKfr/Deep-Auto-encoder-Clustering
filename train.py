@@ -48,9 +48,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=128)
-        parser.add_argument("--max_test_sample", type=int, default=256)
-        parser.add_argument("--batch_size", type=int, default=32)
+        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--batch_size", type=int, default=128)
         parser.add_argument("--num_clusters", type=int, default=22)
         parser.add_argument("--var", type=int, default=2)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
@@ -132,7 +132,7 @@ class Train:
 
         study = optuna.create_study(study_name=args.model_name,
                                     direction="maximize")
-        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=6)
+        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=4)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
         complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -155,7 +155,8 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1, 0.01])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
+        knns = trial.suggest_categorical("knns", [5, 10, 20])
         num_clusters = self.num_clusters
 
         tup_params = [d_model, num_layers, min_grad_value]
@@ -168,6 +169,7 @@ class Train:
         if self.cluster == "yes":
             model = ClusterForecasting(input_size=self.data_loader.input_size,
                                        n_clusters=num_clusters,
+                                       knns=knns,
                                        d_model=d_model,
                                        nheads=8,
                                        num_layers=num_layers,
@@ -255,6 +257,12 @@ class Train:
                 list_of_valid_adj.append(valid_adj_loss/self.data_loader.len_test)
                 list_of_valid_nmi.append(valid_nmi_loss/self.data_loader.len_test)
                 list_of_valid_acc.append(valid_acc_loss/self.data_loader.len_test)
+
+                trial.report(statistics.mean(list_of_valid_adj), step=epoch)
+
+                # Prune trial if necessary
+                if trial.should_prune():
+                    raise optuna.TrialPruned()
 
                 if i == self.data_loader.n_folds - 1:
                     valid_tmp = statistics.mean(list_of_valid_adj)

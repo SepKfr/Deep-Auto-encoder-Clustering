@@ -116,7 +116,7 @@ class Autoencoder(nn.Module):
 
 class ClusterForecasting(nn.Module):
 
-    def __init__(self, input_size,
+    def __init__(self, input_size, knns,
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
@@ -141,6 +141,7 @@ class ClusterForecasting(nn.Module):
         self.time_proj = 100
         self.num_clusters = n_clusters
         self.var = var
+        self.k = knns
 
     def forward(self, x, y=None):
 
@@ -165,7 +166,7 @@ class ClusterForecasting(nn.Module):
 
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
 
-        _, k_nearest = torch.topk(dist_softmax, k=self.num_clusters, dim=-1)
+        _, k_nearest = torch.topk(dist_softmax, k=self.k, dim=-1)
 
         x_rec_expand = x_rec.unsqueeze(0).expand(self.batch_size*s_l, -1, -1)
         k_nearest_e = k_nearest.unsqueeze(-1).repeat(1, 1, self.d_model)
