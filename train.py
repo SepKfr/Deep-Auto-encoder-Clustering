@@ -50,6 +50,7 @@ class Train:
         parser.add_argument("--max_train_sample", type=int, default=128)
         parser.add_argument("--max_test_sample", type=int, default=32)
         parser.add_argument("--batch_size", type=int, default=32)
+        parser.add_argument("--num_clusters", type=int, default=22)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
@@ -58,6 +59,7 @@ class Train:
         args = parser.parse_args()
         self.exp_name = args.exp_name
         self.var = args.var
+        self.num_clusters = args.num_clusters
 
         if self.exp_name == "synthetic":
             pass
@@ -152,7 +154,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        num_clusters = 4
+        num_clusters = self.num_clusters
 
         tup_params = [d_model, num_layers]
 
@@ -266,7 +268,7 @@ class Train:
 
         d_model_list = [16, 32]
         num_layers_list = [1, 2]
-        num_clusters = 4
+        num_clusters = self.num_clusters
 
         for d_model in d_model_list:
             for num_layers in num_layers_list:
