@@ -47,8 +47,8 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
-        parser.add_argument("--max_test_sample", type=int, default=-1)
+        parser.add_argument("--max_train_sample", type=int, default=3200)
+        parser.add_argument("--max_test_sample", type=int, default=320)
         parser.add_argument("--batch_size", type=int, default=64)
         parser.add_argument("--num_clusters", type=int, default=4)
         parser.add_argument("--var", type=int, default=2)
@@ -154,9 +154,10 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [0.5, 0.05, 0.005])
         num_clusters = self.num_clusters
 
-        tup_params = [d_model, num_layers]
+        tup_params = [d_model, num_layers, min_grad_value]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -198,7 +199,7 @@ class Train:
             list_of_train_loss = []
             list_of_valid_adj = []
             list_of_train_adj = []
-            min_grad_value = 0.5
+
 
             for i in range(self.data_loader.n_folds):
                 print(f"running on {i} fold...")
