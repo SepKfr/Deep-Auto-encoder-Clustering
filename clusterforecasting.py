@@ -191,7 +191,7 @@ class ClusterForecasting(nn.Module):
 
         dist_knn = dist_softmax[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
 
-        loss = dist_knn.mean() + diff_steps + diff_knns if self.var == 2 else dist_knn.mean()
+        loss = dist_knn.sum() + diff_steps + diff_knns if self.var == 2 else dist_knn.sum()
 
         if y is not None:
 
