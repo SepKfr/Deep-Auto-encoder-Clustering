@@ -48,7 +48,7 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=1000)
+        parser.add_argument("--max_train_sample", type=int, default=100)
         parser.add_argument("--max_test_sample", type=int, default=8)
         parser.add_argument("--batch_size", type=int, default=64)
         parser.add_argument("--num_clusters", type=int, default=22)
