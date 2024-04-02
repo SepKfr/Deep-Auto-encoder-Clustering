@@ -189,7 +189,7 @@ class ClusterForecasting(nn.Module):
 
         diff_knns = (torch.diff(selected, dim=-1) ** 2).mean()
         diff_steps = (torch.diff(selected, dim=1) ** 2).mean()
-        x_rec_p = self.proj_down(x_rec)
+        x_rec_p = self.proj_down(x_rec).reshape(x.shape)
 
         rec_loss = nn.MSELoss()(x_rec_p, x)
 
