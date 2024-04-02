@@ -152,15 +152,14 @@ class ClusterForecasting(nn.Module):
 
         #x_rec = self.proj_down(output_seq)
 
-        x_rec = output_seq
         # diffs = torch.diff(x_rec, dim=1)
         # kernel = 3
         # padding = (kernel - 1) // 2
         # mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
         # res = nn.MSELoss()(diffs, mv_avg)
 
-        x_rec = x_rec.reshape(-1, self.d_model)
-        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
+        output_seq = output_seq.reshape(-1, self.d_model)
+        diff = output_seq.unsqueeze(1) - output_seq.unsqueeze(0)
 
         dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
 
@@ -174,6 +173,7 @@ class ClusterForecasting(nn.Module):
         dist_2d = dist_2d.masked_fill(mask, value=torch.inf)
 
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
+        x_rec = torch.einsum('lb, bd -> ld', dist_softmax, output_seq)
 
         _, k_nearest = torch.topk(dist_softmax, k=self.k, dim=-1)
 
@@ -188,10 +188,11 @@ class ClusterForecasting(nn.Module):
 
         diff_knns = (torch.diff(selected, dim=-1) ** 2).mean()
         diff_steps = (torch.diff(selected, dim=1) ** 2).mean()
+        rec_loss = nn.MSELoss()(x_rec, x_rec_expand)
 
-        dist_knn = dist_softmax[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
+        #dist_knn = dist_softmax[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
 
-        loss = dist_knn.sum() + diff_steps + diff_knns if self.var == 2 else dist_knn.sum()
+        loss = rec_loss + diff_steps + diff_knns if self.var == 2 else dist_knn.sum()
 
         if y is not None:
 
@@ -208,6 +209,7 @@ class ClusterForecasting(nn.Module):
             assigned_labels = assigned_labels.reshape(-1)
 
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+            print(adj_rand_index)
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
             acc = Accuracy(task='multiclass', num_classes=self.num_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
 
