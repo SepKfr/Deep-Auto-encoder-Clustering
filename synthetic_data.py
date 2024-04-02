@@ -5,6 +5,9 @@ import numpy as np
 import random
 from torch.utils.data import TensorDataset, DataLoader, BatchSampler
 
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
 
 class SyntheticDataLoader:
 
@@ -106,26 +109,17 @@ class SyntheticDataLoader:
             # print('Iter %d/%d - Loss: %.3f' % (i + 1, training_iter, loss.item()))
             optimizer.step()
 
-        samples = []
-        labels = []
-
         with torch.no_grad():
 
             test_x = torch.linspace(0, 1, 100).view(1, -1, 1).repeat(4, 1, 1)
 
-            for i in range(10240):
-
-                observed_pred = likelihood(model(test_x)).sample()
-                # Get mean
-                mean = observed_pred.detach().cpu()
-                mean = mean.reshape(4, -1)
-                label = torch.tensor([0, 1, 2, 3])
-                label = label.unsqueeze(-1).repeat(1, 100)
-                labels.append(label)
-                samples.append(mean)
-
-        labels = torch.cat(labels, dim=0).unsqueeze(-1)
-        samples = torch.cat(samples, dim=0).unsqueeze(-1)
+            observed_pred = likelihood(model(test_x)).sample_n(n=10240)
+            # Get mean
+            samples = observed_pred.detach().cpu()
+            samples = samples.reshape(10240*4, 100, 1)
+            label = torch.tensor([0, 1, 2, 3]*10240)
+            labels = label.unsqueeze(-1).repeat(1, 100)
+            labels = labels.reshape(samples.shape)
 
         return samples, labels
 
