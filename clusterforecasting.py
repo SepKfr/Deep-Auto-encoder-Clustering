@@ -188,7 +188,7 @@ class ClusterForecasting(nn.Module):
 
         diff_knns = (torch.diff(selected, dim=-1) ** 2).mean()
         diff_steps = (torch.diff(selected, dim=1) ** 2).mean()
-        rec_loss = nn.MSELoss()(x_rec, x_rec_expand)
+        rec_loss = nn.MSELoss()(x_rec, output_seq)
 
         #dist_knn = dist_softmax[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
 
@@ -209,7 +209,6 @@ class ClusterForecasting(nn.Module):
             assigned_labels = assigned_labels.reshape(-1)
 
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-            print(adj_rand_index)
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
             acc = Accuracy(task='multiclass', num_classes=self.num_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
 
