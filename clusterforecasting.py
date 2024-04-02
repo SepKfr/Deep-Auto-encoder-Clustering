@@ -132,6 +132,7 @@ class ClusterForecasting(nn.Module):
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
         self.centers = nn.Parameter(torch.randn(n_clusters, d_model))
+        self.proj_down = nn.Linear(d_model, 1)
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -188,7 +189,9 @@ class ClusterForecasting(nn.Module):
 
         diff_knns = (torch.diff(selected, dim=-1) ** 2).mean()
         diff_steps = (torch.diff(selected, dim=1) ** 2).mean()
-        rec_loss = nn.MSELoss()(x_rec, output_seq)
+        x_rec_p = self.proj_down(x_rec)
+
+        rec_loss = nn.MSELoss()(x_rec_p, x)
 
         #dist_knn = dist_softmax[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
 
