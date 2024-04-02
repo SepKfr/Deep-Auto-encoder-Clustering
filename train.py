@@ -324,7 +324,8 @@ class Train:
                                                device=self.device,
                                                pred_len=self.pred_len,
                                                batch_size=self.batch_size,
-                                               var=self.var).to(self.device)
+                                               var=self.var,
+                                               knns=knns).to(self.device)
 
                     checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
                                             map_location=self.device)
