@@ -164,6 +164,15 @@ class ClusterForecasting(nn.Module):
 
         dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
 
+        mask = torch.zeros_like(dist_2d)
+
+        for i in range(0, self.batch_size*s_l, s_l):
+
+            mask[i:i+s_l, i:i+s_l] = torch.ones(s_l, s_l, device=self.device)
+
+        mask = mask.to(torch.bool)
+        dist_2d = dist_2d.masked_fill(mask, value=torch.inf)
+
         dist_softmax = torch.softmax(-dist_2d, dim=-1)
 
         _, k_nearest = torch.topk(dist_softmax, k=self.k, dim=-1)
@@ -180,7 +189,7 @@ class ClusterForecasting(nn.Module):
         diff_knns = (torch.diff(selected, dim=-1) ** 2).mean()
         diff_steps = (torch.diff(selected, dim=1) ** 2).mean()
 
-        dist_knn = dist_2d[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
+        dist_knn = dist_softmax[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
 
         loss = dist_knn.mean() + diff_steps + diff_knns if self.var == 2 else dist_knn.mean()
 

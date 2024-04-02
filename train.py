@@ -40,7 +40,7 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="synthetic")
+        parser.add_argument("--exp_name", type=str, default="User_id")
         parser.add_argument("--model_name", type=str, default="basic_attn")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
@@ -155,7 +155,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [0.5])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [1e-8])
         knns = trial.suggest_categorical("knns", [5, 10, 20])
         num_clusters = self.num_clusters
 
@@ -308,45 +308,47 @@ class Train:
 
         d_model_list = [16, 32]
         num_layers_list = [1, 2]
+        knn_list = [5, 10, 20]
         num_clusters = self.num_clusters
 
-        for d_model in d_model_list:
-            for num_layers in num_layers_list:
+        for knn in knn_list:
+            for d_model in d_model_list:
+                for num_layers in num_layers_list:
 
-                try:
-                    model = ClusterForecasting(input_size=self.data_loader.input_size,
-                                               n_clusters=num_clusters,
-                                               d_model=d_model,
-                                               nheads=8,
-                                               num_layers=num_layers,
-                                               attn_type=self.attn_type,
-                                               seed=1234,
-                                               device=self.device,
-                                               pred_len=self.pred_len,
-                                               batch_size=self.batch_size,
-                                               var=self.var,
-                                               knns=knns).to(self.device)
+                    try:
+                        model = ClusterForecasting(input_size=self.data_loader.input_size,
+                                                   n_clusters=num_clusters,
+                                                   d_model=d_model,
+                                                   nheads=8,
+                                                   num_layers=num_layers,
+                                                   attn_type=self.attn_type,
+                                                   seed=1234,
+                                                   device=self.device,
+                                                   pred_len=self.pred_len,
+                                                   batch_size=self.batch_size,
+                                                   var=self.var,
+                                                   knns=knn).to(self.device)
 
-                    checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
-                                            map_location=self.device)
+                        checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
+                                                map_location=self.device)
 
-                    model.load_state_dict(checkpoint)
+                        model.load_state_dict(checkpoint)
 
-                    model.eval()
+                        model.eval()
 
-                    print("Successful...")
+                        print("Successful...")
 
-                    for x, labels in self.data_loader.hold_out_test:
+                        for x, labels in self.data_loader.hold_out_test:
 
-                        _, adj_loss, nmi, acc, outputs = model(x.to(self.device), labels.to(self.device))
-                        x_reconstructs.append(outputs[1].detach().cpu())
-                        knns.append(outputs[0].detach().cpu())
-                        tot_adj_loss.append(adj_loss.item())
-                        tot_nmi_loss.append(nmi.item())
-                        tot_acc_loss.append(acc.item())
+                            _, adj_loss, nmi, acc, outputs = model(x.to(self.device), labels.to(self.device))
+                            x_reconstructs.append(outputs[1].detach().cpu())
+                            knns.append(outputs[0].detach().cpu())
+                            tot_adj_loss.append(adj_loss.item())
+                            tot_nmi_loss.append(nmi.item())
+                            tot_acc_loss.append(acc.item())
 
-                except RuntimeError:
-                    pass
+                    except RuntimeError:
+                        pass
 
         x_reconstructs = torch.cat(x_reconstructs)
         knns = torch.cat(knns)
