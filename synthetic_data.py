@@ -113,7 +113,7 @@ class SyntheticDataLoader:
 
             test_x = torch.linspace(0, 1, 100).view(1, -1, 1).repeat(4, 1, 1)
 
-            observed_pred = likelihood(model(test_x)).sample((10240,))
+            observed_pred = likelihood(model(test_x)).sample_n(10240)
             # Get mean
             samples = observed_pred.detach().cpu()
             samples = samples.reshape(10240*4, 100, 1)
