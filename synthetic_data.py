@@ -5,10 +5,6 @@ import numpy as np
 import random
 from torch.utils.data import TensorDataset, DataLoader, BatchSampler
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
-
 
 class SyntheticDataLoader:
 
