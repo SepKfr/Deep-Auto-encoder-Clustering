@@ -48,7 +48,7 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='ATA')
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=100)
+        parser.add_argument("--max_train_sample", type=int, default=24)
         parser.add_argument("--max_test_sample", type=int, default=8)
         parser.add_argument("--batch_size", type=int, default=64)
         parser.add_argument("--num_clusters", type=int, default=22)
@@ -155,7 +155,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [1e-8])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
         knns = trial.suggest_categorical("knns", [5, 10, 20])
         num_clusters = self.num_clusters
 
