@@ -155,7 +155,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [512])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [0.5])
         knns = trial.suggest_categorical("knns", [4])
         num_clusters = self.num_clusters
 
@@ -223,9 +223,9 @@ class Train:
                     forecast_optimizer.zero_grad()
                     loss.backward()
 
-                    # for param in model.parameters():
-                    #     if param.grad is not None:
-                    #         param.grad.data.clamp_(min=min_grad_value)
+                    for param in model.parameters():
+                        if param.grad is not None:
+                            param.grad.data.clamp_(min=min_grad_value)
 
                     forecast_optimizer.step()
                     scheduler.step()
