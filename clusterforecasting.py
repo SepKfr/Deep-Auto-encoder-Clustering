@@ -189,6 +189,7 @@ class ClusterForecasting(nn.Module):
 
         diff_knns = (torch.diff(selected, dim=-1) ** 2).mean()
         diff_steps = (torch.diff(selected, dim=1) ** 2).mean()
+
         x_rec_p = self.proj_down(x_rec).reshape(x.shape)
 
         rec_loss = nn.MSELoss()(x_rec_p, x)
@@ -204,11 +205,11 @@ class ClusterForecasting(nn.Module):
             y_c = y_c.unsqueeze(0).expand(self.batch_size*s_l, -1)
 
             labels = y_c[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
-            labels = labels.reshape(self.batch_size, -1)
+            labels = labels.reshape(self.batch_size, s_l, -1)
 
             assigned_labels = torch.mode(labels, dim=-1).values
 
-            y = y[:, 0, :].reshape(-1)
+            y = y.reshape(-1)
             assigned_labels = assigned_labels.reshape(-1)
 
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
