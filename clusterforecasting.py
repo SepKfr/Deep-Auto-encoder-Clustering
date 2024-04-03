@@ -148,7 +148,7 @@ class ClusterForecasting(nn.Module):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        #output_seq = self.seq_model(x_enc)
+        output_seq = self.seq_model(x_enc)
         s_l = x.shape[1]
 
         #x_rec = self.proj_down(output_seq)
@@ -159,7 +159,7 @@ class ClusterForecasting(nn.Module):
         # mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
         # res = nn.MSELoss()(diffs, mv_avg)
 
-        output_seq = x_enc
+        output_seq = output_seq
         diff = output_seq.reshape(-1, self.batch_size, self.d_model)
 
         dist_3d = torch.cdist(diff, diff, p=2)
