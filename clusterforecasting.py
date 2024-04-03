@@ -148,7 +148,7 @@ class ClusterForecasting(nn.Module):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output_seq = self.seq_model(x_enc)
+        #output_seq = self.seq_model(x_enc)
         s_l = x.shape[1]
 
         #x_rec = self.proj_down(output_seq)
@@ -159,48 +159,51 @@ class ClusterForecasting(nn.Module):
         # mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
         # res = nn.MSELoss()(diffs, mv_avg)
 
-        output_seq = output_seq.reshape(self.batch_size, -1)
-        diff = output_seq.unsqueeze(1) - output_seq.unsqueeze(0)
+        output_seq = x_enc
+        diff = output_seq.reshape(-1, self.batch_size, self.d_model)
 
-        dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
+        dist_3d = torch.cdist(diff, diff, p=2)
 
-        mask = torch.zeros_like(dist_2d)
+        mask = torch.zeros(self.batch_size, self.batch_size).to(self.device)
         mask = mask.fill_diagonal_(1).to(torch.bool)
+        mask = mask.unsqueeze(-1).repeat(1, 1, s_l)
+        dist_3d = dist_3d.reshape(self.batch_size, self.batch_size, -1)
 
-        dist_2d = dist_2d.masked_fill(mask, value=torch.inf)
+        dist_3d = dist_3d.masked_fill(mask, value=0.0)
 
-        dist_softmax = torch.softmax(-dist_2d, dim=-1)
+        # x_rec = torch.einsum('lb, bd -> ld', dist_softmax, output_seq)
+        # x_rec_re = x_rec.reshape(self.batch_size, -1, self.d_model)
+        # x_rec_proj = self.proj_down(x_rec_re)
+        # loss_rec = nn.MSELoss()(x_rec_proj, x)
 
-        x_rec = torch.einsum('lb, bd -> ld', dist_softmax, output_seq)
-        x_rec_re = x_rec.reshape(self.batch_size, -1, self.d_model)
-        x_rec_proj = self.proj_down(x_rec_re)
-        loss_rec = nn.MSELoss()(x_rec_proj, x)
+        knn_tensor, k_nearest = torch.topk(dist_3d, k=self.k, dim=1)
 
-        _, k_nearest = torch.topk(dist_softmax, k=self.k, dim=-1)
 
-        x_rec_expand = x_rec.unsqueeze(0).expand(self.batch_size, -1, -1)
-        k_nearest_e = k_nearest.unsqueeze(-1).repeat(1, 1, self.d_model)
-
-        selected = x_rec_expand[torch.arange(self.batch_size)[:, None, None],
-                                k_nearest_e,
-                                torch.arange(self.d_model)[None, None, :]]
-
-        selected = selected.reshape(self.batch_size, self.d_model, -1)
-
-        diff_knns = (torch.diff(selected, dim=-1) ** 2).mean()
-        diff_steps = (torch.diff(selected, dim=1) ** 2).mean()
+        # x_rec_expand = x_rec.unsqueeze(0).expand(self.batch_size, -1, -1)
+        # k_nearest_e = k_nearest.unsqueeze(-1).repeat(1, 1, self.d_model)
+        #
+        # selected = x_rec_expand[torch.arange(self.batch_size)[:, None, None],
+        #                         k_nearest_e,
+        #                         torch.arange(self.d_model)[None, None, :]]
+        #
+        # selected = selected.reshape(self.batch_size, self.d_model, -1)
+        #
+        # diff_knns = (torch.diff(selected, dim=-1) ** 2).mean()
+        # diff_steps = (torch.diff(selected, dim=1) ** 2).mean()
 
         #dist_knn = dist_softmax[torch.arange(self.batch_size)[:, None], k_nearest]
 
-        loss = loss_rec + diff_steps + diff_knns if self.var == 2 else loss_rec
+        #loss = loss_rec + diff_steps + diff_knns if self.var == 2 else loss_rec
+        loss = knn_tensor.mean()
 
         if y is not None:
 
-            y_c = y.reshape(-1)
+            y_c = y.unsqueeze(0).expand(self.batch_size, -1, -1, -1).squeeze(-1)
 
-            y_c = y_c.unsqueeze(0).expand(self.batch_size, -1)
+            labels = y_c[torch.arange(self.batch_size)[:, None, None],
+                         k_nearest,
+                         torch.arange(s_l)[None, None, :]]
 
-            labels = y_c[torch.arange(self.batch_size)[:, None], k_nearest]
             labels = labels.reshape(self.batch_size, -1)
 
             assigned_labels = torch.mode(labels, dim=-1).values
@@ -209,6 +212,7 @@ class ClusterForecasting(nn.Module):
             assigned_labels = assigned_labels.reshape(-1)
 
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
             acc = Accuracy(task='multiclass', num_classes=self.num_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
 
