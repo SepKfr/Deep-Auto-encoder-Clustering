@@ -153,7 +153,7 @@ class Train:
 
     def train_forecasting(self, trial):
 
-        d_model = trial.suggest_categorical("d_model", [16, 32])
+        d_model = trial.suggest_categorical("d_model", [512])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
         min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
         knns = trial.suggest_categorical("knns", [4])
