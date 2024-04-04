@@ -48,7 +48,7 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=1000)
+        parser.add_argument("--max_train_sample", type=int, default=100)
         parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=128)
         parser.add_argument("--num_clusters", type=int, default=22)
@@ -156,7 +156,7 @@ class Train:
         d_model = trial.suggest_categorical("d_model", [32, 16])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
-        knns = trial.suggest_categorical("knns", [5, 10, 20])
+        knns = trial.suggest_categorical("knns", [22])
         num_clusters = self.num_clusters
 
         tup_params = [d_model, num_layers, min_grad_value]
@@ -308,7 +308,7 @@ class Train:
 
         d_model_list = [32, 16]
         num_layers_list = [1, 2]
-        knn_list = [5, 10, 20]
+        knn_list = [22]
         num_clusters = self.num_clusters
 
         for knn in knn_list:
