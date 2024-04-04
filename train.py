@@ -382,16 +382,26 @@ class Train:
         }
 
         # Specify the file path
-        file_path = "adj_{}.json".format(self.exp_name)
+        file_path = "scores_{}.json".format(self.exp_name)
 
         # Save data to JSON file
-        with open(file_path, "w") as json_file:
-            json.dump(data, json_file)
+        if not os.path.exists(file_path):
+            with open(file_path, "w") as json_file:
+                json.dump(data, json_file)
+        else:
+            with open(file_path, "r") as json_file:
+                scores = json.load(json_file)
+                scores["model_name"] = self.model_name
+                scores["adj"] = "{:.3f}".format(adj)
+                scores["acc"] = "{:.3f}".format(acc)
+                scores["nmi"] = "{:.3f}".format(nmi)
+                scores["p_score"] = "{:.3f}".format(p_score)
+                json.dump(scores, json_file)
 
         tensor_path = f"{self.exp_name}"
         if not os.path.exists(tensor_path):
             os.makedirs(tensor_path)
-        torch.save({"outputs": x_reconstructs, "knns": knns},
+            torch.save({"outputs": x_reconstructs, "knns": knns},
                    os.path.join(tensor_path, f"{self.model_name}.pt"))
 
         # knns = np.vstack(knns)
