@@ -168,15 +168,20 @@ class ClusterForecasting(nn.Module):
         x_rec = x_rec.reshape(x_enc.shape)
         x_rec_proj = self.proj_down(x_rec)
 
-        _, top_scores = torch.topk(scores, k=self.k, dim=-1)
-        x_rec_proj_exp = x_rec_proj.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
-        x_rec_proj_exp_se = x_rec_proj_exp[torch.arange(self.batch_size)[:, None],
-                                           top_scores]
+        # _, top_scores = torch.topk(scores, k=self.k, dim=-1)
+        # x_rec_proj_exp = x_rec_proj.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
+        # x_rec_proj_exp_se = x_rec_proj_exp[torch.arange(self.batch_size)[:, None],
+        #                                    top_scores]
+        #
+        # diff_1 = (torch.diff(x_rec_proj_exp_se, dim=1)**2).mean()
+        # diff_2 = (torch.diff(x_rec_proj_exp_se, dim=2)**2).mean()
 
-        diff_1 = (torch.diff(x_rec_proj_exp_se, dim=1)**2).mean()
-        diff_2 = (torch.diff(x_rec_proj_exp_se, dim=2)**2).mean()
+        if self.var == 1:
+            loss = nn.MSELoss(reduction="None")
+        else:
+            loss = SoftDTWLossPyTorch(gamma=0.1)
 
-        loss = nn.MSELoss()(x_rec_proj, x) + diff_1 + diff_2 if self.var == 2 else nn.MSELoss()(x_rec_proj, x)
+        loss = loss(x_rec_proj, x).mean()
 
         #x_rec = self.proj_down(output_seq)
 
