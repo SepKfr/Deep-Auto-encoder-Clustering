@@ -141,6 +141,7 @@ class ClusterForecasting(nn.Module):
                                      attn_type=attn_type, seed=seed, device=device)
         self.centers = nn.Parameter(torch.randn(n_clusters, d_model))
         self.proj_down = nn.Linear(d_model, input_size)
+        self.proj_down_seq = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -157,7 +158,9 @@ class ClusterForecasting(nn.Module):
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
         x_enc = self.seq_model(x_enc)
+        x_temp = self.proj_down_seq(x_enc)
         s_l = x.shape[1]
+
         x_enc_re = x_enc.reshape(self.batch_size, -1)
         attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)
         mask = torch.zeros_like(attn_score).fill_diagonal_(1).to(torch.bool)
@@ -181,7 +184,7 @@ class ClusterForecasting(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=0.1)
 
-        loss = loss(x_rec_proj, x).mean()
+        loss = loss(x_rec_proj, x).mean() + loss(x_temp, x).mean()
 
         #x_rec = self.proj_down(output_seq)
 

@@ -371,7 +371,7 @@ class Train:
         acc = statistics.mean(tot_acc_loss)
         p_score = statistics.mean(tot_p_loss)
 
-        print("adj rand index {:3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
+        print("adj rand index {:.3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
 
         data = {
             "model_name": self.model_name,
