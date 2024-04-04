@@ -39,7 +39,6 @@ class UserDataLoader:
 
         len_set = len(X) // 8
         len_train = len_set * 6
-        len_set *= 2
 
         train_set_s = X[:len_train]
         train_set_l = Y[:len_train]

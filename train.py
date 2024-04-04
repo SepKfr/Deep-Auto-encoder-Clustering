@@ -48,7 +48,7 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=100)
+        parser.add_argument("--max_train_sample", type=int, default=1000)
         parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=128)
         parser.add_argument("--num_clusters", type=int, default=22)
@@ -267,11 +267,11 @@ class Train:
                 list_of_valid_acc.append(valid_acc_loss/self.data_loader.len_test)
                 list_of_valid_p.append(valid_p_loss/self.data_loader.len_test)
 
-                trial.report(statistics.mean(list_of_valid_adj), step=epoch)
-
-                # Prune trial if necessary
-                if trial.should_prune():
-                    raise optuna.TrialPruned()
+                # trial.report(statistics.mean(list_of_valid_adj), step=epoch)
+                #
+                # # Prune trial if necessary
+                # if trial.should_prune():
+                #     raise optuna.TrialPruned()
 
                 if i == self.data_loader.n_folds - 1:
                     valid_tmp = statistics.mean(list_of_valid_adj)
@@ -319,7 +319,7 @@ class Train:
         tot_p_loss = []
 
         d_model_list = [32, 16]
-        num_layers_list = [1, 2]
+        num_layers_list = [1, 3]
         knn_list = [22]
         num_clusters = self.num_clusters
 
@@ -371,7 +371,7 @@ class Train:
         acc = statistics.mean(tot_acc_loss)
         p_score = statistics.mean(tot_p_loss)
 
-        print("adj rand index {:3f}, nmi {:.3f}, acc {:.3f}, p_score".format(adj, nmi, acc, p_score))
+        print("adj rand index {:3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
 
         data = {
             "model_name": self.model_name,
