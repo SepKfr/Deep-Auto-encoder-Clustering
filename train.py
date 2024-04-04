@@ -153,8 +153,8 @@ class Train:
 
     def train_forecasting(self, trial):
 
-        d_model = trial.suggest_categorical("d_model", [64, 128])
-        num_layers = trial.suggest_categorical("num_layers", [1, 2])
+        d_model = trial.suggest_categorical("d_model", [32, 16])
+        num_layers = trial.suggest_categorical("num_layers", [1, 3])
         min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
         knns = trial.suggest_categorical("knns", [5, 10, 20])
         num_clusters = self.num_clusters
@@ -306,7 +306,7 @@ class Train:
         tot_acc_loss = []
         tot_nmi_loss = []
 
-        d_model_list = [64, 128]
+        d_model_list = [32, 16]
         num_layers_list = [1, 2]
         knn_list = [5, 10, 20]
         num_clusters = self.num_clusters
