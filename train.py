@@ -46,7 +46,7 @@ class Train:
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='basic')
-        parser.add_argument("--max_encoder_length", type=int, default=24)
+        parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
         parser.add_argument("--max_train_sample", type=int, default=100)
         parser.add_argument("--max_test_sample", type=int, default=-1)
