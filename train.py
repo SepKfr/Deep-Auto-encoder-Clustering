@@ -153,7 +153,7 @@ class Train:
 
     def train_forecasting(self, trial):
 
-        d_model = trial.suggest_categorical("d_model", [32, 16])
+        d_model = trial.suggest_categorical("d_model", [32, 16, 64])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [22, 11])
@@ -319,7 +319,7 @@ class Train:
         tot_nmi_loss = []
         tot_p_loss = []
 
-        d_model_list = [32, 16]
+        d_model_list = [32, 16, 64]
         num_layers_list = [1, 3]
         knn_list = [22, 44]
         gamma = [0.1, 0.01]
