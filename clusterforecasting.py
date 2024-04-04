@@ -148,8 +148,19 @@ class ClusterForecasting(nn.Module):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        output_seq = self.seq_model(x_enc)
+        # output_seq = self.seq_model(x_enc)
         s_l = x.shape[1]
+        x_enc_re = x_enc.reshape(self.batch_size, -1)
+        attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)
+        mask = torch.zeros_like(attn_score).fill_diagonal_(1).to(torch.bool)
+        attn_score = attn_score.masked_fill(mask, value=-torch.inf)
+        scores = torch.softmax(attn_score, dim=-1)
+        x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
+        x_rec = x_rec.reshape(x_enc.shape)
+        x_rec_proj = self.proj_down(x_rec)
+        loss = nn.MSELoss()(x_rec_proj, x)
+
+
 
         #x_rec = self.proj_down(output_seq)
 
@@ -159,15 +170,15 @@ class ClusterForecasting(nn.Module):
         # mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
         # res = nn.MSELoss()(diffs, mv_avg)
 
-        dist_3d = torch.cdist(output_seq, self.centers, p=2)
-        _, cluster_ids = torch.min(dist_3d, dim=-1)
-
-        assigned_centroids = self.centers[cluster_ids]
-
-        distances = torch.norm(output_seq - assigned_centroids, dim=1)
-
-        # Compute the mean squared distance
-        loss = torch.mean(distances ** 2)
+        # dist_3d = torch.cdist(x_enc, self.centers, p=2)
+        # _, cluster_ids = torch.min(dist_3d, dim=-1)
+        #
+        # assigned_centroids = self.centers[cluster_ids]
+        #
+        # distances = torch.norm(x_enc - assigned_centroids, dim=1)
+        #
+        # # Compute the mean squared distance
+        # loss = torch.mean(distances ** 2)
 
         # mask = torch.zeros(self.batch_size, self.batch_size).to(self.device)
         # mask = mask.fill_diagonal_(1).to(torch.bool)
@@ -202,23 +213,16 @@ class ClusterForecasting(nn.Module):
 
         if y is not None:
 
-            # y_c = y.unsqueeze(0).expand(self.batch_size, -1, -1, -1).squeeze(-1)
-            #
-            # labels = y_c[torch.arange(self.batch_size)[:, None, None],
-            #              k_nearest,
-            #              torch.arange(s_l)[None, None, :]]
+            y = y[:, 0, :].reshape(-1)
+            y_c = y.unsqueeze(0).expand(self.batch_size, -1)
+
+            _, k_nearest = torch.topk(scores, k=self.k, dim=-1)
+            labels = y_c[torch.arange(self.batch_size)[:, None],
+                         k_nearest]
 
             #labels = labels.reshape(self.batch_size, -1)
-
-            assigned_centroids = assigned_centroids.reshape(self.batch_size, -1)
-
-            assigned_labels = torch.mode(assigned_centroids, dim=-1).values
-
-            y = y[:, 0, :].reshape(-1)
-            assigned_labels = assigned_labels.reshape(-1)
-
+            assigned_labels = torch.mode(labels, dim=-1).values
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-            print(adj_rand_index)
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
             acc = Accuracy(task='multiclass', num_classes=self.num_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
 
@@ -228,4 +232,4 @@ class ClusterForecasting(nn.Module):
             nmi = torch.tensor(0, device=self.device)
             acc = torch.tensor(0, device=self.device)
 
-        return loss, adj_rand_index, nmi, acc, output_seq
+        return loss, adj_rand_index, nmi, acc, x_rec_proj
