@@ -140,7 +140,7 @@ class ClusterForecasting(nn.Module):
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
         self.centers = nn.Parameter(torch.randn(n_clusters, d_model))
-        self.proj_down = nn.Linear(d_model, 4)
+        self.proj_down = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -163,10 +163,20 @@ class ClusterForecasting(nn.Module):
         mask = torch.zeros_like(attn_score).fill_diagonal_(1).to(torch.bool)
         attn_score = attn_score.masked_fill(mask, value=-torch.inf)
         scores = torch.softmax(attn_score, dim=-1)
+
         x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
         x_rec = x_rec.reshape(x_enc.shape)
         x_rec_proj = self.proj_down(x_rec)
-        loss = nn.MSELoss()(x_rec_proj, x)
+
+        _, top_scores = torch.topk(scores, k=self.k, dim=-1)
+        x_rec_proj_exp = x_rec_proj.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
+        x_rec_proj_exp_se = x_rec_proj_exp[torch.arange(self.batch_size)[:, None],
+                                           top_scores]
+
+        diff_1 = (torch.diff(x_rec_proj_exp_se, dim=1)**2).mean()
+        diff_2 = (torch.diff(x_rec_proj_exp_se, dim=2)**2).mean()
+
+        loss = nn.MSELoss()(x_rec_proj, x) + diff_1 + diff_2 if self.var == 2 else nn.MSELoss()(x_rec_proj, x)
 
         #x_rec = self.proj_down(output_seq)
 
@@ -226,7 +236,6 @@ class ClusterForecasting(nn.Module):
             labels = y_c[torch.arange(self.batch_size)[:, None],
                          k_nearest]
 
-            #labels = labels.reshape(self.batch_size, -1)
             assigned_labels = torch.mode(labels, dim=-1).values
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
