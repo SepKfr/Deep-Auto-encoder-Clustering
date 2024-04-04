@@ -180,7 +180,7 @@ class ClusterForecasting(nn.Module):
         # diff_2 = (torch.diff(x_rec_proj_exp_se, dim=2)**2).mean()
 
         if self.var == 1:
-            loss = nn.MSELoss(reduction="None")
+            loss = nn.MSELoss(reduction='none')
         else:
             loss = SoftDTWLossPyTorch(gamma=0.1)
 
