@@ -155,11 +155,11 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [32, 16])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
+        gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [22, 11])
         num_clusters = self.num_clusters
 
-        tup_params = [d_model, num_layers, min_grad_value, knns]
+        tup_params = [d_model, num_layers, gamma, knns]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -178,7 +178,8 @@ class Train:
                                        device=self.device,
                                        pred_len=self.pred_len,
                                        batch_size=self.batch_size,
-                                       var=self.var).to(self.device)
+                                       var=self.var,
+                                       gamma=gamma).to(self.device)
         else:
             model = Forecasting(input_size=self.data_loader.input_size,
                                 output_size=self.data_loader.output_size,
@@ -267,11 +268,11 @@ class Train:
                 list_of_valid_acc.append(valid_acc_loss/self.data_loader.len_test)
                 list_of_valid_p.append(valid_p_loss/self.data_loader.len_test)
 
-                # trial.report(statistics.mean(list_of_valid_adj), step=epoch)
-                #
-                # # Prune trial if necessary
-                # if trial.should_prune():
-                #     raise optuna.TrialPruned()
+                trial.report(statistics.mean(list_of_valid_adj), step=epoch)
+
+                # Prune trial if necessary
+                if trial.should_prune():
+                    raise optuna.TrialPruned()
 
                 if i == self.data_loader.n_folds - 1:
                     valid_tmp = statistics.mean(list_of_valid_adj)
@@ -321,47 +322,49 @@ class Train:
         d_model_list = [32, 16]
         num_layers_list = [1, 3]
         knn_list = [22, 44]
+        gamma = [0.1, 0.01]
         num_clusters = self.num_clusters
 
         for knn in knn_list:
             for d_model in d_model_list:
                 for num_layers in num_layers_list:
+                    for gm in gamma:
+                        try:
+                            model = ClusterForecasting(input_size=self.data_loader.input_size,
+                                                       n_clusters=num_clusters,
+                                                       d_model=d_model,
+                                                       nheads=8,
+                                                       num_layers=num_layers,
+                                                       attn_type=self.attn_type,
+                                                       seed=1234,
+                                                       device=self.device,
+                                                       pred_len=self.pred_len,
+                                                       batch_size=self.batch_size,
+                                                       var=self.var,
+                                                       knns=knn,
+                                                       gamma=gm).to(self.device)
 
-                    try:
-                        model = ClusterForecasting(input_size=self.data_loader.input_size,
-                                                   n_clusters=num_clusters,
-                                                   d_model=d_model,
-                                                   nheads=8,
-                                                   num_layers=num_layers,
-                                                   attn_type=self.attn_type,
-                                                   seed=1234,
-                                                   device=self.device,
-                                                   pred_len=self.pred_len,
-                                                   batch_size=self.batch_size,
-                                                   var=self.var,
-                                                   knns=knn).to(self.device)
+                            checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
+                                                    map_location=self.device)
 
-                        checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
-                                                map_location=self.device)
+                            model.load_state_dict(checkpoint)
 
-                        model.load_state_dict(checkpoint)
+                            model.eval()
 
-                        model.eval()
+                            print("Successful...")
 
-                        print("Successful...")
+                            for x, labels in self.data_loader.hold_out_test:
 
-                        for x, labels in self.data_loader.hold_out_test:
+                                _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device), labels.to(self.device))
+                                x_reconstructs.append(outputs[1].detach().cpu())
+                                knns.append(outputs[0].detach().cpu())
+                                tot_adj_loss.append(adj_loss.item())
+                                tot_nmi_loss.append(nmi.item())
+                                tot_acc_loss.append(acc.item())
+                                tot_p_loss.append(p_score.item())
 
-                            _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device), labels.to(self.device))
-                            x_reconstructs.append(outputs[1].detach().cpu())
-                            knns.append(outputs[0].detach().cpu())
-                            tot_adj_loss.append(adj_loss.item())
-                            tot_nmi_loss.append(nmi.item())
-                            tot_acc_loss.append(acc.item())
-                            tot_p_loss.append(p_score.item())
-
-                    except RuntimeError:
-                        pass
+                        except RuntimeError:
+                            pass
 
         x_reconstructs = torch.cat(x_reconstructs)
         knns = torch.cat(knns)

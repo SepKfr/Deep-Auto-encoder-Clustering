@@ -128,7 +128,7 @@ class ClusterForecasting(nn.Module):
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
-                 var=1):
+                 var=1, gamma=0.1):
 
         super(ClusterForecasting, self).__init__()
 
@@ -152,6 +152,7 @@ class ClusterForecasting(nn.Module):
         self.num_clusters = n_clusters
         self.var = var
         self.k = knns
+        self.gamma = gamma
 
     def forward(self, x, y=None):
 
@@ -182,7 +183,7 @@ class ClusterForecasting(nn.Module):
         if self.var == 1:
             loss = nn.MSELoss(reduction='none')
         else:
-            loss = SoftDTWLossPyTorch(gamma=0.1)
+            loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
         loss = loss(x_rec_proj, x).mean() + loss(x_temp, x).mean()
 
