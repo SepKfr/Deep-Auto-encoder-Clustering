@@ -41,11 +41,11 @@ class Train:
 
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="User_id")
-        parser.add_argument("--model_name", type=str, default="basic_attn")
+        parser.add_argument("--model_name", type=str, default="basic")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
-        parser.add_argument("--attn_type", type=str, default='autoformer')
+        parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=24)
         parser.add_argument("--pred_len", type=int, default=24)
         parser.add_argument("--max_train_sample", type=int, default=100)
@@ -155,7 +155,7 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [32, 64])
         num_layers = trial.suggest_categorical("num_layers", [1, 2])
-        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1, 0.5])
+        min_grad_value = trial.suggest_categorical("min_grad_value", [0.1])
         knns = trial.suggest_categorical("knns", [4])
         num_clusters = self.num_clusters
 
@@ -223,9 +223,9 @@ class Train:
                     forecast_optimizer.zero_grad()
                     loss.backward()
 
-                    for param in model.parameters():
-                        if param.grad is not None:
-                            param.grad.data.clamp_(min=min_grad_value)
+                    # for param in model.parameters():
+                    #     if param.grad is not None:
+                    #         param.grad.data.clamp_(min=min_grad_value)
 
                     forecast_optimizer.step()
                     scheduler.step()

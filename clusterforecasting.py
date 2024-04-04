@@ -148,7 +148,7 @@ class ClusterForecasting(nn.Module):
 
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        # output_seq = self.seq_model(x_enc)
+        x_enc = self.seq_model(x_enc)
         s_l = x.shape[1]
         x_enc_re = x_enc.reshape(self.batch_size, -1)
         attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)
