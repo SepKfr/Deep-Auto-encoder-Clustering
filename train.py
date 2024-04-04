@@ -206,6 +206,8 @@ class Train:
             list_of_train_adj = []
             list_of_train_nmi = []
             list_of_train_acc = []
+            list_of_train_p = []
+            list_of_valid_p = []
 
             for i in range(self.data_loader.n_folds):
                 print(f"running on {i} fold...")
@@ -215,10 +217,11 @@ class Train:
                 train_adj_loss = 0
                 train_nmi_loss = 0
                 train_acc_loss = 0
+                train_p_loss = 0
 
                 for x, y in self.data_loader.list_of_train_loader[i]:
 
-                    loss, adj_rand_index, nmi, acc, _ = model(x.to(self.device), y.to(self.device))
+                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
 
                     forecast_optimizer.zero_grad()
                     loss.backward()
@@ -233,30 +236,36 @@ class Train:
                     train_adj_loss += adj_rand_index.item()
                     train_nmi_loss += nmi.item()
                     train_acc_loss += acc.item()
+                    train_acc_loss += acc.item()
+                    train_p_loss += p_score.item()
 
                 list_of_train_loss.append(train_knn_loss/self.data_loader.len_train)
                 list_of_train_adj.append(train_adj_loss/self.data_loader.len_train)
                 list_of_train_nmi.append(train_nmi_loss/self.data_loader.len_train)
                 list_of_train_acc.append(train_acc_loss/self.data_loader.len_train)
+                list_of_train_p.append(train_p_loss/self.data_loader.len_train)
 
                 model.eval()
                 valid_knn_loss = 0
                 valid_adj_loss = 0
                 valid_nmi_loss = 0
                 valid_acc_loss = 0
+                valid_p_loss = 0
 
                 for x, y in self.data_loader.list_of_test_loader[i]:
 
-                    loss, adj_rand_index, nmi, acc, _ = model(x.to(self.device), y.to(self.device))
+                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
                     valid_knn_loss += loss.item()
                     valid_adj_loss += adj_rand_index.item()
                     valid_nmi_loss += nmi.item()
                     valid_acc_loss += acc.item()
+                    valid_p_loss += p_score.item()
 
                 list_of_valid_loss.append(valid_knn_loss/self.data_loader.len_test)
                 list_of_valid_adj.append(valid_adj_loss/self.data_loader.len_test)
                 list_of_valid_nmi.append(valid_nmi_loss/self.data_loader.len_test)
                 list_of_valid_acc.append(valid_acc_loss/self.data_loader.len_test)
+                list_of_valid_p.append(valid_p_loss/self.data_loader.len_test)
 
                 trial.report(statistics.mean(list_of_valid_adj), step=epoch)
 
@@ -276,17 +285,19 @@ class Train:
                                                     "{}_forecast.pth".format(self.model_name)))
 
                 if epoch % 5 == 0:
-                    print("train KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, epoch: {}"
+                    print("train KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, p_score: {:.3f}, epoch: {}"
                           .format(statistics.mean(list_of_train_loss),
                                   statistics.mean(list_of_train_adj),
                                   statistics.mean(list_of_train_nmi),
                                   statistics.mean(list_of_train_acc),
+                                  statistics.mean(list_of_train_p),
                                   epoch))
-                    print("valid KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, epoch: {}"
+                    print("valid KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, p_score: {:.3f}, epoch: {}"
                           .format(statistics.mean(list_of_valid_loss),
                                   statistics.mean(list_of_valid_adj),
                                   statistics.mean(list_of_valid_nmi),
                                   statistics.mean(list_of_valid_acc),
+                                  statistics.mean(list_of_valid_p),
                                   epoch))
 
         return best_trial_valid_loss
@@ -305,6 +316,7 @@ class Train:
         tot_adj_loss = []
         tot_acc_loss = []
         tot_nmi_loss = []
+        tot_p_loss = []
 
         d_model_list = [32, 16]
         num_layers_list = [1, 2]
@@ -340,12 +352,13 @@ class Train:
 
                         for x, labels in self.data_loader.hold_out_test:
 
-                            _, adj_loss, nmi, acc, outputs = model(x.to(self.device), labels.to(self.device))
+                            _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device), labels.to(self.device))
                             x_reconstructs.append(outputs[1].detach().cpu())
                             knns.append(outputs[0].detach().cpu())
                             tot_adj_loss.append(adj_loss.item())
                             tot_nmi_loss.append(nmi.item())
                             tot_acc_loss.append(acc.item())
+                            tot_p_loss.append(p_score.item())
 
                     except RuntimeError:
                         pass
@@ -356,14 +369,16 @@ class Train:
         adj = statistics.mean(tot_adj_loss)
         nmi = statistics.mean(tot_nmi_loss)
         acc = statistics.mean(tot_acc_loss)
+        p_score = statistics.mean(tot_p_loss)
 
-        print("adj rand index {:3f}, nmi {:.3f}, acc {:.3f}".format(adj, nmi, acc))
+        print("adj rand index {:3f}, nmi {:.3f}, acc {:.3f}, p_score".format(adj, nmi, acc, p_score))
 
         data = {
             "model_name": self.model_name,
             "adj": "{:.3f}".format(adj),
             "acc": "{:.3f}".format(acc),
-            "nmi": "{:.3f}".format(nmi)
+            "nmi": "{:.3f}".format(nmi),
+            "p_score": "{:.3f}".format(p_score)
         }
 
         # Specify the file path

@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
 from sklearn.cluster import KMeans
+from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
 from tslearn.metrics import SoftDTWLossPyTorch
@@ -24,6 +25,13 @@ torch.autograd.set_detect_anomaly(True)
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
+
+
+def purity_score(y_true, y_pred):
+    # compute contingency matrix (also called confusion matrix)
+    contingency_matrix = metrics.cluster.contingency_matrix(y_true, y_pred)
+    # return purity
+    return np.sum(np.amax(contingency_matrix, axis=0)) / np.sum(contingency_matrix)
 
 
 class ToyDeepGPHiddenLayer(DeepGPLayer):
@@ -160,8 +168,6 @@ class ClusterForecasting(nn.Module):
         x_rec_proj = self.proj_down(x_rec)
         loss = nn.MSELoss()(x_rec_proj, x)
 
-
-
         #x_rec = self.proj_down(output_seq)
 
         # diffs = torch.diff(x_rec, dim=1)
@@ -225,11 +231,13 @@ class ClusterForecasting(nn.Module):
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
             acc = Accuracy(task='multiclass', num_classes=self.num_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
+            p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
 
         else:
 
             adj_rand_index = torch.tensor(0, device=self.device)
             nmi = torch.tensor(0, device=self.device)
             acc = torch.tensor(0, device=self.device)
+            p_score = torch.tensor(0, device=self.device)
 
-        return loss, adj_rand_index, nmi, acc, x_rec_proj
+        return loss, adj_rand_index, nmi, acc, p_score, x_rec_proj
