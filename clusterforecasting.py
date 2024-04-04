@@ -132,7 +132,7 @@ class ClusterForecasting(nn.Module):
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
         self.centers = nn.Parameter(torch.randn(n_clusters, d_model))
-        self.proj_down = nn.Linear(d_model, 4)
+        self.proj_down = nn.Linear(d_model, 1)
 
         self.pred_len = pred_len
         self.nheads = nheads
