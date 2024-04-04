@@ -159,24 +159,29 @@ class ClusterForecasting(nn.Module):
         # mv_avg = nn.AvgPool1d(kernel_size=kernel, padding=padding, stride=1)(diffs.permute(0, 2, 1)).permute(0, 2, 1)
         # res = nn.MSELoss()(diffs, mv_avg)
 
-        output_seq = output_seq
-        diff = output_seq.reshape(-1, self.batch_size, self.d_model)
+        dist_3d = torch.cdist(output_seq, self.centers, p=2)
+        _, cluster_ids = torch.min(dist_3d, dim=-1)
 
-        dist_3d = torch.cdist(diff, diff, p=2)
+        assigned_centroids = self.centers[cluster_ids]
 
-        mask = torch.zeros(self.batch_size, self.batch_size).to(self.device)
-        mask = mask.fill_diagonal_(1).to(torch.bool)
-        mask = mask.unsqueeze(-1).repeat(1, 1, s_l)
-        dist_3d = dist_3d.reshape(self.batch_size, self.batch_size, -1)
+        distances = torch.norm(output_seq - assigned_centroids, dim=1)
 
-        dist_3d = dist_3d.masked_fill(mask, value=0.0)
+        # Compute the mean squared distance
+        loss = torch.mean(distances ** 2)
 
-        # x_rec = torch.einsum('lb, bd -> ld', dist_softmax, output_seq)
-        # x_rec_re = x_rec.reshape(self.batch_size, -1, self.d_model)
-        # x_rec_proj = self.proj_down(x_rec_re)
-        # loss_rec = nn.MSELoss()(x_rec_proj, x)
-
-        knn_tensor, k_nearest = torch.topk(dist_3d, k=self.k, dim=1)
+        # mask = torch.zeros(self.batch_size, self.batch_size).to(self.device)
+        # mask = mask.fill_diagonal_(1).to(torch.bool)
+        # mask = mask.unsqueeze(-1).repeat(1, 1, s_l)
+        # dist_3d = dist_3d.reshape(self.batch_size, self.batch_size, -1)
+        #
+        # dist_3d = dist_3d.masked_fill(mask, value=0.0)
+        #
+        # # x_rec = torch.einsum('lb, bd -> ld', dist_softmax, output_seq)
+        # # x_rec_re = x_rec.reshape(self.batch_size, -1, self.d_model)
+        # # x_rec_proj = self.proj_down(x_rec_re)
+        # # loss_rec = nn.MSELoss()(x_rec_proj, x)
+        #
+        # knn_tensor, k_nearest = torch.topk(dist_3d, k=self.k, dim=1)
 
 
         # x_rec_expand = x_rec.unsqueeze(0).expand(self.batch_size, -1, -1)
@@ -194,25 +199,26 @@ class ClusterForecasting(nn.Module):
         #dist_knn = dist_softmax[torch.arange(self.batch_size)[:, None], k_nearest]
 
         #loss = loss_rec + diff_steps + diff_knns if self.var == 2 else loss_rec
-        loss = knn_tensor.mean()
 
         if y is not None:
 
-            y_c = y.unsqueeze(0).expand(self.batch_size, -1, -1, -1).squeeze(-1)
+            # y_c = y.unsqueeze(0).expand(self.batch_size, -1, -1, -1).squeeze(-1)
+            #
+            # labels = y_c[torch.arange(self.batch_size)[:, None, None],
+            #              k_nearest,
+            #              torch.arange(s_l)[None, None, :]]
 
-            labels = y_c[torch.arange(self.batch_size)[:, None, None],
-                         k_nearest,
-                         torch.arange(s_l)[None, None, :]]
+            #labels = labels.reshape(self.batch_size, -1)
 
-            labels = labels.reshape(self.batch_size, -1)
+            assigned_centroids = assigned_centroids.reshape(self.batch_size, -1)
 
-            assigned_labels = torch.mode(labels, dim=-1).values
+            assigned_labels = torch.mode(assigned_centroids, dim=-1).values
 
             y = y[:, 0, :].reshape(-1)
             assigned_labels = assigned_labels.reshape(-1)
 
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-
+            print(adj_rand_index)
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
             acc = Accuracy(task='multiclass', num_classes=self.num_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
 
