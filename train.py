@@ -124,9 +124,8 @@ class Train:
                    data_loader=self.data_loader.hold_out_test)
         else:
             self.best_clustering_model = nn.Module()
-        self.run_optuna(args)
-
-        self.evaluate()
+            self.run_optuna(args)
+            self.evaluate()
 
     def run_optuna(self, args):
 
