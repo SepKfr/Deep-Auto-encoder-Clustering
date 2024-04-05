@@ -3,6 +3,7 @@ import random
 import torch.nn as nn
 import torch
 from modules.transformer import Transformer
+from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
 from tslearn.metrics import SoftDTWLossPyTorch
@@ -18,6 +19,13 @@ torch.autograd.set_detect_anomaly(True)
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
+
+
+def purity_score(y_true, y_pred):
+    # compute contingency matrix (also called confusion matrix)
+    contingency_matrix = metrics.cluster.contingency_matrix(y_true, y_pred)
+    # return purity
+    return np.sum(np.amax(contingency_matrix, axis=0)) / np.sum(contingency_matrix)
 
 
 class ToyDeepGPHiddenLayer(DeepGPLayer):
