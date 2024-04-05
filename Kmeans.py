@@ -1,5 +1,9 @@
+import statistics
+
 from sklearn.cluster import KMeans
 import torch
+import numpy as np
+import random
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
@@ -16,10 +20,29 @@ def purity_score(y_true, y_pred):
 
 
 class Kmeans:
-    def __init__(self, n_clusters, batch_size):
+    def __init__(self, n_clusters, batch_size, data_loader):
 
         self.n_clusters = n_clusters
         self.batch_size = batch_size
+
+        tot_adj_loss = []
+        tot_acc_loss = []
+        tot_nmi_loss = []
+        tot_p_loss = []
+
+        for x, y in data_loader:
+            adj, nmi, acc, p_score = self.predict(x, y)
+            tot_adj_loss.append(adj)
+            tot_acc_loss.append(acc)
+            tot_nmi_loss.append(nmi)
+            tot_p_loss.append(p_score)
+
+        adj = statistics.mean(tot_adj_loss)
+        nmi = statistics.mean(tot_nmi_loss)
+        acc = statistics.mean(tot_acc_loss)
+        p_score = statistics.mean(tot_p_loss)
+
+        print("adj rand index {:.3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
 
     def predict(self, x, y):
 
@@ -32,8 +55,10 @@ class Kmeans:
 
         adj_rand_index = AdjustedRandScore()(assigned_labels, y)
         nmi = NormalizedMutualInfoScore()(assigned_labels, y)
-        acc = Accuracy(task='multiclass', num_classes=self.num_clusters)(assigned_labels, y)
+        acc = Accuracy(task='multiclass', num_classes=self.n_clusters)(assigned_labels, y)
         p_score = purity_score(y.to(torch.long).detach().numpy(), assigned_labels.detach().numpy())
 
-        print("adj rand index {:.3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj_rand_index, nmi, acc, p_score))
+        return adj_rand_index, nmi, acc, p_score
+
+
 

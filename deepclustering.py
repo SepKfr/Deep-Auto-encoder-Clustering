@@ -2,14 +2,7 @@ import numpy as np
 import random
 import torch.nn as nn
 import torch
-import torch.nn.functional as F
-from torch.nn import Linear
-import torch.distributions as dist
-from sklearn.decomposition import PCA
-from GMM import GmmFull, GmmDiagonal
 from modules.transformer import Transformer
-from sklearn.cluster import KMeans
-from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
 from tslearn.metrics import SoftDTWLossPyTorch
@@ -19,7 +12,7 @@ from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, LinearMean
 from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
 from gpytorch.variational import VariationalStrategy, MeanFieldVariationalDistribution
-from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
+
 torch.autograd.set_detect_anomaly(True)
 
 torch.manual_seed(1234)

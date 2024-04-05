@@ -4,8 +4,6 @@ from itertools import product
 import random
 import statistics
 import matplotlib.lines
-from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
-from torchmetrics import Accuracy
 import matplotlib.pyplot as plt
 import optuna
 from torch import nn
@@ -22,7 +20,7 @@ from GMM import GmmFull, GmmDiagonal
 from deepclustering import DeepClustering
 from data_loader import CustomDataLoader
 from data_loader_userid import UserDataLoader
-from Kmeans import TrainableKMeans
+from Kmeans import Kmeans
 from transformers import Adafactor
 from transformers.optimization import AdafactorSchedule
 from matplotlib.patches import Circle
@@ -40,7 +38,7 @@ class Train:
 
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="User_id")
-        parser.add_argument("--model_name", type=str, default="basic")
+        parser.add_argument("--model_name", type=str, default="kmeans")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
@@ -83,7 +81,7 @@ class Train:
         self.num_iteration = args.max_train_sample
         self.max_encoder_length = args.max_encoder_length
 
-        model_dir = "forecasting_models_dir"
+        model_dir = "clustering_models_dir"
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
 
@@ -121,8 +119,11 @@ class Train:
         self.batch_size = args.batch_size
         self.best_overall_valid_loss = -1e10
         self.list_explored_params = []
-
-        self.best_forecasting_model = nn.Module()
+        if self.model_name == "kmeans":
+            Kmeans(n_clusters=self.num_clusters, batch_size=self.batch_size,
+                   data_loader=self.data_loader.hold_out_test)
+        else:
+            self.best_clustering_model = nn.Module()
         self.run_optuna(args)
 
         self.evaluate()
@@ -150,7 +151,7 @@ class Train:
         for key, value in trial.params.items():
             print("    {}: {}".format(key, value))
 
-    def train_forecasting(self, trial):
+    def train_clustering(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [32, 16, 64])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
@@ -179,8 +180,8 @@ class Train:
                                var=self.var,
                                gamma=gamma).to(self.device)
 
-        forecast_optimizer = Adam(model.parameters())
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(forecast_optimizer, self.num_iteration)
+        cluster_optimizer = Adam(model.parameters())
+        scheduler = AdafactorSchedule(cluster_optimizer)
 
         best_trial_valid_loss = -1e10
 
@@ -211,14 +212,14 @@ class Train:
 
                     loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
 
-                    forecast_optimizer.zero_grad()
+                    cluster_optimizer.zero_grad()
                     loss.backward()
 
                     # for param in model.parameters():
                     #     if param.grad is not None:
                     #         param.grad.data.clamp_(min=min_grad_value)
 
-                    forecast_optimizer.step()
+                    cluster_optimizer.step()
                     scheduler.step()
                     train_knn_loss += loss.item()
                     train_adj_loss += adj_rand_index.item()
@@ -267,7 +268,7 @@ class Train:
                         best_trial_valid_loss = valid_tmp
                         if best_trial_valid_loss > self.best_overall_valid_loss:
                             self.best_overall_valid_loss = best_trial_valid_loss
-                            self.best_forecasting_model = model
+                            self.best_clustering_model = model
                             torch.save(model.state_dict(),
                                        os.path.join(self.model_path,
                                                     "{}_forecast.pth".format(self.model_name)))
@@ -292,7 +293,7 @@ class Train:
 
     def objective(self, trial):
 
-        return self.train_forecasting(trial)
+        return self.train_clustering(trial)
 
     def evaluate(self):
         """
@@ -317,19 +318,19 @@ class Train:
                 for num_layers in num_layers_list:
                     for gm in gamma:
                         try:
-                            model = ClusterForecasting(input_size=self.data_loader.input_size,
-                                                       n_clusters=num_clusters,
-                                                       d_model=d_model,
-                                                       nheads=8,
-                                                       num_layers=num_layers,
-                                                       attn_type=self.attn_type,
-                                                       seed=1234,
-                                                       device=self.device,
-                                                       pred_len=self.pred_len,
-                                                       batch_size=self.batch_size,
-                                                       var=self.var,
-                                                       knns=knn,
-                                                       gamma=gm).to(self.device)
+                            model = DeepClustering(input_size=self.data_loader.input_size,
+                                                   n_clusters=num_clusters,
+                                                   d_model=d_model,
+                                                   nheads=8,
+                                                   num_layers=num_layers,
+                                                   attn_type=self.attn_type,
+                                                   seed=1234,
+                                                   device=self.device,
+                                                   pred_len=self.pred_len,
+                                                   batch_size=self.batch_size,
+                                                   var=self.var,
+                                                   knns=knn,
+                                                   gamma=gm).to(self.device)
 
                             checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
                                                     map_location=self.device)

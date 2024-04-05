@@ -17,7 +17,6 @@ import pandas as pd
 import sklearn.preprocessing
 
 
-
 class DataAttributes:
 
     @property
