@@ -56,7 +56,7 @@ class Kmeans:
         adj_rand_index = AdjustedRandScore()(assigned_labels, y)
         nmi = NormalizedMutualInfoScore()(assigned_labels, y)
         acc = Accuracy(task='multiclass', num_classes=self.n_clusters)(assigned_labels, y)
-        p_score = purity_score(y.to(torch.long).detach().numpy(), assigned_labels.detach().numpy())
+        p_score = purity_score(y.detach().numpy(), assigned_labels.detach().numpy())
 
         return adj_rand_index, nmi, acc, p_score
 
