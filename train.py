@@ -379,7 +379,7 @@ class Train:
             with open(file_path, "w") as json_file:
                 json.dump(data, json_file)
         else:
-            with open(file_path, "r") as json_file:
+            with open(file_path, "r+") as json_file:
                 scores = json.load(json_file)
                 scores["model_name"] = self.model_name
                 scores["adj"] = "{:.3f}".format(adj)
