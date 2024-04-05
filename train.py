@@ -394,14 +394,11 @@ class Train:
         else:
             with open(file_path, "r") as json_file:
                 scores = json.load(json_file)
-                scores.update({
-                        "model_name": self.model_name,
-                        "adj": "{:.3f}".format(adj),
-                        "acc": "{:.3f}".format(acc),
-                        "nmi": "{:.3f}".format(nmi),
-                        "p_score": "{:.3f}".format(p_score)
-                    })
-
+                scores["model_name"] = self.model_name
+                scores["adj"] = "{:.3f}".format(adj)
+                scores["acc"] = "{:.3f}".format(acc)
+                scores["nmi"] = "{:.3f}".format(nmi)
+                scores["p_score"] = "{:.3f}".format(p_score)
                 json.dump(scores, json_file)
 
         tensor_path = f"{self.exp_name}"
