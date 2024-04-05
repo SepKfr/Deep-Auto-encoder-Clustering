@@ -119,7 +119,7 @@ class Train:
         self.batch_size = args.batch_size
         self.best_overall_valid_loss = -1e10
         self.list_explored_params = []
-        if self.model_name == "kmeans":
+        if args.model_name == "kmeans":
             Kmeans(n_clusters=self.num_clusters, batch_size=self.batch_size,
                    data_loader=self.data_loader.hold_out_test)
         else:
