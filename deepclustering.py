@@ -27,13 +27,6 @@ np.random.seed(1234)
 random.seed(1234)
 
 
-def purity_score(y_true, y_pred):
-    # compute contingency matrix (also called confusion matrix)
-    contingency_matrix = metrics.cluster.contingency_matrix(y_true, y_pred)
-    # return purity
-    return np.sum(np.amax(contingency_matrix, axis=0)) / np.sum(contingency_matrix)
-
-
 class ToyDeepGPHiddenLayer(DeepGPLayer):
     def __init__(self, input_dims, output_dims, num_inducing=32, mean_type='linear'):
 
@@ -122,7 +115,7 @@ class Autoencoder(nn.Module):
         return x_decoded
 
 
-class ClusterForecasting(nn.Module):
+class DeepClustering(nn.Module):
 
     def __init__(self, input_size, knns,
                  d_model, nheads, n_clusters,
@@ -130,7 +123,7 @@ class ClusterForecasting(nn.Module):
                  device, pred_len, batch_size,
                  var=1, gamma=0.1):
 
-        super(ClusterForecasting, self).__init__()
+        super(DeepClustering, self).__init__()
 
         self.device = device
 

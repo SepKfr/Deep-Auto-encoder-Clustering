@@ -19,8 +19,7 @@ import torch.nn.functional as F
 from optuna.trial import TrialState
 from torch.nn.utils import clip_grad_norm_
 from GMM import GmmFull, GmmDiagonal
-from clusterforecasting import ClusterForecasting
-from forecasting import Forecasting
+from deepclustering import DeepClustering
 from data_loader import CustomDataLoader
 from data_loader_userid import UserDataLoader
 from Kmeans import TrainableKMeans
@@ -166,31 +165,19 @@ class Train:
         else:
             self.list_explored_params.append(tup_params)
 
-        if self.cluster == "yes":
-            model = ClusterForecasting(input_size=self.data_loader.input_size,
-                                       n_clusters=num_clusters,
-                                       knns=knns,
-                                       d_model=d_model,
-                                       nheads=8,
-                                       num_layers=num_layers,
-                                       attn_type=self.attn_type,
-                                       seed=1234,
-                                       device=self.device,
-                                       pred_len=self.pred_len,
-                                       batch_size=self.batch_size,
-                                       var=self.var,
-                                       gamma=gamma).to(self.device)
-        else:
-            model = Forecasting(input_size=self.data_loader.input_size,
-                                output_size=self.data_loader.output_size,
-                                d_model=d_model,
-                                nheads=8,
-                                num_layers=num_layers,
-                                attn_type=self.attn_type,
-                                seed=1234,
-                                device=self.device,
-                                pred_len=self.pred_len,
-                                batch_size=self.batch_size).to(self.device)
+        model = DeepClustering(input_size=self.data_loader.input_size,
+                               n_clusters=num_clusters,
+                               knns=knns,
+                               d_model=d_model,
+                               nheads=8,
+                               num_layers=num_layers,
+                               attn_type=self.attn_type,
+                               seed=1234,
+                               device=self.device,
+                               pred_len=self.pred_len,
+                               batch_size=self.batch_size,
+                               var=self.var,
+                               gamma=gamma).to(self.device)
 
         forecast_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(forecast_optimizer, self.num_iteration)
