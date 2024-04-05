@@ -32,10 +32,10 @@ class Kmeans:
 
         for x, y in data_loader:
             adj, nmi, acc, p_score = self.predict(x, y)
-            tot_adj_loss.append(adj)
-            tot_acc_loss.append(acc)
-            tot_nmi_loss.append(nmi)
-            tot_p_loss.append(p_score)
+            tot_adj_loss.append(adj.item())
+            tot_acc_loss.append(acc.item())
+            tot_nmi_loss.append(nmi.item())
+            tot_p_loss.append(p_score.item())
 
         adj = statistics.mean(tot_adj_loss)
         nmi = statistics.mean(tot_nmi_loss)
@@ -49,8 +49,7 @@ class Kmeans:
         x = x.reshape(self.batch_size, -1)
         kmeans = KMeans(n_clusters=self.n_clusters, random_state=1234, n_init="auto").fit(x)
         labels = kmeans.labels_
-        labels = torch.from_numpy(labels)
-        assigned_labels = torch.mode(labels, dim=-1).values.to(torch.long)
+        assigned_labels = torch.from_numpy(labels).to(torch.long)
         y = y[:, 0, :].reshape(-1).to(torch.long)
 
         adj_rand_index = AdjustedRandScore()(assigned_labels, y)
