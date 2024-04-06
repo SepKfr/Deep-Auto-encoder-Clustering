@@ -20,13 +20,14 @@ potassium_ranges = [(0, 2.5, 4), (2.5, 2.9, 2), (3, 3.4, 1), (3.5, 5.4, 0),
 creatinine_ranges = [(0, 0.6, 2), (1.5, 1.9, 2), (2, 3.4, 3), (3.5, 1000, 4)]
 
 # df["nursingchartcelltypevallabel"] == "MAP (mmHg)"
-#     df["nursingchartcelltypevallabel"] == "Temperature"
-#     df["nursingchartcelltypevallabel"] == "Heart Rate"
-#     df["nursingchartcelltypevallabel"] == "Heart Rate"
+# df["nursingchartcelltypevallabel"] == "Temperature"
+# df["nursingchartcelltypevallabel"] == "Heart Rate"
+# df["nursingchartcelltypevallabel"] == "Heart Rate"
 
 
 for id, df in lab.groupby("patientunitstayid"):
 
+    print(id)
     df = df.sort_values(by='labresultrevisedoffset')
     df_nurse = nurseCharting[id].sort_values(by='nursingchartoffset')
     print(df.head())
