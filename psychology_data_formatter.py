@@ -26,6 +26,7 @@ creatinine_ranges = [(0, 0.6, 2), (1.5, 1.9, 2), (2, 3.4, 3), (3.5, 1000, 4)]
 
 for id, df in lab.groupby("patientunitstayid"):
 
+    print(id)
     df = df.sort_values(by='labresultrevisedoffset')
-    print(df.head())
+
 
