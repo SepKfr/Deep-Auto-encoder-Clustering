@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-nurseCharting = pd.read_csv("nurseCharting.csv")
+#nurseCharting = pd.read_csv("nurseCharting.csv")
 lab = pd.read_csv("lab.csv")
 
 
