@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-#nurseCharting = pd.read_csv("nurseCharting.csv")
+nurseCharting = pd.read_csv("nurseCharting.csv")
 lab = pd.read_csv("lab.csv")
 
 
@@ -24,9 +24,11 @@ creatinine_ranges = [(0, 0.6, 2), (1.5, 1.9, 2), (2, 3.4, 3), (3.5, 1000, 4)]
 #     df["nursingchartcelltypevallabel"] == "Heart Rate"
 #     df["nursingchartcelltypevallabel"] == "Heart Rate"
 
+
 for id, df in lab.groupby("patientunitstayid"):
 
-    print(id)
     df = df.sort_values(by='labresultrevisedoffset')
-
+    df_nurse = nurseCharting[id].sort_values(by='nursingchartoffset')
+    print(df.head())
+    print(df_nurse.head())
 
