@@ -53,15 +53,6 @@ for id, df in lab.groupby("patientunitstayid"):
         respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"][["nursingchartvalue", "time"]]
         heart_rate = vitalPeriodic[["heartrate", "time"]]
 
-        temp = pd.to_numeric(temp, errors='coerce')
-        temp = temp.dropna()
-
-        map = pd.to_numeric(map, errors='coerce')
-        map = map.dropna()
-
-        respiratory = pd.to_numeric(respiratory, errors='coerce')
-        respiratory = respiratory.dropna()
-
         variables = {'hco3': hco3,
                      'creatinine': creatinine,
                      'potassium': potassium,
@@ -82,7 +73,9 @@ for id, df in lab.groupby("patientunitstayid"):
         for variable, df in variables.items():
             if variable != "time" and variable != "id":
                 df_val = df[df.columns != "time"]
-                values = df.values.astype(float)
+                num_df = pd.to_numeric(df_val, errors='coerce')
+                num_df = num_df.dropna()
+                values = num_df.values.astype(float)
                 for i, val in enumerate(values):
                     for range_min, range_max, score in scoring_criteria[variable]:
                         if range_min <= val < range_max:
