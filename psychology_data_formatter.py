@@ -42,9 +42,9 @@ for id, df in lab.groupby("patientunitstayid"):
     creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult"]
     potassium = df_lab[df_lab["labname"] == "potassium"]["labresult"]
     sodium = df_lab[df_lab["labname"] == "sodium"]["labresult"]
-    temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]["nursingchartvalue", "time"]
-    map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]["nursingchartvalue", "time"]
-    respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue", "time"]
+    temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"][["nursingchartvalue", "time"]]
+    map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"][["nursingchartvalue", "time"]]
+    respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"][["nursingchartvalue", "time"]]
 
     lab_min = lab_time.min()
     lab_max = lab_time.max()
