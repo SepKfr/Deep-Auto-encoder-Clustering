@@ -32,17 +32,15 @@ for id, df in lab.groupby("patientunitstayid"):
     df_lab = df.sort_values(by='labresultrevisedoffset')
     df_nurse = nurseCharting[nurseCharting["patientunitstayid"] == id].sort_values(by='nursingchartoffset')
 
-    hco3 = df_lab[df_lab["labname"] == "HCO3"]
-    creatinine = df_lab[df_lab["labname"] == "creatinine"]
-    potassium = df_lab[df_lab["labname"] == "potassium"]
-    sodium = df_lab[df_lab["labname"] == "sodium"]
-    temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]
-    map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]
-    respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]
+    hco3 = df_lab[df_lab["labname"] == "HCO3"]["labresult"]
+    creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult"]
+    potassium = df_lab[df_lab["labname"] == "potassium"]["labresult"]
+    sodium = df_lab[df_lab["labname"] == "sodium"]["labresult"]
+    temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]["nursingchartvalue"]
+    map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]["nursingchartvalue"]
+    respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue"]
 
     lab_time = df_lab["labresultrevisedoffset"] * time_factor
-    print(lab_time.values)
-    print(hco3.values)
 
     nurse_time = df_nurse["nursingchartoffset"] * time_factor
 
