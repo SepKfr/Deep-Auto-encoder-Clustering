@@ -51,7 +51,7 @@ for id, df in lab.groupby("patientunitstayid"):
         temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"][["nursingchartvalue", "time"]]
         map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"][["nursingchartvalue", "time"]]
         respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"][["nursingchartvalue", "time"]]
-        heart_rate = vitalPeriodic["heartrate", "time"]
+        heart_rate = vitalPeriodic[["heartrate", "time"]]
 
         temp = pd.to_numeric(temp, errors='coerce')
         temp = temp.dropna()
