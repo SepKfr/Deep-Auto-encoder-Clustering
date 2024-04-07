@@ -64,9 +64,9 @@ for id, df in lab.groupby("patientunitstayid"):
         variables = {'hco3': hco3,
                      'creatinine': creatinine,
                      'potassium': potassium,
-                     'sodium': sodium.values,
-                     'temp': temp.values,
-                     'map': map.values,
+                     'sodium': sodium,
+                     'temp': temp,
+                     'map': map,
                      'respiratory': respiratory,
                      'time': lab_time,
                      'id': df_lab["patientunitstayid"]}
