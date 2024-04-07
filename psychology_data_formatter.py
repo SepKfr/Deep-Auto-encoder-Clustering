@@ -74,11 +74,8 @@ for id, df in lab.groupby("patientunitstayid"):
             if variable != "time" and variable != "id":
                 df_val = df[df.columns[~df.columns.isin(['time'])]].values
                 df_val = df_val.reshape(-1)
-                dff = pd.DataFrame(df_val)
-                num_df = pd.to_numeric(dff, errors='coerce')
-                num_df = num_df.dropna()
-                values = num_df.values.astype(float)
-                for i, val in enumerate(values):
+                df_val = df_val[np.char.isnumeric(df_val)]
+                for i, val in enumerate(df_val):
                     for range_min, range_max, score in scoring_criteria[variable]:
                         if range_min <= val < range_max:
                             apache_score[i] += score
