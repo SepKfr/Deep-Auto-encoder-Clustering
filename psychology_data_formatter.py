@@ -61,7 +61,7 @@ for id, df in lab.groupby("patientunitstayid"):
         respiratory = pd.to_numeric(respiratory, errors='coerce')
         respiratory = respiratory.dropna()
 
-        variables = {'hco3': hco3.values,
+        variables = {'hco3': hco3,
                      'creatinine': creatinine,
                      'potassium': potassium,
                      'sodium': sodium.values,
