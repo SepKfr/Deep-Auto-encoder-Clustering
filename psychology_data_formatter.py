@@ -41,6 +41,8 @@ for id, df in lab.groupby("patientunitstayid"):
     respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]
 
     lab_time = df_lab["labresultrevisedoffset"] * time_factor
+    print(lab_time.values)
+    print(hco3.values)
 
     nurse_time = df_nurse["nursingchartoffset"] * time_factor
 
