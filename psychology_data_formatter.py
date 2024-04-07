@@ -32,6 +32,12 @@ for id, df in lab.groupby("patientunitstayid"):
     df_lab = df.sort_values(by='labresultrevisedoffset')
     df_nurse = nurseCharting[nurseCharting["patientunitstayid"] == id].sort_values(by='nursingchartoffset')
 
+    lab_time = df_lab["labresultrevisedoffset"] * time_factor
+    nurse_time = df_nurse["nursingchartoffset"] * time_factor
+
+    df_lab['time'] = lab_time
+    df_nurse['time'] = nurse_time
+
     hco3 = df_lab[df_lab["labname"] == "HCO3"]["labresult"]
     creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult"]
     potassium = df_lab[df_lab["labname"] == "potassium"]["labresult"]
@@ -39,9 +45,6 @@ for id, df in lab.groupby("patientunitstayid"):
     temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]["nursingchartvalue"]
     map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]["nursingchartvalue"]
     respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue"]
-
-    lab_time = df_lab["labresultrevisedoffset"] * time_factor
-    nurse_time = df_nurse["nursingchartoffset"] * time_factor
 
     lab_min = lab_time.min()
     lab_max = lab_time.max()
