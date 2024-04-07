@@ -48,13 +48,13 @@ for id, df in lab.groupby("patientunitstayid"):
         map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"][["nursingchartvalue", "time"]]
         respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"][["nursingchartvalue", "time"]]
 
-        variables = {'hco3': hco3.values,
-                     'creatinine': creatinine.values,
-                     'potassium': potassium.values,
-                     'sodium': sodium.values,
-                     'temp': temp["nursingchartvalue"].values,
-                     'map': map["nursingchartvalue"].values,
-                     'respiratory': respiratory["nursingchartvalue"].values,
+        variables = {'hco3': hco3.values.astype(float),
+                     'creatinine': creatinine.values.astype(float),
+                     'potassium': potassium.values.astype(float),
+                     'sodium': sodium.values.astype(float),
+                     'temp': temp["nursingchartvalue"].values.astype(float),
+                     'map': map["nursingchartvalue"].values.astype(float),
+                     'respiratory': respiratory["nursingchartvalue"].values.astype(float),
                      'time': lab_time.values,
                      'id': df_lab["patientunitstayid"].values}
 
@@ -68,7 +68,7 @@ for id, df in lab.groupby("patientunitstayid"):
         for variable, values in variables.items():
             if variable != "time" or "id":
                 for i, val in enumerate(values):
-                    val = val.to(float)
+
                     for range_min, range_max, score in scoring_criteria[variable]:
                         if range_min <= val < range_max:
                             apache_score[i] += score
