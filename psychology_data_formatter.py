@@ -50,7 +50,7 @@ for id, df in lab.groupby("patientunitstayid"):
     lab_max = lab_time.max()
 
     temp = temp.loc[(temp['time'] >= lab_min) & (temp['time'] <= lab_max)]
-    map = map.loc[(map['time'] >= lab_min) & (map['time'] <= 6 + lab_max)]
+    map = map.loc[(map['time'] >= lab_min) & (map['time'] <= lab_max)]
     respiratory = respiratory.loc[(respiratory['time'] >= lab_min) & (respiratory['time'] <= lab_max)]
 
     variables = {'hco3': hco3.values,
