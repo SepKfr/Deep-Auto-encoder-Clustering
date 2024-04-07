@@ -44,13 +44,13 @@ for id, df in lab.groupby("patientunitstayid"):
         df_nurse['time'] = nurse_time
         vitalPeriodic['time'] = vitalPeriodic_time
 
-        hco3 = df_lab[df_lab["labname"] == "HCO3"]["labresult", "time"]
-        creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult", "time"]
-        potassium = df_lab[df_lab["labname"] == "potassium"]["labresult", "time"]
-        sodium = df_lab[df_lab["labname"] == "sodium"]["labresult", "time"]
-        temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]["nursingchartvalue", "time"]
-        map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]["nursingchartvalue", "time"]
-        respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue", "time"]
+        hco3 = df_lab[df_lab["labname"] == "HCO3"][["labresult", "time"]]
+        creatinine = df_lab[df_lab["labname"] == "creatinine"][["labresult", "time"]]
+        potassium = df_lab[df_lab["labname"] == "potassium"][["labresult", "time"]]
+        sodium = df_lab[df_lab["labname"] == "sodium"][["labresult", "time"]]
+        temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"][["nursingchartvalue", "time"]]
+        map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"][["nursingchartvalue", "time"]]
+        respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"][["nursingchartvalue", "time"]]
         heart_rate = vitalPeriodic["heartrate", "time"]
 
         temp = pd.to_numeric(temp, errors='coerce')
