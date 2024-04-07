@@ -24,11 +24,25 @@ creatinine_ranges = [(0, 0.6, 2), (1.5, 1.9, 2), (2, 3.4, 3), (3.5, 1000, 4)]
 # df["nursingchartcelltypevallabel"] == "Heart Rate"
 # df["nursingchartcelltypevallabel"] == "Heart Rate"
 
+time_factor = 1.0/60.0
 
 for id, df in lab.groupby("patientunitstayid"):
 
-    df = df.sort_values(by='labresultrevisedoffset')
-    df_nurse = nurseCharting[nurseCharting["patientunitstayid"]==id].sort_values(by='nursingchartoffset')
-    print(df.head())
-    print(df_nurse.head())
+    df_lab = df.sort_values(by='labresultrevisedoffset')
+    df_nurse = nurseCharting[nurseCharting["patientunitstayid"] == id].sort_values(by='nursingchartoffset')
+
+    hco3 = df_lab[df_lab["labname"] == "HCO3"]
+    creatinine = df_lab[df_lab["labname"] == "creatinine"]
+    potassium = df_lab[df_lab["labname"] == "potassium"]
+    sodium = df_lab[df_lab["labname"] == "sodium"]
+    temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]
+    map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]
+    respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]
+
+    time = df_lab["labresultrevisedoffset"] * time_factor
+    print(time)
+
+
+
+
 
