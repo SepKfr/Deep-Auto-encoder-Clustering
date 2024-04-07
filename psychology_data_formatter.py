@@ -73,6 +73,7 @@ for id, df in lab.groupby("patientunitstayid"):
         for variable, df in variables.items():
             if variable != "time" and variable != "id":
                 df_val = df[df.columns[~df.columns.isin(['time'])]].values
+                print(df_val)
                 num_df = pd.to_numeric(df_val, errors='coerce')
                 num_df = num_df.dropna()
                 values = num_df.values.astype(float)
