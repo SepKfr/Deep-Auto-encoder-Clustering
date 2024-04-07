@@ -42,9 +42,9 @@ for id, df in lab.groupby("patientunitstayid"):
     creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult"]
     potassium = df_lab[df_lab["labname"] == "potassium"]["labresult"]
     sodium = df_lab[df_lab["labname"] == "sodium"]["labresult"]
-    temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]["nursingchartvalue"]
-    map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]["nursingchartvalue"]
-    respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue"]
+    temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]["nursingchartvalue", "time"]
+    map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]["nursingchartvalue", "time"]
+    respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue", "time"]
 
     lab_min = lab_time.min()
     lab_max = lab_time.max()
@@ -57,9 +57,9 @@ for id, df in lab.groupby("patientunitstayid"):
                  'creatinine': creatinine.values,
                  'potassium': potassium.values,
                  'sodium': sodium.values,
-                 'temp': temp.values,
-                 'map': map.values,
-                 'respiratory': respiratory.values,
+                 'temp': temp["nursingchartvalue"].values,
+                 'map': map["nursingchartvalue"].values,
+                 'respiratory': respiratory["nursingchartvalue"].values,
                  'time': lab_time.values,
                  'id': df_lab["patientunitstayid"].values}
 
