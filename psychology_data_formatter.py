@@ -52,7 +52,7 @@ for id, df in lab.groupby("patientunitstayid"):
                  'map': map.values,
                  'respiratory': respiratory.values,
                  'time': lab_time.values,
-                 'id': df_lab["patientunitstayid"].values}
+                 'id': id}
 
     df_new = pd.DataFrame(variables)
     df_new.index = np.arange(len(df_lab))
