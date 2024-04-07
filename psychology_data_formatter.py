@@ -4,6 +4,7 @@ import pandas as pd
 
 nurseCharting = pd.read_csv("nurseCharting.csv")
 lab = pd.read_csv("lab.csv")
+vitalPeriodic = pd.read_csv("vitalPeriodic.csv")
 
 
 df_list = []
@@ -33,12 +34,15 @@ for id, df in lab.groupby("patientunitstayid"):
 
         df_lab = df.sort_values(by='labresultrevisedoffset')
         df_nurse = nurseCharting[nurseCharting["patientunitstayid"] == id].sort_values(by='nursingchartoffset')
+        vitalPeriodic = vitalPeriodic[vitalPeriodic["patientunitstayid"] == id].sort_values(by='observationoffset')
 
         lab_time = df_lab["labresultrevisedoffset"] * time_factor
         nurse_time = df_nurse["nursingchartoffset"] * time_factor
+        vitalPeriodic_time = vitalPeriodic["observationoffset"] * time_factor
 
         df_lab['time'] = lab_time
         df_nurse['time'] = nurse_time
+        vitalPeriodic['time'] = vitalPeriodic_time
 
         hco3 = df_lab[df_lab["labname"] == "HCO3"]["labresult"]
         creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult"]
@@ -47,7 +51,7 @@ for id, df in lab.groupby("patientunitstayid"):
         temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]["nursingchartvalue"]
         map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]["nursingchartvalue"]
         respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue"]
-
+        heart_rate = vitalPeriodic["heartrate"]
         temp = pd.to_numeric(temp, errors='coerce')
         temp = temp.dropna()
 
@@ -57,15 +61,15 @@ for id, df in lab.groupby("patientunitstayid"):
         respiratory = pd.to_numeric(respiratory, errors='coerce')
         respiratory = respiratory.dropna()
 
-        variables = {'hco3': hco3.values.astype(float),
-                     'creatinine': creatinine.values.astype(float),
-                     'potassium': potassium.values.astype(float),
-                     'sodium': sodium.values.astype(float),
-                     'temp': temp.values.astype(float),
-                     'map': map.values.astype(float),
-                     'respiratory': respiratory.values.astype(float),
-                     'time': lab_time.values,
-                     'id': df_lab["patientunitstayid"].values}
+        variables = {'hco3': hco3.values,
+                     'creatinine': creatinine,
+                     'potassium': potassium,
+                     'sodium': sodium.values,
+                     'temp': temp.values,
+                     'map': map.values,
+                     'respiratory': respiratory,
+                     'time': lab_time,
+                     'id': df_lab["patientunitstayid"]}
 
         # df_new = pd.DataFrame(variables)
         # df_new.index = np.arange(len(df_lab))
@@ -74,17 +78,29 @@ for id, df in lab.groupby("patientunitstayid"):
 
         apache_score = np.zeros(max(len(df_lab), len(df_nurse)))
 
-        for variable, values in variables.items():
+        for variable, df in variables.items():
             if variable != "time" and variable != "id":
+                values = df.values.astype(float)
                 for i, val in enumerate(values):
-
                     for range_min, range_max, score in scoring_criteria[variable]:
                         if range_min <= val < range_max:
                             apache_score[i] += score
 
-        print(apache_score)
-#         min_time = df_new['time'].min()
-#
+        min_time = lab_time.min()
+        max_time = lab_time.max()
+
+        variables["heart_rate"] = heart_rate
+
+        df_list = []
+
+        for variable, df in variables.items():
+
+            df_new = df.loc[(df['time'] >= min_time) & (df['time'] <= max_time)]
+            df_list.append(df_new)
+
+        df_final = pd.concat(df_list, axis=1)
+        print(df_final.head())
+
 #         six_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 6+min_time)]
 #         twelve_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 12+min_time)]
 #         twenty_four_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 24+min_time)]
