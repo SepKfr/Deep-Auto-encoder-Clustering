@@ -64,6 +64,8 @@ for id, df in lab.groupby("patientunitstayid"):
         hours = [6, 12, 24]
 
         apache_score = np.array(len(df_lab))
+        print(len(apache_score))
+
         for variable, values in variables.items():
             if variable != "time" or "id":
                 for i, val in enumerate(values):
