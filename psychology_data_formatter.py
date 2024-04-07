@@ -68,6 +68,7 @@ for id, df in lab.groupby("patientunitstayid"):
         for variable, values in variables.items():
             if variable != "time" or "id":
                 for i, val in enumerate(values):
+                    print(val)
                     for range_min, range_max, score in scoring_criteria[variable]:
                         if range_min <= val < range_max:
                             apache_score[i] += score
