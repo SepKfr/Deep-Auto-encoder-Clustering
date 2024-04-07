@@ -61,7 +61,7 @@ for id, df in lab.groupby("patientunitstayid"):
 
     apache_score = np.array(len(df_lab))
     for variable, values in variables.items():
-        if variable is not "time" or "id":
+        if variable != "time" or "id":
             for i, val in enumerate(values):
                 for range_min, range_max, score in scoring_criteria[variable]:
                     if range_min <= val < range_max:
