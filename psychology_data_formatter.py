@@ -44,17 +44,26 @@ for id, df in lab.groupby("patientunitstayid"):
         creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult"]
         potassium = df_lab[df_lab["labname"] == "potassium"]["labresult"]
         sodium = df_lab[df_lab["labname"] == "sodium"]["labresult"]
-        temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"][["nursingchartvalue", "time"]]
-        map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"][["nursingchartvalue", "time"]]
-        respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"][["nursingchartvalue", "time"]]
+        temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"]["nursingchartvalue"]
+        map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"]["nursingchartvalue"]
+        respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue"]
+
+        temp = pd.to_numeric(temp, errors='coerce')
+        temp = temp.dropna()
+
+        map = pd.to_numeric(map, errors='coerce')
+        map = map.dropna()
+
+        respiratory = pd.to_numeric(respiratory, errors='coerce')
+        respiratory = respiratory.dropna()
 
         variables = {'hco3': hco3.values.astype(float),
                      'creatinine': creatinine.values.astype(float),
                      'potassium': potassium.values.astype(float),
                      'sodium': sodium.values.astype(float),
-                     'temp': temp["nursingchartvalue"].values.astype(float),
-                     'map': map["nursingchartvalue"].values.astype(float),
-                     'respiratory': respiratory["nursingchartvalue"].values.astype(float),
+                     'temp': temp.values.astype(float),
+                     'map': map.values.astype(float),
+                     'respiratory': respiratory.values.astype(float),
                      'time': lab_time.values,
                      'id': df_lab["patientunitstayid"].values}
 
