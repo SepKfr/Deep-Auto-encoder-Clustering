@@ -72,7 +72,7 @@ for id, df in lab.groupby("patientunitstayid"):
 
         hours = [6, 12, 24]
 
-        apache_score = np.zeros(len(df_lab))
+        apache_score = np.zeros(max(len(df_lab), len(df_nurse)))
 
         for variable, values in variables.items():
             if variable != "time" and variable != "id":
