@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 
 
-nurseCharting = pd.read_csv("nurseCharting.csv")
-lab = pd.read_csv("lab.csv")
-vitalPeriodic = pd.read_csv("vitalPeriodic.csv")
+nurseCharting = pd.read_csv("nurseCharting.csv", nrows=5000)
+lab = pd.read_csv("lab.csv", nrows=5000)
+vitalPeriodic = pd.read_csv("vitalPeriodic.csv", nrows=5000)
 
 
 df_list = []
