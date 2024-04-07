@@ -44,10 +44,8 @@ for id, df in lab.groupby("patientunitstayid"):
 
     nurse_time = df_nurse["nursingchartoffset"] * time_factor
 
-    print(nurse_time.min())
-    print(nurse_time.max())
-    print(lab_time.min())
-    print(lab_time.max())
+    print(len(nurse_time))
+    print(len(lab_time))
 
     variables = {'hco3': hco3.values,
                  'creatinine': creatinine.values,
