@@ -41,11 +41,14 @@ for id, df in lab.groupby("patientunitstayid"):
     respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"]["nursingchartvalue"]
 
     lab_time = df_lab["labresultrevisedoffset"] * time_factor
-
     nurse_time = df_nurse["nursingchartoffset"] * time_factor
 
-    print(len(nurse_time))
-    print(len(lab_time))
+    lab_min = lab_time.min()
+    lab_max = lab_time.max()
+
+    temp = temp.loc[(temp['time'] >= lab_min) & (temp['time'] <= lab_max)]
+    map = map.loc[(map['time'] >= lab_min) & (map['time'] <= 6 + lab_max)]
+    respiratory = respiratory.loc[(respiratory['time'] >= lab_min) & (respiratory['time'] <= lab_max)]
 
     variables = {'hco3': hco3.values,
                  'creatinine': creatinine.values,
