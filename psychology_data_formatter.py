@@ -29,76 +29,73 @@ list_patients_24 = []
 
 for id, df in lab.groupby("patientunitstayid"):
 
-    df_lab = df.sort_values(by='labresultrevisedoffset')
-    df_nurse = nurseCharting[nurseCharting["patientunitstayid"] == id].sort_values(by='nursingchartoffset')
+    if len(df) > 24:
 
-    lab_time = df_lab["labresultrevisedoffset"] * time_factor
-    nurse_time = df_nurse["nursingchartoffset"] * time_factor
+        df_lab = df.sort_values(by='labresultrevisedoffset')
+        df_nurse = nurseCharting[nurseCharting["patientunitstayid"] == id].sort_values(by='nursingchartoffset')
 
-    df_lab['time'] = lab_time
-    df_nurse['time'] = nurse_time
+        lab_time = df_lab["labresultrevisedoffset"] * time_factor
+        nurse_time = df_nurse["nursingchartoffset"] * time_factor
 
-    hco3 = df_lab[df_lab["labname"] == "HCO3"]["labresult"]
-    creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult"]
-    potassium = df_lab[df_lab["labname"] == "potassium"]["labresult"]
-    sodium = df_lab[df_lab["labname"] == "sodium"]["labresult"]
-    temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"][["nursingchartvalue", "time"]]
-    map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"][["nursingchartvalue", "time"]]
-    respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"][["nursingchartvalue", "time"]]
+        df_lab['time'] = lab_time
+        df_nurse['time'] = nurse_time
 
-    lab_min = lab_time.min()
-    lab_max = lab_time.max()
+        hco3 = df_lab[df_lab["labname"] == "HCO3"]["labresult"]
+        creatinine = df_lab[df_lab["labname"] == "creatinine"]["labresult"]
+        potassium = df_lab[df_lab["labname"] == "potassium"]["labresult"]
+        sodium = df_lab[df_lab["labname"] == "sodium"]["labresult"]
+        temp = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Temperature"][["nursingchartvalue", "time"]]
+        map = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "MAP (mmHg)"][["nursingchartvalue", "time"]]
+        respiratory = df_nurse[df_nurse["nursingchartcelltypevallabel"] == "Respiratory Rate"][["nursingchartvalue", "time"]]
 
-    temp = temp.loc[(temp['time'] >= lab_min) & (temp['time'] <= lab_max)]
-    map = map.loc[(map['time'] >= lab_min) & (map['time'] <= lab_max)]
-    respiratory = respiratory.loc[(respiratory['time'] >= lab_min) & (respiratory['time'] <= lab_max)]
+        temp = temp.iloc[:len(df_lab)]
+        map = map.iloc[:len(df_lab)]
+        respiratory = respiratory.iloc[:len(df_lab)]
 
-    print(len(respiratory))
-    print(len(potassium))
-    variables = {'hco3': hco3.values,
-                 'creatinine': creatinine.values,
-                 'potassium': potassium.values,
-                 'sodium': sodium.values,
-                 'temp': temp["nursingchartvalue"].values,
-                 'map': map["nursingchartvalue"].values,
-                 'respiratory': respiratory["nursingchartvalue"].values,
-                 'time': lab_time.values,
-                 'id': df_lab["patientunitstayid"].values}
+        variables = {'hco3': hco3.values,
+                     'creatinine': creatinine.values,
+                     'potassium': potassium.values,
+                     'sodium': sodium.values,
+                     'temp': temp["nursingchartvalue"].values,
+                     'map': map["nursingchartvalue"].values,
+                     'respiratory': respiratory["nursingchartvalue"].values,
+                     'time': lab_time.values,
+                     'id': df_lab["patientunitstayid"].values}
 
-    df_new = pd.DataFrame(variables)
-    df_new.index = np.arange(len(df_lab))
+        df_new = pd.DataFrame(variables)
+        df_new.index = np.arange(len(df_lab))
 
-    hours = [6, 12, 24]
+        hours = [6, 12, 24]
 
-    apache_score = np.array(len(df_lab))
-    for variable, values in variables.items():
-        if variable != "time" or "id":
-            for i, val in enumerate(values):
-                for range_min, range_max, score in scoring_criteria[variable]:
-                    if range_min <= val < range_max:
-                        apache_score[i] += score
+        apache_score = np.array(len(df_lab))
+        for variable, values in variables.items():
+            if variable != "time" or "id":
+                for i, val in enumerate(values):
+                    for range_min, range_max, score in scoring_criteria[variable]:
+                        if range_min <= val < range_max:
+                            apache_score[i] += score
 
-    min_time = df_new['time'].min()
+        min_time = df_new['time'].min()
 
-    six_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 6+min_time)]
-    twelve_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 12+min_time)]
-    twenty_four_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 24+min_time)]
+        six_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 6+min_time)]
+        twelve_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 12+min_time)]
+        twenty_four_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 24+min_time)]
 
-    apache_6 = apache_score[six_hours.index]
-    apache_12 = apache_score[twelve_hours.index]
-    apache_24 = apache_score[twenty_four_hours.index]
+        apache_6 = apache_score[six_hours.index]
+        apache_12 = apache_score[twelve_hours.index]
+        apache_24 = apache_score[twenty_four_hours.index]
 
-    a_score_6 = max(apache_6)
-    a_score_12 = max(apache_12)
-    a_score_24 = max(apache_24)
+        a_score_6 = max(apache_6)
+        a_score_12 = max(apache_12)
+        a_score_24 = max(apache_24)
 
-    six_hours["apache"] = a_score_6
-    twelve_hours["apache"] = a_score_12
-    twenty_four_hours["apache"] = apache_24
+        six_hours["apache"] = a_score_6
+        twelve_hours["apache"] = a_score_12
+        twenty_four_hours["apache"] = apache_24
 
-    list_patients_6.append(six_hours)
-    list_patients_12.append(twelve_hours)
-    list_patients_24.append(twenty_four_hours)
+        list_patients_6.append(six_hours)
+        list_patients_12.append(twelve_hours)
+        list_patients_24.append(twenty_four_hours)
 
 
 patients_6 = pd.concat(list_patients_6, ignore_index=True)
