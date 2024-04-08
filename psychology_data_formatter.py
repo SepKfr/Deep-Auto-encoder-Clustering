@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-
+from tqdm import tqdm
 
 nurseCharting = pd.read_csv("nurseCharting.csv")
 lab = pd.read_csv("lab.csv")
@@ -28,7 +28,7 @@ list_patients_6 = []
 list_patients_12 = []
 list_patients_24 = []
 
-for id, df in lab.groupby("patientunitstayid"):
+for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
 
     df_lab = df.sort_values(by='labresultrevisedoffset')
     df_nurse = nurseCharting[nurseCharting["patientunitstayid"] == id].sort_values(by='nursingchartoffset')
