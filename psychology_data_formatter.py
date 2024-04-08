@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-nurseCharting = pd.read_csv("nurseCharting.csv")
-lab = pd.read_csv("lab.csv")
-vitalPeriodic = pd.read_csv("vitalPeriodic.csv")
+nurseCharting = pd.read_csv("nurseCharting.csv", nrows=1000)
+lab = pd.read_csv("lab.csv", nrows=1000)
+vitalPeriodic = pd.read_csv("vitalPeriodic.csv", nrows=1000)
 
 
 df_list = []
@@ -59,8 +59,7 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
                  'temp': temp,
                  'map': map,
                  'respiratory': respiratory,
-                 'time': lab_time,
-                 'id': df_lab["patientunitstayid"]}
+                 'id': df_lab[["patientunitstayid", "time"]]}
 
     # df_new = pd.DataFrame(variables)
     # df_new.index = np.arange(len(df_lab))
@@ -70,7 +69,8 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
     apache_score = np.zeros(max(len(df_lab), len(df_nurse)))
 
     for variable, df in variables.items():
-        if variable != "time" and variable != "id":
+
+        if variable != "id":
             df_val = df[df.columns[~df.columns.isin(['time'])]].values.reshape(-1)
             df_val = pd.to_numeric(df_val, errors="coerce")
             df_val = pd.DataFrame(df_val)
@@ -91,12 +91,11 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
 
     for variable, df in variables.items():
 
-        if variable != "time" and variable != "id":
-            df = df.sort_values(by='time')
-            df = df.loc[(df['time'] >= min_time) & (df['time'] <= max_time)]
-            df_e_time = df[df.columns[~df.columns.isin(['time'])]].values
-            df_new = pd.DataFrame(df_e_time, columns=[variable])
-            df_list.append(df_new)
+        df = df.sort_values(by='time')
+        df = df.loc[(df['time'] >= min_time) & (df['time'] <= max_time)]
+        df_e_time = df[df.columns[~df.columns.isin(['time'])]].values
+        df_new = pd.DataFrame(df_e_time, columns=[variable])
+        df_list.append(df_new)
 
     df_list.append(time)
 
