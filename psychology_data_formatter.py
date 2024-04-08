@@ -112,6 +112,8 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
         df_list.append(df_e_time)
 
     df_new = pd.concat(df_list, axis=1)
+    col_names = variables.keys()
+    df_new = pd.DataFrame(df_new.values, columns=col_names)
     df_new = df_new.sort_index()
     six_indexes = 6 * 60
     twelve_indexes = 12 * 60
