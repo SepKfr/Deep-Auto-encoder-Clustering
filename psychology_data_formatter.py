@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-nurseCharting = pd.read_csv("nurseCharting.csv", nrows=1000)
-lab = pd.read_csv("lab.csv", nrows=1000)
-vitalPeriodic = pd.read_csv("vitalPeriodic.csv", nrows=1000)
+nurseCharting = pd.read_csv("nurseCharting.csv")
+lab = pd.read_csv("lab.csv")
+vitalPeriodic = pd.read_csv("vitalPeriodic.csv")
 
 
 df_list = []
@@ -58,15 +58,16 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
                  'sodium': sodium,
                  'temp': temp,
                  'map': map,
-                 'respiratory': respiratory,
-                 'id': df_lab[["patientunitstayid", "time"]]}
+                 'respiratory': respiratory}
 
     # df_new = pd.DataFrame(variables)
     # df_new.index = np.arange(len(df_lab))
 
     hours = [6, 12, 24]
 
-    apache_score = np.zeros(max(len(df_lab), len(df_nurse)))
+    apache_len = max(df_lab.index.max(), df_nurse.index.max(), vitalPeriodic.index.max())
+
+    apache_score = np.zeros(apache_len+1)
 
     for variable, df in variables.items():
 
@@ -106,9 +107,6 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
     twelve_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 12+min_time)]
     twenty_four_hours = df_new.loc[(df_new['time'] >= min_time) & (df_new['time'] <= 24+min_time)]
 
-    six_hours.index = np.arange(len(six_hours))
-    twelve_hours.index = np.arange(len(twelve_hours))
-    twenty_four_hours.index = np.arange(len(twenty_four_hours))
     apache_6 = apache_score[six_hours.index]
     apache_12 = apache_score[twelve_hours.index]
     apache_24 = apache_score[twenty_four_hours.index]
@@ -119,12 +117,15 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
 
     six_hours = six_hours.copy()
     six_hours["apache"] = a_score_6
+    six_hours["id"] = id
 
     twelve_hours = twelve_hours.copy()
     twelve_hours["apache"] = a_score_12
+    twelve_hours["id"] = id
 
     twenty_four_hours = twenty_four_hours.copy()
     twenty_four_hours["apache"] = a_score_24
+    twenty_four_hours["id"] = id
 
     list_patients_6.append(six_hours)
     list_patients_12.append(twelve_hours)
