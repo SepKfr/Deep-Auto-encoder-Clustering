@@ -82,24 +82,24 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
 
     hours = [6, 12, 24]
 
-    apache_len = max(df_lab.index.max(), df_nurse.index.max(), vitalPeriodic.index.max())
+    apache_len = max(len(df_lab), len(df_nurse), len(vitalPeriodic))
     apache_score = np.zeros(apache_len+1)
 
     for variable, df in variables.items():
 
         if variable != "id":
+            df = df.sort_values(by="t")
             df_val = df[df.columns[~df.columns.isin(['t'])]].values.reshape(-1)
-            df_val = pd.to_numeric(df_val, errors="coerce")
-            df_val = pd.DataFrame(df_val)
-            df_val.index = df.index
-            df_val = df_val.dropna()
-            indices = df_val.index
-            values = df_val.values
-            for ind, val in zip(indices, values):
+            indices = np.arange(len(df_val))
+            values = df_val
 
-                for range_min, range_max, score in scoring_criteria[variable]:
-                    if range_min <= val < range_max:
-                        apache_score[ind] += score
+            for ind, val in zip(indices, values):
+                try:
+                    for range_min, range_max, score in scoring_criteria[variable]:
+                        if range_min <= val < range_max:
+                            apache_score[ind] += score
+                except TypeError:
+                    pass
 
     variables["heart_rate"] = heart_rate
 
@@ -113,17 +113,19 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
 
     df_new = pd.concat(df_list, axis=1)
     df_new = df_new.sort_index()
-    df_new['t'] = df_new.index * time_factor
-    min_time = df_new['t'].min()
+    six_indexes = 6 * 60
+    twelve_indexes = 12 * 60
+    twenty_four_indexes = 24 * 60
 
-    six_hours = df_new.loc[(df_new['t'] >= min_time) & (df_new['t'] <= 6+min_time)]
-    twelve_hours = df_new.loc[(df_new['t'] >= min_time) & (df_new['t'] <= 12+min_time)]
-    twenty_four_hours = df_new.loc[(df_new['t'] >= min_time) & (df_new['t'] <= 24+min_time)]
+    six_hours = df_new.loc[:six_indexes, :]
+    twelve_hours = df_new.loc[:twelve_indexes, :]
+    twenty_four_hours = df_new.loc[:twenty_four_indexes, :]
 
     if len(six_hours) > 0:
-        apache_6 = apache_score[six_hours.index]
-        apache_12 = apache_score[twelve_hours.index]
-        apache_24 = apache_score[twenty_four_hours.index]
+
+        apache_6 = apache_score[:six_indexes]
+        apache_12 = apache_score[:twelve_indexes]
+        apache_24 = apache_score[:twenty_four_indexes]
 
         a_score_6 = max(apache_6)
         a_score_12 = max(apache_12)
@@ -150,14 +152,14 @@ patients_6 = pd.concat(list_patients_6, ignore_index=True)
 patients_12 = pd.concat(list_patients_12, ignore_index=True)
 patients_24 = pd.concat(list_patients_24, ignore_index=True)
 
-patients_6 = patients_6.sort_values(by='t')
+patients_6 = patients_6.sort_index()
 patients_6 = patients_6.interpolate(method='linear')
 
 
-patients_12 = patients_12.sort_values(by='t')
+patients_12 = patients_12.sort_index()
 patients_12 = patients_12.interpolate(method='linear')
 
-patients_24 = patients_24.sort_values(by='t')
+patients_24 = patients_24.sort_index()
 patients_24 = patients_24.interpolate(method='linear')
 
 patients_6.to_csv("patients_6.csv")
