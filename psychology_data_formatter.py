@@ -118,8 +118,13 @@ for id, df in lab.groupby("patientunitstayid"):
     a_score_12 = max(apache_12)
     a_score_24 = max(apache_24)
 
+    six_hours = six_hours.copy()
     six_hours["apache"] = a_score_6
+
+    twelve_hours = twelve_hours.copy()
     twelve_hours["apache"] = a_score_12
+
+    twenty_four_hours = twenty_four_hours.copy()
     twenty_four_hours["apache"] = a_score_24
 
     list_patients_6.append(six_hours)
