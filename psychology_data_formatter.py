@@ -120,7 +120,7 @@ for id, df in lab.groupby("patientunitstayid"):
 
     six_hours["apache"] = a_score_6
     twelve_hours["apache"] = a_score_12
-    twenty_four_hours["apache"] = apache_24
+    twenty_four_hours["apache"] = a_score_24
 
     list_patients_6.append(six_hours)
     list_patients_12.append(twelve_hours)
