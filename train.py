@@ -195,6 +195,7 @@ class Train:
                                gamma=gamma).to(self.device)
 
         cluster_optimizer = Adam(model.parameters())
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=10)
 
         best_trial_valid_loss = -1e10
 
@@ -233,6 +234,7 @@ class Train:
                     #         param.grad.data.clamp_(min=min_grad_value)
 
                     cluster_optimizer.step()
+                    scheduler.step()
                     train_knn_loss += loss.item()
                     train_adj_loss += adj_rand_index.item()
                     train_nmi_loss += nmi.item()
