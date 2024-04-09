@@ -1,3 +1,4 @@
+import gpytorch.settings
 import numpy as np
 import random
 import torch.nn as nn
@@ -74,15 +75,16 @@ class DeepGPp(DeepGP):
 
         hidden_layer = ToyDeepGPHiddenLayer(
             input_dims=num_hidden_dims,
-            output_dims=num_hidden_dims,
-            mean_type='linear',
+            output_dims=1,
+            mean_type='constant',
             num_inducing=num_inducing
         )
 
         super().__init__()
 
+        self.num_hidden_dims = num_hidden_dims
         self.hidden_layer = hidden_layer
-        self.likelihood = MultitaskGaussianLikelihood(num_tasks=num_hidden_dims)
+        self.likelihood = MultitaskGaussianLikelihood(num_tasks=1)
 
     def forward(self, inputs):
 
@@ -91,9 +93,10 @@ class DeepGPp(DeepGP):
 
     def predict(self, x):
 
-        dist = self(x)
-        preds = self.likelihood(dist)
-        preds_mean = preds.mean.mean(0)
+        with gpytorch.settings.num_likelihood_samples(self.num_hidden_dims):
+            dist = self(x)
+            preds = self.likelihood(dist)
+            preds_mean = preds.mean.squeeze(-1).permute(1, 2, 0)
 
         return preds_mean, dist
 
@@ -135,6 +138,7 @@ class DeepClustering(nn.Module):
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
+
         self.gp = DeepGPp(d_model, num_inducing=32)
         self.proj_down = nn.Linear(d_model, input_size)
 
@@ -160,8 +164,7 @@ class DeepClustering(nn.Module):
         mll = DeepApproximateMLL(
             VariationalELBO(self.gp.likelihood, self.gp, self.d_model))
 
-        mll_error = -mll(dist, x_enc).mean()
-        print(mll_error)
+        mll_error = -mll(dist, x).mean()
 
         s_l = x.shape[1]
 
@@ -188,7 +191,7 @@ class DeepClustering(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x).mean() + mll_error
+        loss = loss(x_rec_proj, x).mean() + mll_error * 0.01
 
         #x_rec = self.proj_down(output_seq)
 
