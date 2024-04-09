@@ -72,12 +72,14 @@ class DeepGPp(DeepGP):
 
     def predict(self, x):
 
-        with gpytorch.settings.num_likelihood_samples(self.num_hidden_dims):
-            dist = self(x)
-            preds = self.likelihood(dist)
-            preds_mean = preds.mean.squeeze(-1).permute(1, 2, 0)
+        preds = torch.zeros_like(x)
+        dist = self(x)
+        for i in range(self.num_hidden_dims):
+            pred = self.likelihood(dist)
+            pred_mean = pred.mean.mean(0)
+            preds[:, :, i] = pred_mean.squeeze(-1)
 
-        return preds_mean, dist
+        return preds, dist
 
 
 class BlurDenoiseModel(nn.Module):
