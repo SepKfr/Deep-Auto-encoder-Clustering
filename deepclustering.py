@@ -159,7 +159,8 @@ class DeepClustering(nn.Module):
         # auto-regressive generative
         x_enc = self.seq_model(x_enc)
 
-        x_enc, dist = self.gp.predict(x_enc)
+        x_enc_gp, dist = self.gp.predict(x_enc)
+        x_enc = x_enc + x_enc_gp
 
         mll = DeepApproximateMLL(
             VariationalELBO(self.gp.likelihood, self.gp, self.d_model))
