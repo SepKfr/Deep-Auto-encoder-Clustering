@@ -171,9 +171,10 @@ class Train:
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [20, 10, 5])
+        tmax = trial.suggest_categorical("tmax", [10, 50, 100])
         num_clusters = self.num_clusters
 
-        tup_params = [d_model, num_layers, gamma, knns]
+        tup_params = [d_model, num_layers, gamma, knns, tmax]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -195,7 +196,7 @@ class Train:
                                gamma=gamma).to(self.device)
 
         cluster_optimizer = Adam(model.parameters())
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=10)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
 
         best_trial_valid_loss = -1e10
 
