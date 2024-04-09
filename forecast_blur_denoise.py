@@ -12,7 +12,7 @@ from gpytorch.variational import MeanFieldVariationalDistribution, VariationalSt
 
 
 class ToyDeepGPHiddenLayer(DeepGPLayer):
-    def __init__(self, input_dims, output_dims, num_inducing=32, mean_type='linear'):
+    def __init__(self, input_dims, output_dims, num_inducing=4, mean_type='linear'):
 
         if output_dims is None:
             inducing_points = torch.randn(num_inducing, input_dims)
@@ -55,8 +55,8 @@ class DeepGPp(DeepGP):
 
         hidden_layer = ToyDeepGPHiddenLayer(
             input_dims=num_hidden_dims,
-            output_dims=1,
-            mean_type='constant',
+            output_dims=num_hidden_dims,
+            mean_type='linear',
             num_inducing=num_inducing
         )
 
@@ -64,7 +64,7 @@ class DeepGPp(DeepGP):
 
         self.num_hidden_dims = num_hidden_dims
         self.hidden_layer = hidden_layer
-        self.likelihood = MultitaskGaussianLikelihood(num_tasks=1)
+        self.likelihood = MultitaskGaussianLikelihood(num_tasks=num_hidden_dims)
 
     def forward(self, inputs):
 
@@ -73,14 +73,10 @@ class DeepGPp(DeepGP):
 
     def predict(self, x):
 
-        preds = torch.zeros_like(x)
         dist = self(x)
-        for i in range(self.num_hidden_dims):
-            pred = self.likelihood(dist)
-            pred_mean = pred.mean.mean(0)
-            preds[:, :, i] = pred_mean.squeeze(-1)
+        pred = dist.sample()
 
-        return preds, dist
+        return pred, dist
 
 
 class BlurDenoiseModel(nn.Module):
