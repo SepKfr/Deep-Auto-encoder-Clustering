@@ -2,6 +2,8 @@ import numpy as np
 import random
 import torch.nn as nn
 import torch
+from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
+
 from modules.transformer import Transformer
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
@@ -93,7 +95,7 @@ class DeepGPp(DeepGP):
         preds = self.likelihood(dist)
         preds_mean = preds.mean.mean(0)
 
-        return preds_mean
+        return preds_mean, dist
 
 
 class Autoencoder(nn.Module):
@@ -152,6 +154,14 @@ class DeepClustering(nn.Module):
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
         x_enc = self.seq_model(x_enc)
+
+        x_enc, dist = self.gp.predict(x_enc)
+
+        mll = DeepApproximateMLL(
+            VariationalELBO(self.gp.likelihood, self.gp, self.d_model))
+
+        mll_error = -mll(dist, x_enc).mean()
+        print(mll_error)
 
         s_l = x.shape[1]
 

@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-nurseCharting = pd.read_csv("nurseCharting.csv", nrows=10000000)
-lab = pd.read_csv("lab.csv", nrows=10000000)
-vitalPeriodic = pd.read_csv("vitalPeriodic.csv", nrows=10000000)
+nurseCharting = pd.read_csv("nurseCharting.csv", nrows=1000000)
+lab = pd.read_csv("lab.csv", nrows=1000000)
+vitalPeriodic = pd.read_csv("vitalPeriodic.csv", nrows=1000000)
 
 df_list = []
 
@@ -185,13 +185,3 @@ patients_24 = patients_24.dropna()
 patients_6.to_csv("patients_6.csv")
 patients_12.to_csv("patients_12.csv")
 patients_24.to_csv("patients_24.csv")
-
-
-
-
-
-
-
-
-
-
