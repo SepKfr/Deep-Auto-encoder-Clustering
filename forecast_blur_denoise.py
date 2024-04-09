@@ -1,4 +1,5 @@
-import gpytorch
+import numpy as np
+import random
 import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
@@ -9,6 +10,10 @@ from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
 from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
 from gpytorch.variational import MeanFieldVariationalDistribution, VariationalStrategy
 
+
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
 
 class ToyDeepGPHiddenLayer(DeepGPLayer):
     def __init__(self, input_dims, output_dims, num_inducing=32, mean_type='linear'):
