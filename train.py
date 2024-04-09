@@ -171,7 +171,7 @@ class Train:
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [20, 10, 5])
-        tmax = trial.suggest_categorical("tmax", [10, 50, 100])
+        tmax = trial.suggest_categorical("tmax", [10])
         num_clusters = self.num_clusters
 
         tup_params = [d_model, num_layers, gamma, knns, tmax]
