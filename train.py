@@ -25,6 +25,8 @@ from transformers import Adafactor
 from transformers.optimization import AdafactorSchedule
 from matplotlib.patches import Circle
 from matplotlib.colors import to_rgba
+
+from psycology_data_loader import PatientDataLoader
 from synthetic_data import SyntheticDataLoader
 
 
@@ -37,8 +39,8 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="User_id")
-        parser.add_argument("--model_name", type=str, default="kmeans")
+        parser.add_argument("--exp_name", type=str, default="patients_6")
+        parser.add_argument("--model_name", type=str, default="autoformer")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--cuda", type=str, default='cuda:0')
@@ -48,8 +50,8 @@ class Train:
         parser.add_argument("--max_train_sample", type=int, default=-1)
         parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=512)
-        parser.add_argument("--num_clusters", type=int, default=22)
-        parser.add_argument("--var", type=int, default=2)
+        parser.add_argument("--num_clusters", type=int, default=13)
+        parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -62,9 +64,15 @@ class Train:
         if self.exp_name == "synthetic":
             pass
         elif self.exp_name == "User_id":
+
             data_path = "{}.csv".format(args.exp_name)
             data = pd.read_csv(data_path)
             data.sort_values(by=["id", "time"], inplace=True)
+
+        elif "patient" in self.exp_name:
+            data_path = "{}.csv".format(args.exp_name)
+            data = pd.read_csv(data_path)
+
         else:
             self.data_formatter = dataforemater.DataFormatter(args.exp_name)
             # "{}.csv".format(args.exp_name)
@@ -103,6 +111,13 @@ class Train:
                                               device=self.device,
                                               data=data,
                                               target_col="id")
+        elif "patient" in self.exp_name:
+
+            self.data_loader = PatientDataLoader(max_encoder_length=args.max_encoder_length,
+                                                 max_train_sample=args.max_train_sample,
+                                                 batch_size=args.batch_size,
+                                                 device=self.device,
+                                                 data=data)
         else:
             # Data loader configuration (replace with your own dataloader)
             self.data_loader = CustomDataLoader(real_inputs=self.data_formatter.real_inputs,
@@ -180,7 +195,7 @@ class Train:
                                gamma=gamma).to(self.device)
 
         cluster_optimizer = Adam(model.parameters())
-        scheduler = AdafactorSchedule(cluster_optimizer)
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=10)
 
         best_trial_valid_loss = -1e10
 

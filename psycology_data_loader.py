@@ -10,35 +10,28 @@ torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
 
-argparser = argparse.ArgumentParser(description="processing psychology data")
-argparser.add_argument("--patient", type=str, default="patients_6")
-args = argparser.parse_args()
 
-patient_csv = pd.read_csv(f"{args.patient}.csv")
-data = patient_csv.fillna(0.0)
-data = data.drop(['Unnamed: 0'], axis=1)
-n_clusters = data["apache"].nunique()
-
-
-data_real = data[data.columns[~data.columns.isin(['apache', 'id'])]]
-
-data[data_real.columns] = sklearn.preprocessing.StandardScaler().fit_transform(data_real)
-
-
-class UserDataLoader:
+class PatientDataLoader:
     def __init__(self,
                  max_encoder_length,
                  max_train_sample,
                  batch_size,
                  device,
-                 data,
-                 real_inputs):
+                 data):
+
+        data = data.fillna(0.0)
+        data = data.drop(['Unnamed: 0'], axis=1)
+        self.n_clusters = data["apache"].nunique()
+
+        self.real_inputs = data.columns[~data.columns.isin(['apache', 'id'])]
+
+        data_real = data[self.real_inputs]
+
+        data[data_real.columns] = sklearn.preprocessing.StandardScaler().fit_transform(data_real)
 
         self.max_encoder_length = max_encoder_length
         self.max_train_sample = max_train_sample * batch_size if max_train_sample != -1 else -1
         self.batch_size = batch_size
-
-        self.real_inputs = real_inputs
 
         self.num_features = len(data.columns) - 2
         self.device = device
@@ -114,12 +107,5 @@ class UserDataLoader:
 
         return X, Y
 
-
-UserDataLoader(real_inputs=data.columns[~data.columns.isin(['apache', 'id'])],
-               max_encoder_length=96,
-               max_train_sample=32,
-               batch_size=4,
-               device='cpu',
-               data=data)
 
 
