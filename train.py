@@ -194,8 +194,8 @@ class Train:
                                var=self.var,
                                gamma=gamma).to(self.device)
 
-        cluster_optimizer = Adafactor(model.parameters())
-        scheduler = AdafactorSchedule(cluster_optimizer)
+        cluster_optimizer = Adam(model.parameters())
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=10)
 
         best_trial_valid_loss = -1e10
 
