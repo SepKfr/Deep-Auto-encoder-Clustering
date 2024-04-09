@@ -133,9 +133,8 @@ class DeepClustering(nn.Module):
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
-        self.centers = nn.Parameter(torch.randn(n_clusters, d_model))
+        self.gp = DeepGPp(d_model, num_inducing=32)
         self.proj_down = nn.Linear(d_model, input_size)
-        self.proj_down_seq = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -153,7 +152,7 @@ class DeepClustering(nn.Module):
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
         x_enc = self.seq_model(x_enc)
-        x_temp = self.proj_down_seq(x_enc)
+
         s_l = x.shape[1]
 
         x_enc_re = x_enc.reshape(self.batch_size, -1)
@@ -179,7 +178,7 @@ class DeepClustering(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x).mean() + loss(x_temp, x).mean()
+        loss = loss(x_rec_proj, x).mean()
 
         #x_rec = self.proj_down(output_seq)
 

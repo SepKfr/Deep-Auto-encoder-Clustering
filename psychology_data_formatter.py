@@ -2,9 +2,9 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-nurseCharting = pd.read_csv("nurseCharting.csv")
-lab = pd.read_csv("lab.csv")
-vitalPeriodic = pd.read_csv("vitalPeriodic.csv")
+nurseCharting = pd.read_csv("nurseCharting.csv", nrows=10000000)
+lab = pd.read_csv("lab.csv", nrows=10000000)
+vitalPeriodic = pd.read_csv("vitalPeriodic.csv", nrows=10000000)
 
 df_list = []
 
@@ -96,7 +96,7 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
             for ind, val in zip(indices, values):
                 try:
                     for range_min, range_max, score in scoring_criteria[variable]:
-                        if range_min <= val < range_max:
+                        if range_min <= val <= range_max:
                             apache_score[ind] += score
                 except TypeError:
                     pass
@@ -109,11 +109,12 @@ for id, df in tqdm(lab.groupby("patientunitstayid"), desc='eICU processing'):
 
         df = df.sort_values(by='t')
         df_e_time = df[df.columns[~df.columns.isin(['t'])]]
+        df_e_time.index = np.arange(len(df_e_time))
         df_list.append(df_e_time)
 
     df_new = pd.concat(df_list, axis=1)
-    col_names = variables.keys()
-    df_new = pd.DataFrame(df_new.values, columns=col_names)
+    df_new.columns = variables.keys()
+
     df_new = df_new.sort_index()
     six_indexes = 6 * 60
     twelve_indexes = 12 * 60
@@ -156,13 +157,30 @@ patients_24 = pd.concat(list_patients_24, ignore_index=True)
 
 patients_6 = patients_6.sort_index()
 patients_6 = patients_6.interpolate(method='linear')
+patients_6 = patients_6.fillna(0.0)
+
+numeric_columns = patients_6.columns
+patients_6[numeric_columns] = patients_6[numeric_columns].apply(pd.to_numeric, errors='coerce')
+patients_6 = patients_6.dropna()
 
 
 patients_12 = patients_12.sort_index()
 patients_12 = patients_12.interpolate(method='linear')
 
+patients_12 = patients_12.fillna(0.0)
+
+numeric_columns = patients_12.columns
+patients_12[numeric_columns] = patients_12[numeric_columns].apply(pd.to_numeric, errors='coerce')
+patients_12 = patients_12.dropna()
+
 patients_24 = patients_24.sort_index()
 patients_24 = patients_24.interpolate(method='linear')
+
+patients_24 = patients_24.fillna(0.0)
+
+numeric_columns = patients_24.columns
+patients_24[numeric_columns] = patients_24[numeric_columns].apply(pd.to_numeric, errors='coerce')
+patients_24 = patients_24.dropna()
 
 patients_6.to_csv("patients_6.csv")
 patients_12.to_csv("patients_12.csv")
