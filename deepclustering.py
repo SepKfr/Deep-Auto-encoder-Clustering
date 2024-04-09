@@ -3,14 +3,13 @@ import numpy as np
 import random
 import torch.nn as nn
 import torch
-from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
 
+from forecast_blur_denoise import ForecastBlurDenoise
 from modules.transformer import Transformer
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
 from tslearn.metrics import SoftDTWLossPyTorch
-from gpytorch.distributions import MultivariateNormal, MultitaskMultivariateNormal
 from gpytorch.kernels import ScaleKernel, RBFKernel
 from gpytorch.likelihoods import MultitaskGaussianLikelihood
 from gpytorch.means import ConstantMean, LinearMean
@@ -31,74 +30,6 @@ def purity_score(y_true, y_pred):
     return np.sum(np.amax(contingency_matrix, axis=0)) / np.sum(contingency_matrix)
 
 
-class ToyDeepGPHiddenLayer(DeepGPLayer):
-    def __init__(self, input_dims, output_dims, num_inducing=32, mean_type='linear'):
-
-        if output_dims is None:
-            inducing_points = torch.randn(num_inducing, input_dims)
-            batch_shape = torch.Size([])
-        else:
-            inducing_points = torch.randn(output_dims, num_inducing, input_dims)
-            batch_shape = torch.Size([output_dims])
-
-        variational_distribution = MeanFieldVariationalDistribution(
-            num_inducing_points=num_inducing,
-            batch_shape=batch_shape
-        )
-
-        variational_strategy = VariationalStrategy(
-            self,
-            inducing_points,
-            variational_distribution,
-            learn_inducing_locations=True
-        )
-
-        super(ToyDeepGPHiddenLayer, self).__init__(variational_strategy, input_dims, output_dims)
-
-        if mean_type == 'constant':
-            self.mean_module = ConstantMean(batch_shape=batch_shape)
-        else:
-            self.mean_module = LinearMean(input_dims)
-        self.covar_module = ScaleKernel(
-            RBFKernel(batch_shape=batch_shape, ard_num_dims=input_dims),
-            batch_shape=batch_shape, ard_num_dims=None
-        )
-
-    def forward(self, x):
-        mean_x = self.mean_module(x)
-        covar_x = self.covar_module(x)
-        return MultivariateNormal(mean_x, covar_x)
-
-
-class DeepGPp(DeepGP):
-    def __init__(self, num_hidden_dims, num_inducing):
-
-        hidden_layer = ToyDeepGPHiddenLayer(
-            input_dims=num_hidden_dims,
-            output_dims=1,
-            mean_type='constant',
-            num_inducing=num_inducing
-        )
-
-        super().__init__()
-
-        self.num_hidden_dims = num_hidden_dims
-        self.hidden_layer = hidden_layer
-        self.likelihood = MultitaskGaussianLikelihood(num_tasks=1)
-
-    def forward(self, inputs):
-
-        dist = self.hidden_layer(inputs)
-        return dist
-
-    def predict(self, x):
-
-        with gpytorch.settings.num_likelihood_samples(self.num_hidden_dims):
-            dist = self(x)
-            preds = self.likelihood(dist)
-            preds_mean = preds.mean.squeeze(-1).permute(1, 2, 0)
-
-        return preds_mean, dist
 
 
 class Autoencoder(nn.Module):
@@ -127,19 +58,23 @@ class DeepClustering(nn.Module):
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
-                 var=1, gamma=0.1):
+                 var=1, gamma=0.1, gp=True):
 
         super(DeepClustering, self).__init__()
 
         self.device = device
 
         self.enc_embedding = nn.Linear(input_size, d_model)
+        self.gp = gp
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
-        self.gp = DeepGPp(d_model, num_inducing=32)
+        if gp:
+            self.seq_model_gp = ForecastBlurDenoise(forecasting_model=self.seq_model,
+                                                    d_model=d_model)
+
         self.proj_down = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
@@ -155,17 +90,14 @@ class DeepClustering(nn.Module):
 
     def forward(self, x, y=None):
 
+        gp_loss = 0
+
         x_enc = self.enc_embedding(x)
         # auto-regressive generative
-        x_enc = self.seq_model(x_enc)
-
-        x_enc_gp, dist = self.gp.predict(x_enc)
-        x_enc = x_enc + x_enc_gp
-
-        mll = DeepApproximateMLL(
-            VariationalELBO(self.gp.likelihood, self.gp, self.d_model))
-
-        mll_error = -mll(dist, x).mean()
+        if not self.gp:
+            x_enc = self.seq_model(x_enc)
+        else:
+            x_enc, gp_loss = self.seq_model_gp(x_enc)
 
         s_l = x.shape[1]
 
@@ -192,7 +124,7 @@ class DeepClustering(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x).mean() + mll_error * 0.01
+        loss = loss(x_rec_proj, x).mean() + gp_loss
 
         #x_rec = self.proj_down(output_seq)
 
