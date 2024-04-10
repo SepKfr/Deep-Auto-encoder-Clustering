@@ -1,86 +1,44 @@
+import gpytorch
 import numpy as np
 import random
 import torch
 import torch.nn as nn
 from gpytorch.distributions import MultivariateNormal
 from gpytorch.kernels import ScaleKernel, RBFKernel
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
+from gpytorch.likelihoods import MultitaskGaussianLikelihood, GaussianLikelihood
 from gpytorch.means import ConstantMean, LinearMean
 from gpytorch.mlls import DeepApproximateMLL, VariationalELBO
+from gpytorch.models import ApproximateGP
 from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
-from gpytorch.variational import MeanFieldVariationalDistribution, VariationalStrategy
+from gpytorch.variational import MeanFieldVariationalDistribution, VariationalStrategy, CholeskyVariationalDistribution
 
 
-class ToyDeepGPHiddenLayer(DeepGPLayer):
-    def __init__(self, input_dims, output_dims, num_inducing=4, mean_type='linear'):
+class GPModel(ApproximateGP):
+    def __init__(self, input_dims, num_inducing):
 
-        if output_dims is None:
-            inducing_points = torch.randn(num_inducing, input_dims)
-            batch_shape = torch.Size([])
-        else:
-            inducing_points = torch.randn(output_dims, num_inducing, input_dims)
-            batch_shape = torch.Size([output_dims])
+        inducing_points = torch.randn(num_inducing, input_dims)
+        batch_shape = torch.Size([])
 
-        variational_distribution = MeanFieldVariationalDistribution(
-            num_inducing_points=num_inducing,
-            batch_shape=batch_shape
-        )
+        variational_distribution = CholeskyVariationalDistribution(num_inducing_points=num_inducing,
+                                                                   batch_shape=batch_shape)
+        variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution, learn_inducing_locations=True)
+        super(GPModel, self).__init__(variational_strategy)
 
-        variational_strategy = VariationalStrategy(
-            self,
-            inducing_points,
-            variational_distribution,
-            learn_inducing_locations=True
-        )
-
-        super(ToyDeepGPHiddenLayer, self).__init__(variational_strategy, input_dims, output_dims)
-
-        if mean_type == 'constant':
-            self.mean_module = ConstantMean(batch_shape=batch_shape)
-        else:
-            self.mean_module = LinearMean(input_dims)
+        self.mean_module = gpytorch.means.ConstantMean()
         self.covar_module = ScaleKernel(
             RBFKernel(batch_shape=batch_shape, ard_num_dims=input_dims),
-            batch_shape=batch_shape, ard_num_dims=None
+            batch_shape=batch_shape
         )
+        self.likelihood = GaussianLikelihood()
 
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
-        return MultivariateNormal(mean_x, covar_x)
-
-
-class DeepGPp(DeepGP):
-    def __init__(self, num_hidden_dims, num_inducing):
-
-        hidden_layer = ToyDeepGPHiddenLayer(
-            input_dims=num_hidden_dims,
-            output_dims=num_hidden_dims,
-            mean_type='linear',
-            num_inducing=num_inducing
-        )
-
-        super().__init__()
-
-        self.num_hidden_dims = num_hidden_dims
-        self.hidden_layer = hidden_layer
-        self.likelihood = MultitaskGaussianLikelihood(num_tasks=num_hidden_dims)
-
-    def forward(self, inputs):
-
-        dist = self.hidden_layer(inputs)
-        return dist
-
-    def predict(self, x):
-
-        dist = self(x)
-        pred = dist.sample()
-
-        return pred, dist
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
 
 class BlurDenoiseModel(nn.Module):
-    def __init__(self, model, d_model, num_inducing, gp, no_noise=False, iso=False):
+    def __init__(self, model, d_model, input_size, num_inducing, gp, no_noise=False, iso=False):
         """
         Blur and Denoise model.
 
@@ -98,7 +56,8 @@ class BlurDenoiseModel(nn.Module):
         self.denoising_model = model
 
         # Initialize DeepGP model for GP regression
-        self.deep_gp = DeepGPp(d_model, num_inducing)
+        self.input_size = input_size
+        self.deep_gp = GPModel(d_model, num_inducing)
         self.gp = gp
         self.sigma = nn.Parameter(torch.randn(1))
 
@@ -111,6 +70,8 @@ class BlurDenoiseModel(nn.Module):
         self.ffn_2 = nn.Sequential(nn.Linear(d_model, d_model*4),
                                    nn.ReLU(),
                                    nn.Linear(d_model*4, d_model))
+
+        self.proj_up = nn.Linear(input_size, d_model)
 
         self.d = d_model
         self.no_noise = no_noise
@@ -130,8 +91,13 @@ class BlurDenoiseModel(nn.Module):
         b, s, _ = x.shape
 
         # Predict GP noise and apply layer normalization
-        eps_gp, dist = self.deep_gp.predict(x)
-        x_noisy = self.norm_1(x + self.ffn_1(eps_gp))
+
+        x_flatten = x.reshape(-1, self.d)
+        x_gp = x_flatten.unsqueeze(1).repeat(1, self.input_size, 1)
+        x_gp = x_gp.reshape(-1, self.d)
+        dist = self.deep_gp(x_gp)
+        eps_gp = self.proj_up(dist.mean.reshape(b, s, self.input_size))
+        x_noisy = self.norm_1(x + eps_gp)
 
         return x_noisy, dist
 
@@ -161,6 +127,7 @@ class BlurDenoiseModel(nn.Module):
 
 class ForecastBlurDenoise(nn.Module):
     def __init__(self, *, forecasting_model: nn.Module,
+                 input_size: int,
                  gp: bool = True,
                  iso: bool = False,
                  no_noise: bool = False,
@@ -199,11 +166,12 @@ class ForecastBlurDenoise(nn.Module):
                                          gp=gp,
                                          no_noise=no_noise,
                                          iso=iso,
-                                         num_inducing=num_inducing)
+                                         num_inducing=num_inducing,
+                                         input_size=input_size)
 
         self.d_model = d_model
 
-    def forward(self, enc_inputs):
+    def forward(self, enc_inputs, y_true):
         """
         Forward pass of the ForecastDenoising model.
 
@@ -216,7 +184,6 @@ class ForecastBlurDenoise(nn.Module):
         - final_outputs (Tensor): Model's final predictions.
         - loss (Tensor): Combined loss from denoising and forecasting components.
         """
-        y_true = enc_inputs
         mll_error = 0
         loss = 0
 
@@ -228,9 +195,9 @@ class ForecastBlurDenoise(nn.Module):
         # If using GP and during training, compute MLL loss
         if self.gp and self.training:
 
-            mll = DeepApproximateMLL(
-                VariationalELBO(self.de_model.deep_gp.likelihood, self.de_model.deep_gp, self.d_model))
+            mll = VariationalELBO(self.de_model.deep_gp.likelihood, self.de_model.deep_gp, num_data=1)
 
+            y_true = y_true.reshape(-1)
             mll_error = -mll(dist, y_true).mean()
 
             loss = torch.clamp(mll_error, max=1.0, min=0.0)

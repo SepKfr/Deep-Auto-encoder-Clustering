@@ -3,6 +3,10 @@ import numpy as np
 import random
 import torch.nn as nn
 import torch
+import gpytorch
+from gpytorch.kernels import ScaleKernel, RBFKernel
+from gpytorch.mlls import DeepApproximateMLL
+from skorch.probabilistic import GPRegressor
 
 from forecast_blur_denoise import ForecastBlurDenoise
 from modules.transformer import Transformer
@@ -10,11 +14,9 @@ from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
 from tslearn.metrics import SoftDTWLossPyTorch
-from gpytorch.kernels import ScaleKernel, RBFKernel
-from gpytorch.likelihoods import MultitaskGaussianLikelihood
-from gpytorch.means import ConstantMean, LinearMean
-from gpytorch.models.deep_gps import DeepGPLayer, DeepGP
-from gpytorch.variational import VariationalStrategy, MeanFieldVariationalDistribution
+from gpytorch.models import ApproximateGP
+from gpytorch.variational import CholeskyVariationalDistribution
+from gpytorch.variational import VariationalStrategy
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -28,8 +30,6 @@ def purity_score(y_true, y_pred):
     contingency_matrix = metrics.cluster.contingency_matrix(y_true, y_pred)
     # return purity
     return np.sum(np.amax(contingency_matrix, axis=0)) / np.sum(contingency_matrix)
-
-
 
 
 class Autoencoder(nn.Module):
@@ -54,7 +54,8 @@ class Autoencoder(nn.Module):
 
 class DeepClustering(nn.Module):
 
-    def __init__(self, input_size, knns,
+    def __init__(self, input_size, knns, inducing_points,
+                 num_data,
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
@@ -71,10 +72,10 @@ class DeepClustering(nn.Module):
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
-        if gp:
-            self.seq_model_gp = ForecastBlurDenoise(forecasting_model=self.seq_model,
-                                                    d_model=d_model)
-
+        self.gp_model = ForecastBlurDenoise(input_size=input_size,
+                                            d_model=d_model,
+                                            forecasting_model=self.seq_model)
+        self.num_data = num_data
         self.proj_down = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
@@ -90,14 +91,16 @@ class DeepClustering(nn.Module):
 
     def forward(self, x, y=None):
 
-        gp_loss = 0
+        mll_loss = 0
 
         x_enc = self.enc_embedding(x)
-        # auto-regressive generative
-        if not self.gp:
-            x_enc = self.seq_model(x_enc)
+
+        if self.gp:
+
+            x_enc, mll_loss = self.gp_model(x_enc, x)
+
         else:
-            x_enc, gp_loss = self.seq_model_gp(x_enc)
+            x_enc = self.seq_model(x_enc)
 
         s_l = x.shape[1]
 
@@ -124,7 +127,7 @@ class DeepClustering(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x).mean() + gp_loss
+        loss = loss(x_rec_proj, x).mean() + mll_loss
 
         #x_rec = self.proj_down(output_seq)
 

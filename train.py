@@ -49,7 +49,7 @@ class Train:
         parser.add_argument("--pred_len", type=int, default=24)
         parser.add_argument("--max_train_sample", type=int, default=-1)
         parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=64)
+        parser.add_argument("--batch_size", type=int, default=128)
         parser.add_argument("--num_clusters", type=int, default=13)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
@@ -181,6 +181,7 @@ class Train:
         else:
             self.list_explored_params.append(tup_params)
 
+        x_inducing , _ = next(iter(self.data_loader.list_of_train_loader[0]))
         model = DeepClustering(input_size=self.data_loader.input_size,
                                n_clusters=num_clusters,
                                knns=knns,
@@ -193,7 +194,9 @@ class Train:
                                pred_len=self.pred_len,
                                batch_size=self.batch_size,
                                var=self.var,
-                               gamma=gamma).to(self.device)
+                               gamma=gamma,
+                               inducing_points=x_inducing,
+                               num_data=len(self.data_loader.list_of_train_loader[0])).to(self.device)
 
         cluster_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
