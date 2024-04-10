@@ -1,22 +1,14 @@
-import gpytorch.settings
 import numpy as np
 import random
 import torch.nn as nn
 import torch
-import gpytorch
-from gpytorch.kernels import ScaleKernel, RBFKernel
-from gpytorch.mlls import DeepApproximateMLL
-from skorch.probabilistic import GPRegressor
-
 from forecast_blur_denoise import ForecastBlurDenoise
 from modules.transformer import Transformer
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
 from tslearn.metrics import SoftDTWLossPyTorch
-from gpytorch.models import ApproximateGP
-from gpytorch.variational import CholeskyVariationalDistribution
-from gpytorch.variational import VariationalStrategy
+
 
 torch.autograd.set_detect_anomaly(True)
 
