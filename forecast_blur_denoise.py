@@ -133,7 +133,7 @@ class ForecastBlurDenoise(nn.Module):
                  no_noise: bool = False,
                  add_noise_only_at_training: bool = False,
                  pred_len: int = 0,
-                 num_inducing: int = 4,
+                 num_inducing: int = 1,
                  d_model: int):
         """
         Forecast-blur-denoise Module.
