@@ -194,9 +194,7 @@ class Train:
                                pred_len=self.pred_len,
                                batch_size=self.batch_size,
                                var=self.var,
-                               gamma=gamma,
-                               inducing_points=x_inducing,
-                               num_data=len(self.data_loader.list_of_train_loader[0])).to(self.device)
+                               gamma=gamma).to(self.device)
 
         cluster_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
@@ -325,7 +323,7 @@ class Train:
         tot_nmi_loss = []
         tot_p_loss = []
 
-        d_model_list = [32, 16, 64]
+        d_model_list = [16]
         num_layers_list = [1, 3]
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]

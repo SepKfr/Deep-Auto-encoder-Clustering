@@ -92,14 +92,12 @@ class BlurDenoiseModel(nn.Module):
 
         # Predict GP noise and apply layer normalization
 
-        x_flatten = x.reshape(-1, self.d)
-        x_gp = x_flatten.unsqueeze(1).repeat(1, self.input_size, 1)
-        x_gp = x_gp.reshape(-1, self.d)
-        dist = self.deep_gp(x_gp)
-        eps_gp = self.proj_up(dist.mean.reshape(b, s, self.input_size))
+        dist = self.deep_gp(x)
+        eps_gp = dist.sample_n(self.d)
+        eps_gp = eps_gp.permute(1, 2, 0)
         x_noisy = self.norm_1(x + eps_gp)
 
-        return x_noisy, dist
+        return x_noisy
 
     def forward(self, enc_inputs):
         """
@@ -114,7 +112,7 @@ class BlurDenoiseModel(nn.Module):
         - dist (Tensor): GP distribution if GP is used.
         """
 
-        enc_noisy, dist_enc = self.add_gp_noise(enc_inputs)
+        enc_noisy = self.add_gp_noise(enc_inputs)
 
         # Perform denoising with the underlying forecasting model
         enc_denoise = self.denoising_model(enc_noisy)
@@ -122,7 +120,7 @@ class BlurDenoiseModel(nn.Module):
         # Apply layer normalization and feedforward network to the decoder output
         dec_output = self.norm_2(enc_inputs + self.ffn_2(enc_denoise))
 
-        return dec_output, dist_enc
+        return dec_output
 
 
 class ForecastBlurDenoise(nn.Module):
@@ -184,23 +182,11 @@ class ForecastBlurDenoise(nn.Module):
         - final_outputs (Tensor): Model's final predictions.
         - loss (Tensor): Combined loss from denoising and forecasting components.
         """
-        mll_error = 0
-        loss = 0
 
         # Get outputs from the forecasting model
         enc_outputs = self.forecasting_model(enc_inputs)
 
-        de_model_outputs, dist = self.de_model(enc_outputs.clone())
+        de_model_outputs = self.de_model(enc_outputs.clone())
 
-        # If using GP and during training, compute MLL loss
-        if self.gp and self.training:
-
-            mll = VariationalELBO(self.de_model.deep_gp.likelihood, self.de_model.deep_gp, num_data=1)
-
-            y_true = y_true.reshape(-1)
-            mll_error = -mll(dist, y_true).mean()
-
-            loss = torch.clamp(mll_error, max=1.0, min=0.0)
-
-        return de_model_outputs, loss
+        return de_model_outputs
 

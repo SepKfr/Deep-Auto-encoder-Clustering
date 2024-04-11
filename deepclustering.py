@@ -46,12 +46,11 @@ class Autoencoder(nn.Module):
 
 class DeepClustering(nn.Module):
 
-    def __init__(self, input_size, knns, inducing_points,
-                 num_data,
+    def __init__(self, input_size, knns,
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
-                 var=1, gamma=0.1, gp=False):
+                 var=1, gamma=0.1, gp=True):
 
         super(DeepClustering, self).__init__()
 
@@ -67,7 +66,6 @@ class DeepClustering(nn.Module):
         self.gp_model = ForecastBlurDenoise(input_size=input_size,
                                             d_model=d_model,
                                             forecasting_model=self.seq_model)
-        self.num_data = num_data
         self.proj_down = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
@@ -83,13 +81,11 @@ class DeepClustering(nn.Module):
 
     def forward(self, x, y=None):
 
-        mll_loss = 0
-
         x_enc = self.enc_embedding(x)
 
         if self.gp:
 
-            x_enc, mll_loss = self.gp_model(x_enc, x)
+            x_enc = self.gp_model(x_enc, x)
 
         else:
             x_enc = self.seq_model(x_enc)
@@ -119,7 +115,7 @@ class DeepClustering(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x).mean() + mll_loss
+        loss = loss(x_rec_proj, x).mean()
 
         #x_rec = self.proj_down(output_seq)
 
