@@ -51,7 +51,7 @@ class DeepClustering(nn.Module):
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
-                 var=1, gamma=0.1, gp=False):
+                 var=1, gamma=0.1, gp=True):
 
         super(DeepClustering, self).__init__()
 
