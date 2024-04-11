@@ -2,7 +2,8 @@ import numpy as np
 import random
 import torch.nn as nn
 import torch
-from forecast_blur_denoise import ForecastBlurDenoise
+from sklearn.gaussian_process import GaussianProcessRegressor
+from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel
 from modules.transformer import Transformer
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
@@ -58,14 +59,12 @@ class DeepClustering(nn.Module):
 
         self.enc_embedding = nn.Linear(input_size, d_model)
         self.gp = gp
+        self.gp_embedding = nn.Linear(input_size, d_model)
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
-        self.gp_model = ForecastBlurDenoise(input_size=input_size,
-                                            d_model=d_model,
-                                            forecasting_model=self.seq_model)
         self.proj_down = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
@@ -84,8 +83,16 @@ class DeepClustering(nn.Module):
         x_enc = self.enc_embedding(x)
 
         if self.gp:
-
-            x_enc = self.gp_model(x_enc, x)
+           x_enc_1 = self.seq_model(x_enc)
+           x_enc_gp = x_enc_1.reshape(-1, self.d_model)
+           kernel = DotProduct() + WhiteKernel()
+           x_enc_gp = x_enc_gp.detach().numpy()
+           x_gp = x.detach().numpy().reshape(-1, self.input_size)
+           gpr = GaussianProcessRegressor(kernel=kernel, random_state=0).fit(x_enc_gp, x_gp)
+           preds = torch.from_numpy(gpr.predict(x_enc_gp)).to(self.device)
+           preds = preds.to(x_enc_1.dtype)
+           preds_gp = self.gp_embedding(preds).reshape(x_enc_1.shape)
+           x_enc = self.seq_model(preds_gp)
 
         else:
             x_enc = self.seq_model(x_enc)
