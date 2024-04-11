@@ -51,15 +51,13 @@ class DeepClustering(nn.Module):
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
-                 var=1, gamma=0.1, gp=False):
+                 var=1, gamma=0.1, gp=False, add_diff=True):
 
         super(DeepClustering, self).__init__()
 
         self.device = device
-
+        self.add_diff = add_diff
         self.enc_embedding = nn.Linear(input_size, d_model)
-        self.gp = gp
-        self.gp_embedding = nn.Linear(input_size, d_model)
 
         self.seq_model = Transformer(input_size=d_model, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
@@ -96,20 +94,24 @@ class DeepClustering(nn.Module):
         x_rec = x_rec.reshape(x_enc.shape)
         x_rec_proj = self.proj_down(x_rec)
 
-        # _, top_scores = torch.topk(scores, k=self.k, dim=-1)
-        # x_rec_proj_exp = x_rec_proj.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
-        # x_rec_proj_exp_se = x_rec_proj_exp[torch.arange(self.batch_size)[:, None],
-        #                                    top_scores]
-        #
-        # diff_1 = (torch.diff(x_rec_proj_exp_se, dim=1)**2).mean()
-        # diff_2 = (torch.diff(x_rec_proj_exp_se, dim=2)**2).mean()
+        _, top_scores = torch.topk(scores, k=self.k, dim=-1)
+        x_rec_proj_exp = x_rec_proj.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
+        x_rec_proj_exp_se = x_rec_proj_exp[torch.arange(self.batch_size)[:, None],
+                                           top_scores]
+
+        diff_1 = (torch.diff(x_rec_proj_exp_se, dim=1)**2).mean()
+        diff_2 = (torch.diff(x_rec_proj_exp_se, dim=2)**2).mean()
 
         if self.var == 1:
-            loss = nn.MSELoss(reduction='none')
-        else:
-            loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x).mean()
+            loss = nn.MSELoss()
+        else:
+            loss = SoftDTWLossPyTorch(gamma=self.gamma).mean()
+
+        if self.add_diff:
+            loss = loss(x_rec_proj, x) + diff_1 + diff_2
+        else:
+            loss = loss(x_rec_proj, x)
 
         #x_rec = self.proj_down(output_seq)
 

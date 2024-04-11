@@ -52,6 +52,7 @@ class Train:
         parser.add_argument("--batch_size", type=int, default=512)
         parser.add_argument("--num_clusters", type=int, default=13)
         parser.add_argument("--var", type=int, default=1)
+        parser.add_argument("--add_diff", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -59,6 +60,7 @@ class Train:
         args = parser.parse_args()
         self.exp_name = args.exp_name
         self.var = args.var
+        self.add_diff = args.add_diff
         self.num_clusters = args.num_clusters
 
         if self.exp_name == "synthetic":
@@ -194,7 +196,8 @@ class Train:
                                pred_len=self.pred_len,
                                batch_size=self.batch_size,
                                var=self.var,
-                               gamma=gamma).to(self.device)
+                               gamma=gamma,
+                               add_diff=self.add_diff).to(self.device)
 
         cluster_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
@@ -346,7 +349,8 @@ class Train:
                                                    batch_size=self.batch_size,
                                                    var=self.var,
                                                    knns=knn,
-                                                   gamma=gm).to(self.device)
+                                                   gamma=gm,
+                                                   add_diff=self.add_diff).to(self.device)
 
                             checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
                                                     map_location=self.device)
