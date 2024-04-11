@@ -385,7 +385,7 @@ class Train:
         print("adj rand index {:.3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
 
         # Specify the file path
-        file_path = "scores_{}.json".format(self.exp_name)
+        file_path = "scores_{}.csv".format(self.exp_name)
 
         scores = {self.model_name: {'adj': f"{adj:.3f}",
                                     'acc': f"{acc: .3f}",
