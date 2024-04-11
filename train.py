@@ -170,7 +170,7 @@ class Train:
     def train_clustering(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [64, 128, 256])
-        num_layers = trial.suggest_categorical("num_layers", [1, 3, 6])
+        num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [20, 10, 5])
         tmax = trial.suggest_categorical("tmax", [10, 20])
