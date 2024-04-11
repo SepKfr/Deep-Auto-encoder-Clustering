@@ -327,7 +327,7 @@ class Train:
         tot_p_loss = []
 
         d_model_list = [64, 32]
-        num_layers_list = [1, 3, 6]
+        num_layers_list = [1, 3]
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
         num_clusters = self.num_clusters
