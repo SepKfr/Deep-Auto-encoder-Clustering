@@ -384,28 +384,23 @@ class Train:
 
         print("adj rand index {:.3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
 
-        data = {
-            "adj": "{:.3f}".format(adj),
-            "acc": "{:.3f}".format(acc),
-            "nmi": "{:.3f}".format(nmi),
-            "p_score": "{:.3f}".format(p_score)
-        }
-
         # Specify the file path
         file_path = "scores_{}.json".format(self.exp_name)
 
-        if os.path.exists(file_path):
-            with open(file_path) as json_file:
-                json_dat = json.load(json_file)
-                if json_dat.get(self.model_name) is None:
-                    json_dat[self.model_name] = list()
-                json_dat[self.model_name].append(data)
+        scores = {self.model_name: {'adj': f"{adj:.3f}",
+                                    'acc': f"{acc: .3f}",
+                                    'nmi': f"{nmi: .3f}",
+                                    'p_score': f"{p_score: .3f}"}}
 
-            with open(file_path, "w") as json_file:
-                json.dump(json_dat, json_file)
+        df = pd.DataFrame.from_dict(scores, orient='index')
+
+        if os.path.exists(file_path):
+
+            df_old = pd.read_csv(file_path)
+            df_new = pd.concat([df_old, df], axis=0)
+            df_new.to_csv(file_path)
         else:
-            with open(file_path, "w") as json_file:
-                json.dump(data, json_file)
+            df.to_csv(file_path)
 
         tensor_path = f"{self.exp_name}"
         if not os.path.exists(tensor_path):
