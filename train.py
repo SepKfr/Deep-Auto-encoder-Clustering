@@ -385,7 +385,6 @@ class Train:
         print("adj rand index {:.3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
 
         data = {
-            "model_name": self.model_name,
             "adj": "{:.3f}".format(adj),
             "acc": "{:.3f}".format(acc),
             "nmi": "{:.3f}".format(nmi),
@@ -395,19 +394,18 @@ class Train:
         # Specify the file path
         file_path = "scores_{}.json".format(self.exp_name)
 
-        # Save data to JSON file
-        if not os.path.exists(file_path):
+        if os.path.exists(file_path):
+            with open(file_path) as json_file:
+                json_dat = json.load(json_file)
+                if json_dat.get(self.model_name) is None:
+                    json_dat[self.model_name] = list()
+                json_dat[self.model_name].append(data)
+
+            with open(file_path, "w") as json_file:
+                json.dump(json_dat, json_file)
+        else:
             with open(file_path, "w") as json_file:
                 json.dump(data, json_file)
-        else:
-            with open(file_path, "r+") as json_file:
-                scores = json.load(json_file)
-                scores["model_name"] = self.model_name
-                scores["adj"] = "{:.3f}".format(adj)
-                scores["acc"] = "{:.3f}".format(acc)
-                scores["nmi"] = "{:.3f}".format(nmi)
-                scores["p_score"] = "{:.3f}".format(p_score)
-                json.dump(scores, json_file)
 
         tensor_path = f"{self.exp_name}"
         if not os.path.exists(tensor_path):
