@@ -169,11 +169,11 @@ class Train:
 
     def train_clustering(self, trial):
 
-        d_model = trial.suggest_categorical("d_model", [64, 128])
-        num_layers = trial.suggest_categorical("num_layers", [1, 3])
+        d_model = trial.suggest_categorical("d_model", [64, 128, 256])
+        num_layers = trial.suggest_categorical("num_layers", [1, 3, 6])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [20, 10, 5])
-        tmax = trial.suggest_categorical("tmax", [10])
+        tmax = trial.suggest_categorical("tmax", [10, 20])
         num_clusters = self.num_clusters
 
         tup_params = [d_model, num_layers, gamma, knns, tmax]
@@ -326,8 +326,8 @@ class Train:
         tot_nmi_loss = []
         tot_p_loss = []
 
-        d_model_list = [64, 128]
-        num_layers_list = [1, 3]
+        d_model_list = [64, 128, 256]
+        num_layers_list = [1, 3, 6]
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
         num_clusters = self.num_clusters
