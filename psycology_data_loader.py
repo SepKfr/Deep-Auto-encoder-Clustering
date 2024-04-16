@@ -53,23 +53,19 @@ class PatientDataLoader:
         sample_hold_out = X[-len_set:]
         labels_hold_out = Y[-len_set:]
 
-        self.list_of_test_loader = []
-        self.list_of_train_loader = []
-
         train_data = TensorDataset(train_set_s, train_set_l)
         test_hold_out_data = TensorDataset(sample_hold_out, labels_hold_out)
         valid_data = TensorDataset(valid_set_s, valid_set_l)
 
         self.hold_out_test = DataLoader(test_hold_out_data, batch_size=self.batch_size, drop_last=True)
-        self.list_of_train_loader.append(DataLoader(train_data, batch_size=self.batch_size, drop_last=True))
-        self.list_of_test_loader.append(DataLoader(valid_data, batch_size=self.batch_size, drop_last=True))
+        self.train_loader = DataLoader(train_data, batch_size=self.batch_size, drop_last=True)
+        self.test_loader = DataLoader(valid_data, batch_size=self.batch_size, drop_last=True)
 
-        self.n_folds = 1
         test_x, test_y = next(iter(self.hold_out_test))
         self.input_size = test_x.shape[2]
         self.output_size = test_x.shape[2]
-        self.len_train = len(self.list_of_train_loader[0])
-        self.len_test = len(self.list_of_test_loader[0])
+        self.len_train = len(self.train_loader)
+        self.len_test = len(self.test_loader)
 
     def create_dataloader(self, data, max_samples):
 

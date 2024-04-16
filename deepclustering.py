@@ -78,11 +78,13 @@ class DeepClustering(nn.Module):
 
     def forward(self, x, y=None):
 
+        s_l = x.shape[1]
+        if len(x.shape) > 3:
+            x = x.reshape(self.batch_size, s_l, -1)
+
         x_enc = self.enc_embedding(x)
 
         x_enc = self.seq_model(x_enc)
-
-        s_l = x.shape[1]
 
         x_enc_re = x_enc.reshape(self.batch_size, -1)
         attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)

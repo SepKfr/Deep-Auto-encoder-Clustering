@@ -137,29 +137,14 @@ class Transformer(nn.Module):
 
     def forward(self, inputs):
 
-        batch_size = inputs.shape[0]
-
         x = torch.split(inputs, split_size_or_sections=int(inputs.shape[1] / 2), dim=1)
 
         enc_input = x[0]
+
         dec_input = x[1]
+
         enc_input = self.enc_embedding(enc_input)
         dec_input = self.dec_embedding(dec_input)
-
-        def reshape(x_inp):
-
-            sizes_inputs = [batch_size] if len(x_inp.shape) == 3 else [batch_size * x_inp.shape[1]]
-
-            for s in x_inp.shape[1:-1] if len(x_inp.shape) == 3 else x_inp.shape[2:-1]:
-                sizes_inputs.append(s)
-
-            sizes_inputs.append(self.d_model)
-
-            x_inp = x_inp.reshape(torch.Size(sizes_inputs))
-            return x_inp
-
-        enc_input = reshape(enc_input)
-        dec_input = reshape(dec_input)
 
         enc_input = self.pos_emb(enc_input)
         dec_input = self.pos_emb(dec_input)
