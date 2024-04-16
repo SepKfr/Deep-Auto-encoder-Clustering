@@ -198,8 +198,6 @@ class Train:
             list_of_train_p = []
             list_of_valid_p = []
 
-
-
             model.train()
             train_knn_loss = 0
             train_adj_loss = 0
@@ -305,7 +303,7 @@ class Train:
         tot_nmi_loss = []
         tot_p_loss = []
 
-        d_model_list = [64, 32]
+        d_model_list = [64, 32, 128]
         num_layers_list = [1, 3]
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
