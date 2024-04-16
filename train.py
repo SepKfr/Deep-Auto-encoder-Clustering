@@ -261,16 +261,15 @@ class Train:
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
-            if i == self.data_loader.n_folds - 1:
-                valid_tmp = statistics.mean(list_of_valid_adj)
-                if valid_tmp > best_trial_valid_loss:
-                    best_trial_valid_loss = valid_tmp
-                    if best_trial_valid_loss > self.best_overall_valid_loss:
-                        self.best_overall_valid_loss = best_trial_valid_loss
-                        self.best_clustering_model = model
-                        torch.save(model.state_dict(),
-                                   os.path.join(self.model_path,
-                                                "{}_forecast.pth".format(self.model_name)))
+            valid_tmp = statistics.mean(list_of_valid_adj)
+            if valid_tmp > best_trial_valid_loss:
+                best_trial_valid_loss = valid_tmp
+                if best_trial_valid_loss > self.best_overall_valid_loss:
+                    self.best_overall_valid_loss = best_trial_valid_loss
+                    self.best_clustering_model = model
+                    torch.save(model.state_dict(),
+                               os.path.join(self.model_path,
+                                            "{}_forecast.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
                 print("train KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, p_score: {:.3f}, epoch: {}"
