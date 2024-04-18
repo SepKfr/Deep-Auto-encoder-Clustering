@@ -71,7 +71,7 @@ class DeepClustering(nn.Module):
         self.d_model = d_model
         self.input_size = input_size
         self.time_proj = 100
-        self.num_clusters = n_clusters
+        self.n_clusters = n_clusters
         self.var = var
         self.k = knns
         self.gamma = gamma
@@ -178,7 +178,7 @@ class DeepClustering(nn.Module):
             assigned_labels = torch.mode(labels, dim=-1).values
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
-            acc = Accuracy(task='multiclass', num_classes=self.num_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
+            acc = Accuracy(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
             p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
 
         else:
