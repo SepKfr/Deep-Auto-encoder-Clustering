@@ -2,6 +2,13 @@ import numpy as np
 import torch
 import torchvision
 from torch.utils.data import TensorDataset, DataLoader
+import random
+
+
+torch.manual_seed(1234)
+np.random.seed(1234)
+random.seed(1234)
+
 
 train = torchvision.datasets.MNIST('./', download=True)
 train_data = train.data.detach().numpy()
