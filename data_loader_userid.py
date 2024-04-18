@@ -35,7 +35,7 @@ class UserDataLoader:
         permuted_indices = torch.randperm(len(X))
         X = X[permuted_indices]
         Y = Y[permuted_indices]
-        self.n_clusters = torch.sum(torch.unique(Y[:, 0, 0])).item()
+        self.n_clusters = int(torch.sum(torch.unique(Y[:, 0, 0])).item())
 
         len_set = len(X) // 8
         len_train = len_set * 6
