@@ -5,8 +5,8 @@ from torch.utils.data import TensorDataset, DataLoader
 
 train = torchvision.datasets.MNIST('./', download=True)
 train_data = train.data.detach().numpy()
+n_uniques = torch.sum(train.targets.unique())
 labels = train.targets.detach().numpy()
-
 train = train_data.reshape(-1, 28, 28, 1)
 
 data_val = train[45000:]
@@ -21,6 +21,7 @@ class MnistDataLoader:
         self.batch_size = batch_size
         self.train_loader, self.test_loader = self.get_dataloader()
         self.hold_out_test = self.test_loader
+        self.n_clusters = n_uniques
 
         test_x, _ = next(iter(self.hold_out_test))
         self.input_size = test_x.shape[2] * test_x.shape[3]

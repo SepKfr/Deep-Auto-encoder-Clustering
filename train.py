@@ -46,7 +46,6 @@ class Train:
         parser.add_argument("--max_train_sample", type=int, default=-1)
         parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=256)
-        parser.add_argument("--num_clusters", type=int, default=13)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--add_diff", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
@@ -57,7 +56,6 @@ class Train:
         self.exp_name = args.exp_name
         self.var = args.var
         self.add_diff = args.add_diff
-        self.num_clusters = args.num_clusters
 
         if self.exp_name == "mnist":
             pass
@@ -104,8 +102,7 @@ class Train:
                                               max_train_sample=args.max_train_sample,
                                               batch_size=args.batch_size,
                                               device=self.device,
-                                              data=data,
-                                              target_col="id")
+                                              data=data)
         else:
 
             self.data_loader = PatientDataLoader(max_encoder_length=args.max_encoder_length,
@@ -114,12 +111,13 @@ class Train:
                                                  device=self.device,
                                                  data=data)
 
+        self.n_clusters = self.data_loader.n_clusters
         self.num_epochs = args.num_epochs
         self.batch_size = args.batch_size
         self.best_overall_valid_loss = -1e10
         self.list_explored_params = []
         if args.model_name == "kmeans":
-            Kmeans(n_clusters=self.num_clusters, batch_size=self.batch_size,
+            Kmeans(n_clusters=self.n_clusters, batch_size=self.batch_size,
                    data_loader=self.data_loader.hold_out_test)
         else:
             self.best_clustering_model = nn.Module()
@@ -156,7 +154,6 @@ class Train:
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [20, 10, 5])
         tmax = trial.suggest_categorical("tmax", [10, 20])
-        num_clusters = self.num_clusters
 
         tup_params = [d_model, num_layers, gamma, knns, tmax]
 
@@ -166,7 +163,7 @@ class Train:
             self.list_explored_params.append(tup_params)
 
         model = DeepClustering(input_size=self.data_loader.input_size,
-                               n_clusters=num_clusters,
+                               n_clusters=self.n_clusters,
                                knns=knns,
                                d_model=d_model,
                                nheads=8,
@@ -307,7 +304,6 @@ class Train:
         num_layers_list = [1, 3]
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
-        num_clusters = self.num_clusters
 
         for knn in knn_list:
             for d_model in d_model_list:
@@ -315,7 +311,7 @@ class Train:
                     for gm in gamma:
                         try:
                             model = DeepClustering(input_size=self.data_loader.input_size,
-                                                   n_clusters=num_clusters,
+                                                   n_clusters=self.n_clusters,
                                                    d_model=d_model,
                                                    nheads=8,
                                                    num_layers=num_layers,
