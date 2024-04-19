@@ -35,7 +35,7 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="mnist")
+        parser.add_argument("--exp_name", type=str, default="patients_6")
         parser.add_argument("--model_name", type=str, default="autoformer")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)

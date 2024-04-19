@@ -106,16 +106,15 @@ class DeepClustering(nn.Module):
 
         if self.var == 1:
 
-            loss = nn.MSELoss()
+            loss = nn.MSELoss(reduction="none")
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
         if self.add_diff:
-            s_loss = loss(x_rec_proj, x)
-            loss = s_loss if len(s_loss) == 1 else s_loss.mean() + diff_1 + diff_2
+
+            loss = loss(x_rec_proj, x).mean() + diff_1 + diff_2
         else:
-            s_loss = loss(x_rec_proj, x)
-            loss = s_loss if len(s_loss) == 1 else s_loss.mean()
+            loss = loss(x_rec_proj, x).mean()
 
         #x_rec = self.proj_down(output_seq)
 

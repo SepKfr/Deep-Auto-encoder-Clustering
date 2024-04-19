@@ -137,6 +137,7 @@ class Transformer(nn.Module):
 
     def forward(self, inputs):
 
+        s_len = inputs.shape[1]
         x = torch.split(inputs, split_size_or_sections=int(inputs.shape[1] / 2), dim=1)
 
         enc_input = x[0]
@@ -150,10 +151,16 @@ class Transformer(nn.Module):
         dec_input = self.pos_emb(dec_input)
 
         memory = self.encoder(enc_input)
-        output = self.decoder(dec_input, memory)
-        output = torch.cat([memory, output], dim=1)
 
-        return output
+        final_outputs = []
+        for i in range(s_len):
+            output = self.decoder(dec_input, memory)
+            final_outputs.append(output[:, -1:, :])
+            dec_input = torch.cat([dec_input[:, 1:, :], output[:, -1:, :]], dim=1)
+
+        final_outputs = torch.cat(final_outputs, dim=1)
+        print(final_outputs.shape)
+        return final_outputs
 
 
 if __name__ == "__main__":
