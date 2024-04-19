@@ -155,6 +155,7 @@ class Transformer(nn.Module):
 
         final_outputs = []
         for i in range(s_len):
+
             output = self.decoder(dec_input, memory)
             final_outputs.append(output[:, -1:, :].detach().cpu())
             dec_input = torch.cat([dec_input[:, 1:, :], output[:, -1:, :]], dim=1)
