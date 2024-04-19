@@ -152,16 +152,9 @@ class Transformer(nn.Module):
         dec_input = self.pos_emb(dec_input)
 
         memory = self.encoder(enc_input)
+        output = self.decoder(dec_input, memory)
 
-        final_outputs = []
-        for i in range(s_len):
-
-            output = self.decoder(dec_input, memory)
-            final_outputs.append(output[:, -1:, :].detach().cpu())
-            dec_input = torch.cat([dec_input[:, 1:, :], output[:, -1:, :]], dim=1)
-
-        final_outputs = torch.cat(final_outputs, dim=1).to(self.device)
-        return final_outputs
+        return output
 
 
 if __name__ == "__main__":
