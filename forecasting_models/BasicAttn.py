@@ -1,11 +1,6 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import random
-
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
 
 
 class BasicAttn(nn.Module):

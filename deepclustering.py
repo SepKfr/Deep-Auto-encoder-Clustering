@@ -10,12 +10,9 @@ from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
 from tslearn.metrics import SoftDTWLossPyTorch
 
+from seed_manager import set_seed
 
 torch.autograd.set_detect_anomaly(True)
-
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
 
 
 def purity_score(y_true, y_pred):
@@ -54,6 +51,8 @@ class DeepClustering(nn.Module):
                  var=1, gamma=0.1, gp=False, add_diff=True):
 
         super(DeepClustering, self).__init__()
+
+        set_seed(seed)
 
         self.device = device
         self.add_diff = add_diff

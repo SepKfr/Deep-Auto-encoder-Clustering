@@ -6,6 +6,8 @@ import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, BatchSampler
 
+from seed_manager import set_seed
+
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
@@ -17,8 +19,10 @@ class PatientDataLoader:
                  max_train_sample,
                  batch_size,
                  device,
-                 data):
+                 data,
+                 seed):
 
+        set_seed(seed)
         data = data.fillna(0.0)
         data = data.drop(['Unnamed: 0'], axis=1)
         self.n_clusters = data["apache"].nunique()

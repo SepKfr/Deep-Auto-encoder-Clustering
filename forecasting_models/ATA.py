@@ -3,9 +3,7 @@ import torch.nn as nn
 import numpy as np
 import random
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
 
 
 class ATA(nn.Module):
@@ -13,9 +11,7 @@ class ATA(nn.Module):
 
         super(ATA, self).__init__()
 
-        np.random.seed(seed)
-        random.seed(seed)
-        torch.manual_seed(seed)
+        set_seed(seed)
 
         self.d_k = d_k
         self.filter_length = [1, 3, 7, 9]

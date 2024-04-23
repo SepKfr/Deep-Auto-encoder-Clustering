@@ -5,9 +5,7 @@ import torch
 import torch.nn as nn
 import math
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
 
 
 class AutoCorrelation(nn.Module):
@@ -21,9 +19,7 @@ class AutoCorrelation(nn.Module):
 
         super(AutoCorrelation, self).__init__()
 
-        np.random.seed(seed)
-        random.seed(seed)
-        torch.manual_seed(seed)
+        set_seed(seed)
 
         self.factor = factor
         self.scale = scale

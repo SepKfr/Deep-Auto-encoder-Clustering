@@ -3,18 +3,14 @@ import torch.nn as nn
 import numpy as np
 import random
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
 
 
 class ProbAttention(nn.Module):
     def __init__(self, mask_flag, seed, factor=1, scale=None, attention_dropout=0.1, output_attention=False):
         super(ProbAttention, self).__init__()
 
-        torch.manual_seed(seed)
-        random.seed(seed)
-        np.random.seed(seed)
+        set_seed(seed)
 
         self.factor = factor
         self.scale = scale

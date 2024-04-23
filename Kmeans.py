@@ -7,9 +7,7 @@ import random
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import Accuracy
-
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
 
 
 def purity_score(y_true, y_pred):
@@ -20,8 +18,9 @@ def purity_score(y_true, y_pred):
 
 
 class Kmeans:
-    def __init__(self, n_clusters, batch_size, data_loader):
+    def __init__(self, n_clusters, batch_size, data_loader, seed):
 
+        set_seed(seed)
         self.n_clusters = n_clusters
         self.batch_size = batch_size
 

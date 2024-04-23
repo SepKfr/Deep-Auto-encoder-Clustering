@@ -4,9 +4,7 @@ from modules.multi_head_attn import MultiHeadAttention
 import random
 import numpy as np
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
 
 
 class PositionalEncoding(nn.Module):
@@ -29,6 +27,9 @@ class DecoderLayer(nn.Module):
     def __init__(self, d_model, n_heads, attn_type, seed, device):
 
         super(DecoderLayer, self).__init__()
+
+        set_seed(seed)
+
         self.dec_self_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
             attn_type=attn_type, seed=seed, device=device)
@@ -78,6 +79,8 @@ class EncoderLayer(nn.Module):
 
         super(EncoderLayer, self).__init__()
 
+        set_seed(seed)
+
         self.enc_self_attn = MultiHeadAttention(
             d_model=d_model, n_heads=n_heads,
             attn_type=attn_type, seed=seed, device=device)
@@ -121,6 +124,7 @@ class Transformer(nn.Module):
 
         super(Transformer, self).__init__()
 
+        set_seed(seed)
         self.enc_embedding = nn.Linear(input_size, d_model)
         self.dec_embedding = nn.Linear(input_size, d_model)
         self.encoder_layer = EncoderLayer(d_model=d_model, attn_type=attn_type,
@@ -153,8 +157,8 @@ class Transformer(nn.Module):
 
         memory = self.encoder(enc_input)
         output = self.decoder(dec_input, memory)
-
-        return output
+        final_output = torch.cat([memory, output], dim=1)
+        return final_output
 
 
 if __name__ == "__main__":

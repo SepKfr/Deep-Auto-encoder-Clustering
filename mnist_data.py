@@ -5,11 +5,6 @@ from torch.utils.data import TensorDataset, DataLoader
 import random
 
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
-
-
 train = torchvision.datasets.MNIST('./', download=True)
 train_data = train.data.detach().numpy()
 n_uniques = int(torch.sum(train.targets.unique()).item())
@@ -23,8 +18,9 @@ labels_train = labels[:45000]
 
 
 class MnistDataLoader:
-    def __init__(self, batch_size):
+    def __init__(self, batch_size, seed):
 
+        set_seed(seed)
         self.batch_size = batch_size
         self.train_loader, self.test_loader = self.get_dataloader()
         self.hold_out_test = self.test_loader

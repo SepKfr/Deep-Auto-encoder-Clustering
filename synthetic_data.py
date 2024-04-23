@@ -5,14 +5,14 @@ import numpy as np
 import random
 from torch.utils.data import TensorDataset, DataLoader, BatchSampler
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
+
 
 class SyntheticDataLoader:
 
-    def __init__(self, batch_size, max_samples):
+    def __init__(self, batch_size, max_samples, seed):
 
+        set_seed(seed)
         samples, labels = self.get_synthetic_samples()
         len_samples = len(samples)
         permuted_indices = torch.randperm(len_samples)

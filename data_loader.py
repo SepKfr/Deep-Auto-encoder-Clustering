@@ -8,6 +8,8 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler, BatchSamp
 from torch.nn.utils.rnn import pad_sequence
 from itertools import accumulate
 
+from seed_manager import set_seed
+
 torch.manual_seed(1234)
 np.random.seed(1234)
 random.seed(1234)
@@ -23,8 +25,10 @@ class CustomDataLoader:
                  device,
                  data,
                  target_col,
-                 real_inputs):
+                 real_inputs,
+                 seed):
 
+        set_seed(seed)
         self.max_encoder_length = max_encoder_length
         self.pred_len = pred_len
         self.max_train_sample = max_train_sample * batch_size

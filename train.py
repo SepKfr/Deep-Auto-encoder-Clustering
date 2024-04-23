@@ -22,13 +22,7 @@ from matplotlib.colors import to_rgba
 
 from psycology_data_loader import PatientDataLoader
 from synthetic_data import SyntheticDataLoader
-
-import torchvision
-
-
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
 
 
 class Train:
@@ -39,6 +33,7 @@ class Train:
         parser.add_argument("--model_name", type=str, default="autoformer")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
+        parser.add_argument("--seed", type=int, default=1234)
         parser.add_argument("--cuda", type=str, default='cuda:0')
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=96)
@@ -53,6 +48,8 @@ class Train:
                             help='Enable or disable a feature (choices: yes, no)')
 
         args = parser.parse_args()
+        self.seed = args.seed
+        set_seed(self.seed)
         self.exp_name = args.exp_name
         self.var = args.var
         self.add_diff = args.add_diff
@@ -90,11 +87,13 @@ class Train:
 
         if self.exp_name == "mnist":
 
-            self.data_loader = MnistDataLoader(batch_size=args.batch_size)
+            self.data_loader = MnistDataLoader(batch_size=args.batch_size, seed=self.seed)
 
         elif self.exp_name == "synthetic":
 
-            self.data_loader = SyntheticDataLoader(batch_size=args.batch_size, max_samples=args.max_train_sample)
+            self.data_loader = SyntheticDataLoader(batch_size=args.batch_size,
+                                                   max_samples=args.max_train_sample,
+                                                   seed=self.seed)
 
         elif self.exp_name == "User_id":
             self.data_loader = UserDataLoader(real_inputs=["time", "x", "y", "z"],
@@ -102,14 +101,16 @@ class Train:
                                               max_train_sample=args.max_train_sample,
                                               batch_size=args.batch_size,
                                               device=self.device,
-                                              data=data)
+                                              data=data,
+                                              seed=self.seed)
         else:
 
             self.data_loader = PatientDataLoader(max_encoder_length=args.max_encoder_length,
                                                  max_train_sample=args.max_train_sample,
                                                  batch_size=args.batch_size,
                                                  device=self.device,
-                                                 data=data)
+                                                 data=data,
+                                                 seed=self.seed)
 
         self.n_clusters = self.data_loader.n_clusters
         self.num_epochs = args.num_epochs
@@ -118,7 +119,7 @@ class Train:
         self.list_explored_params = []
         if args.model_name == "kmeans":
             Kmeans(n_clusters=self.n_clusters, batch_size=self.batch_size,
-                   data_loader=self.data_loader.hold_out_test)
+                   data_loader=self.data_loader.hold_out_test, seed=self.seed)
         else:
             self.best_clustering_model = nn.Module()
             self.run_optuna(args)
@@ -169,7 +170,7 @@ class Train:
                                nheads=8,
                                num_layers=num_layers,
                                attn_type=self.attn_type,
-                               seed=1234,
+                               seed=self.seed,
                                device=self.device,
                                pred_len=self.pred_len,
                                batch_size=self.batch_size,
@@ -316,7 +317,7 @@ class Train:
                                                    nheads=8,
                                                    num_layers=num_layers,
                                                    attn_type=self.attn_type,
-                                                   seed=1234,
+                                                   seed=self.seed,
                                                    device=self.device,
                                                    pred_len=self.pred_len,
                                                    batch_size=self.batch_size,
@@ -358,7 +359,7 @@ class Train:
         print("adj rand index {:.3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
 
         # Specify the file path
-        file_path = "scores_{}.csv".format(self.exp_name)
+        file_path = "scores_{}_{}.csv".format(self.exp_name, self.seed)
 
         scores = {self.model_name: {'adj': f"{adj:.3f}",
                                     'acc': f"{acc: .3f}",

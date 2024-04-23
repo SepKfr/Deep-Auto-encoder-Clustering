@@ -6,9 +6,7 @@ import ruptures as rpt
 from scipy.stats import ks_2samp
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, BatchSampler
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
 
 
 class UserDataLoader:
@@ -18,8 +16,10 @@ class UserDataLoader:
                  batch_size,
                  device,
                  data,
-                 real_inputs):
+                 real_inputs,
+                 seed):
 
+        set_seed(seed)
         self.max_encoder_length = max_encoder_length
         self.max_train_sample = max_train_sample * batch_size if max_train_sample != -1 else -1
         self.batch_size = batch_size

@@ -3,9 +3,7 @@ import torch
 import torch.nn as nn
 import random
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
+from seed_manager import set_seed
 
 
 class ConvAttn(nn.Module):
@@ -14,9 +12,7 @@ class ConvAttn(nn.Module):
 
         super(ConvAttn, self).__init__()
 
-        torch.manual_seed(seed)
-        random.seed(seed)
-        np.random.seed(seed)
+        set_seed(seed)
 
         self.d_k = d_k
         self.conv_q = nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
