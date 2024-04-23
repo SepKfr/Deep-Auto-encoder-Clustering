@@ -380,7 +380,7 @@ class Train:
         if not os.path.exists(tensor_path):
             os.makedirs(tensor_path)
             torch.save({"outputs": x_reconstructs, "knns": knns},
-                   os.path.join(tensor_path, f"{self.model_name}.pt"))
+                   os.path.join(tensor_path, f"{self.model_name}_{self.seed}.pt"))
 
         # knns = np.vstack(knns)
         # x_reconstructs = np.vstack(x_reconstructs)
