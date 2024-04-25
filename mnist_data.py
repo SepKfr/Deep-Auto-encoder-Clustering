@@ -4,6 +4,7 @@ import torchvision
 from torch.utils.data import TensorDataset, DataLoader
 import random
 
+from seed_manager import set_seed
 
 train = torchvision.datasets.MNIST('./', download=True)
 train_data = train.data.detach().numpy()
