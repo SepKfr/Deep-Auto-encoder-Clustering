@@ -30,6 +30,7 @@ class Kmeans:
         tot_p_loss = []
 
         for x, y in data_loader:
+
             adj, nmi, acc, p_score = self.predict(x, y)
             tot_adj_loss.append(adj.item())
             tot_acc_loss.append(acc.item())
