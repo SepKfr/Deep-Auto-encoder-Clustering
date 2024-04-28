@@ -7,7 +7,7 @@ from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel
 from modules.transformer import Transformer
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
-from torchmetrics import Accuracy
+from torchmetrics import Accuracy, F1Score
 from tslearn.metrics import SoftDTWLossPyTorch
 
 from seed_manager import set_seed
@@ -176,14 +176,14 @@ class DeepClustering(nn.Module):
             assigned_labels = torch.mode(labels, dim=-1).values
             adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
             nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
-            acc = Accuracy(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
+            f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
             p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
 
         else:
 
             adj_rand_index = torch.tensor(0, device=self.device)
             nmi = torch.tensor(0, device=self.device)
-            acc = torch.tensor(0, device=self.device)
+            f1 = torch.tensor(0, device=self.device)
             p_score = torch.tensor(0, device=self.device)
 
-        return loss, adj_rand_index, nmi, acc, p_score, x_rec_proj
+        return loss, adj_rand_index, nmi, f1, p_score, x_rec_proj
