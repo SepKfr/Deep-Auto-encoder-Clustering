@@ -6,7 +6,7 @@ import numpy as np
 import random
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
-from torchmetrics import Accuracy
+from torchmetrics import F1Score
 from seed_manager import set_seed
 
 
@@ -39,10 +39,10 @@ class Kmeans:
 
         adj = statistics.mean(tot_adj_loss)
         nmi = statistics.mean(tot_nmi_loss)
-        acc = statistics.mean(tot_acc_loss)
+        f1 = statistics.mean(tot_acc_loss)
         p_score = statistics.mean(tot_p_loss)
 
-        print("adj rand index {:.3f}, nmi {:.3f}, acc {:.3f}, p_score {:.3f}".format(adj, nmi, acc, p_score))
+        print("adj rand index {:.3f}, nmi {:.3f}, f1 {:.3f}, p_score {:.3f}".format(adj, nmi, f1, p_score))
 
     def predict(self, x, y):
 
@@ -54,7 +54,7 @@ class Kmeans:
 
         adj_rand_index = AdjustedRandScore()(assigned_labels, y)
         nmi = NormalizedMutualInfoScore()(assigned_labels, y)
-        acc = Accuracy(task='multiclass', num_classes=self.n_clusters)(assigned_labels, y)
+        acc = F1Score(task='multiclass', num_classes=self.n_clusters)(assigned_labels, y)
         p_score = purity_score(y.detach().numpy(), assigned_labels.detach().numpy())
 
         return adj_rand_index, nmi, acc, p_score
