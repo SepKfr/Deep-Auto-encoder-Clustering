@@ -169,7 +169,7 @@ class Train:
             model = GmmDiagonal(num_feat=self.data_loader.input_size,
                                 num_components=self.n_clusters,
                                 num_dims=d_model,
-                                device=self.device)
+                                device=self.device).to(self.device)
         else:
             model = DeepClustering(input_size=self.data_loader.input_size,
                                    n_clusters=self.n_clusters,
@@ -322,7 +322,8 @@ class Train:
                             if "gmm" in self.model_name:
                                 model = GmmDiagonal(num_feat=self.data_loader.input_size,
                                                     num_dims=d_model,
-                                                    num_components=self.n_clusters)
+                                                    num_components=self.n_clusters,
+                                                    device=self.device).to(self.device)
                             else:
                                 model = DeepClustering(input_size=self.data_loader.input_size,
                                                        n_clusters=self.n_clusters,
