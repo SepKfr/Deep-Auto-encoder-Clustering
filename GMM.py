@@ -1,6 +1,11 @@
 from typing import Iterator, List
 from abc import ABC, abstractmethod
 
+import numpy as np
+from sklearn import metrics
+from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
+from torchmetrics import Accuracy, F1Score
+
 import torch
 from enum import Enum
 from torch.distributions import (
@@ -14,6 +19,12 @@ from torch.distributions.utils import logits_to_probs
 import torch
 import numpy
 from sklearn.datasets import make_spd_matrix
+
+def purity_score(y_true, y_pred):
+    # compute contingency matrix (also called confusion matrix)
+    contingency_matrix = metrics.cluster.contingency_matrix(y_true, y_pred)
+    # return purity
+    return np.sum(np.amax(contingency_matrix, axis=0)) / np.sum(contingency_matrix)
 
 
 def make_random_scale_trils(num_sigmas: int, num_dims: int) -> torch.Tensor:
@@ -119,7 +130,7 @@ class MixtureModel(ABC, torch.nn.Module):
         return logits_to_probs(self.logits)
 
     @abstractmethod
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, y:torch.Tensor):
         raise NotImplementedError()
 
     @abstractmethod
@@ -208,6 +219,7 @@ class GmmDiagonal(MixtureModel):
             num_components: int,
             num_dims: int,
             num_feat: int,
+            device,
             init_radius: float = 1.0,
             init_mus: List[List[float]] = None
     ):
@@ -222,9 +234,12 @@ class GmmDiagonal(MixtureModel):
         self.mus = torch.nn.Parameter(init_mus)
         # represente covariance matrix as diagonals
         self.sigmas_diag = torch.nn.Parameter(torch.rand(num_components, num_dims))
+        self.n_clusters = num_components
+        self.device = device
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, y: torch.Tensor):
 
+        b, _, _ = x.shape
         x = self.embed(x)
         mixture = Categorical(logits=self.logits)
         components = Independent(Normal(self.mus, self.sigmas_diag), 1)
@@ -232,9 +247,19 @@ class GmmDiagonal(MixtureModel):
 
         prob = mixture_model.log_prob(x)
 
+        assigned_labels = self.get_cluster_assign(x)
         nll_loss = -1 * prob.mean()
 
-        return nll_loss
+        y = y[:, 0, :].reshape(-1)
+
+        adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+        nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
+        f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long),
+                                                                                     y.to(torch.long))
+        p_score = purity_score(y.to(torch.long).detach().cpu().numpy(),
+                               assigned_labels.to(torch.long).detach().cpu().numpy())
+
+        return nll_loss, adj_rand_index, nmi, f1, p_score, x
 
     def get_cluster_assign(self, x):
 
@@ -247,8 +272,8 @@ class GmmDiagonal(MixtureModel):
                 probs.append(prob)
             log_probs = torch.stack(probs, dim=-1)
             cluster_assign = torch.argmax(log_probs, dim=-1)
+            cluster_assign = torch.mode(cluster_assign, dim=-1).values
             return cluster_assign
-
 
     def constrain_parameters(self, epsilon: float = 1e-6):
         with torch.no_grad():

@@ -164,26 +164,18 @@ class DeepClustering(nn.Module):
 
         #loss = loss_rec + diff_steps + diff_knns if self.var == 2 else loss_rec
 
-        if y is not None:
 
-            y = y[:, 0, :].reshape(-1)
-            y_c = y.unsqueeze(0).expand(self.batch_size, -1)
+        y = y[:, 0, :].reshape(-1)
+        y_c = y.unsqueeze(0).expand(self.batch_size, -1)
 
-            _, k_nearest = torch.topk(scores, k=self.k, dim=-1)
-            labels = y_c[torch.arange(self.batch_size)[:, None],
-                         k_nearest]
+        _, k_nearest = torch.topk(scores, k=self.k, dim=-1)
+        labels = y_c[torch.arange(self.batch_size)[:, None],
+                     k_nearest]
 
-            assigned_labels = torch.mode(labels, dim=-1).values
-            adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-            nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
-            f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
-            p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
-
-        else:
-
-            adj_rand_index = torch.tensor(0, device=self.device)
-            nmi = torch.tensor(0, device=self.device)
-            f1 = torch.tensor(0, device=self.device)
-            p_score = torch.tensor(0, device=self.device)
+        assigned_labels = torch.mode(labels, dim=-1).values
+        adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
+        nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
+        f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
+        p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
 
         return loss, adj_rand_index, nmi, f1, p_score, x_rec_proj

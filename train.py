@@ -13,6 +13,8 @@ import pandas as pd
 import torch
 import numpy as np
 from optuna.trial import TrialState
+
+from GMM import GmmDiagonal
 from deepclustering import DeepClustering
 from mnist_data import MnistDataLoader
 from data_loader_userid import UserDataLoader
@@ -30,7 +32,7 @@ class Train:
 
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="patients_6")
-        parser.add_argument("--model_name", type=str, default="autoformer")
+        parser.add_argument("--model_name", type=str, default="gmm")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--seed", type=int, default=1234)
@@ -40,7 +42,7 @@ class Train:
         parser.add_argument("--pred_len", type=int, default=24)
         parser.add_argument("--max_train_sample", type=int, default=-1)
         parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=512)
+        parser.add_argument("--batch_size", type=int, default=1024)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--add_diff", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
@@ -129,7 +131,7 @@ class Train:
 
         study = optuna.create_study(study_name=args.model_name,
                                     direction="maximize")
-        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=1)
+        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=4)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
         complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -163,20 +165,26 @@ class Train:
         else:
             self.list_explored_params.append(tup_params)
 
-        model = DeepClustering(input_size=self.data_loader.input_size,
-                               n_clusters=self.n_clusters,
-                               knns=knns,
-                               d_model=d_model,
-                               nheads=8,
-                               num_layers=num_layers,
-                               attn_type=self.attn_type,
-                               seed=self.seed,
-                               device=self.device,
-                               pred_len=self.pred_len,
-                               batch_size=self.batch_size,
-                               var=self.var,
-                               gamma=gamma,
-                               add_diff=self.add_diff).to(self.device)
+        if "gmm" in self.model_name:
+            model = GmmDiagonal(num_feat=self.data_loader.input_size,
+                                num_components=self.n_clusters,
+                                num_dims=d_model,
+                                device=self.device)
+        else:
+            model = DeepClustering(input_size=self.data_loader.input_size,
+                                   n_clusters=self.n_clusters,
+                                   knns=knns,
+                                   d_model=d_model,
+                                   nheads=8,
+                                   num_layers=num_layers,
+                                   attn_type=self.attn_type,
+                                   seed=self.seed,
+                                   device=self.device,
+                                   pred_len=self.pred_len,
+                                   batch_size=self.batch_size,
+                                   var=self.var,
+                                   gamma=gamma,
+                                   add_diff=self.add_diff).to(self.device)
 
         cluster_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
@@ -311,20 +319,25 @@ class Train:
                 for num_layers in num_layers_list:
                     for gm in gamma:
                         try:
-                            model = DeepClustering(input_size=self.data_loader.input_size,
-                                                   n_clusters=self.n_clusters,
-                                                   d_model=d_model,
-                                                   nheads=8,
-                                                   num_layers=num_layers,
-                                                   attn_type=self.attn_type,
-                                                   seed=self.seed,
-                                                   device=self.device,
-                                                   pred_len=self.pred_len,
-                                                   batch_size=self.batch_size,
-                                                   var=self.var,
-                                                   knns=knn,
-                                                   gamma=gm,
-                                                   add_diff=self.add_diff).to(self.device)
+                            if "gmm" in self.model_name:
+                                model = GmmDiagonal(num_feat=self.data_loader.input_size,
+                                                    num_dims=d_model,
+                                                    num_components=self.n_clusters)
+                            else:
+                                model = DeepClustering(input_size=self.data_loader.input_size,
+                                                       n_clusters=self.n_clusters,
+                                                       d_model=d_model,
+                                                       nheads=8,
+                                                       num_layers=num_layers,
+                                                       attn_type=self.attn_type,
+                                                       seed=self.seed,
+                                                       device=self.device,
+                                                       pred_len=self.pred_len,
+                                                       batch_size=self.batch_size,
+                                                       var=self.var,
+                                                       knns=knn,
+                                                       gamma=gm,
+                                                       add_diff=self.add_diff).to(self.device)
 
                             checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
                                                     map_location=self.device)
