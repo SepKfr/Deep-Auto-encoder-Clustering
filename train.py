@@ -23,6 +23,7 @@ from matplotlib.patches import Circle
 from matplotlib.colors import to_rgba
 
 from psycology_data_loader import PatientDataLoader
+from som_vae import SOMVAE
 from synthetic_data import SyntheticDataLoader
 from seed_manager import set_seed
 
@@ -32,7 +33,7 @@ class Train:
 
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="patients_6")
-        parser.add_argument("--model_name", type=str, default="gmm")
+        parser.add_argument("--model_name", type=str, default="som_vae")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--seed", type=int, default=1234)
@@ -40,9 +41,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_train_sample", type=int, default=16)
         parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=1024)
+        parser.add_argument("--batch_size", type=int, default=8)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--add_diff", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
@@ -165,7 +166,12 @@ class Train:
         else:
             self.list_explored_params.append(tup_params)
 
-        if "gmm" in self.model_name:
+        if "som_vae" in self.model_name:
+            model = SOMVAE(d_input=self.max_encoder_length,
+                           d_channel=self.data_loader.input_size,
+                           n_clusters=self.n_clusters,
+                           d_latent=d_model).to(self.device)
+        elif "gmm" in self.model_name:
             model = GmmDiagonal(num_feat=self.data_loader.input_size,
                                 num_components=self.n_clusters,
                                 num_dims=d_model,
@@ -319,7 +325,12 @@ class Train:
                 for num_layers in num_layers_list:
                     for gm in gamma:
                         try:
-                            if "gmm" in self.model_name:
+                            if "som_vae" in self.model_name:
+                                model = SOMVAE(d_input=self.max_encoder_length,
+                                               d_channel=self.data_loader.input_size,
+                                               n_clusters=self.n_clusters,
+                                               d_latent=d_model).to(self.device)
+                            elif "gmm" in self.model_name:
                                 model = GmmDiagonal(num_feat=self.data_loader.input_size,
                                                     num_dims=d_model,
                                                     num_components=self.n_clusters,
