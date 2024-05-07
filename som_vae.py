@@ -61,7 +61,7 @@ class SOMVAE(nn.Module):
                  d_channel: int = 3,
                  d_enc_dec: int = 100,
                  d_latent: int = 64,
-                 device: str = "cpu",
+                 device: torch.device = torch.device("cpu"),
                  n_clusters: int,
                  alpha: float = 1,
                  beta: float = 1,

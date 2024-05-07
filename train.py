@@ -41,9 +41,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=16)
+        parser.add_argument("--max_train_sample", type=int, default=-1)
         parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=8)
+        parser.add_argument("--batch_size", type=int, default=1024)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--add_diff", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
@@ -170,7 +170,8 @@ class Train:
             model = SOMVAE(d_input=self.max_encoder_length,
                            d_channel=self.data_loader.input_size,
                            n_clusters=self.n_clusters,
-                           d_latent=d_model).to(self.device)
+                           d_latent=d_model,
+                           device=self.device).to(self.device)
         elif "gmm" in self.model_name:
             model = GmmDiagonal(num_feat=self.data_loader.input_size,
                                 num_components=self.n_clusters,
@@ -329,7 +330,8 @@ class Train:
                                 model = SOMVAE(d_input=self.max_encoder_length,
                                                d_channel=self.data_loader.input_size,
                                                n_clusters=self.n_clusters,
-                                               d_latent=d_model).to(self.device)
+                                               d_latent=d_model,
+                                               device=self.device).to(self.device)
                             elif "gmm" in self.model_name:
                                 model = GmmDiagonal(num_feat=self.data_loader.input_size,
                                                     num_dims=d_model,
