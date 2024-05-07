@@ -81,7 +81,8 @@ class SOMVAE(nn.Module):
         self.decoder_q = LinearDecoder(latent_dim=d_latent, hidden_size=d_enc_dec,
                                        seq_len=d_input, input_size=d_channel)
 
-        self.embeddings = nn.Parameter(nn.init.trunc_normal_(torch.empty((self.d_som[0], self.d_som[1], d_latent)),
+        self.embeddings = nn.Parameter(nn.init.trunc_normal_(torch.empty((self.d_som[0],
+                                                                          self.d_som[1], d_latent)),
                                                              std=0.05, a=-0.1, b=0.1))
         self.mse_loss = nn.MSELoss()
 
@@ -150,7 +151,7 @@ class SOMVAE(nn.Module):
         outputs = torch.stack(outputs)
         return outputs
 
-    def _find_closest_embedding(self, z_e, batch_size=32):
+    def _find_closest_embedding(self, z_e, batch_size):
         """Picks the closest embedding for every encoding."""
         z_dist = (z_e.unsqueeze(1).unsqueeze(2) - self.embeddings.unsqueeze(0)) ** 2
         z_dist_sum = torch.sum(z_dist, dim=-1)
