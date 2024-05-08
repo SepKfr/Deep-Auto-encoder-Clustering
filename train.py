@@ -196,7 +196,7 @@ class Train:
 
         best_trial_valid_loss = -1e10
 
-        for epoch in range(50):
+        for epoch in range(self.num_epochs):
 
             model.train()
             train_loss = 0
