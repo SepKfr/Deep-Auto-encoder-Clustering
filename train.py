@@ -231,7 +231,8 @@ class Train:
             if epoch % 5 == 0:
                 print(f"Epoch: {epoch}, train loss: {train_loss:.3f}")
                 print(f"Epoch: {epoch}, valid loss: {valid_loss:.3f}")
-            return best_trial_valid_loss
+
+        return best_trial_valid_loss
 
     def train_clustering(self, trial):
 
