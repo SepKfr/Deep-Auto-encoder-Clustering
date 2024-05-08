@@ -33,7 +33,7 @@ class ACAT(nn.Module):
         self.norm = nn.BatchNorm1d(h * d_k)
         self.activation = nn.ELU()
 
-    def forward(self, Q, K, V):
+    def forward(self, Q, K, V, mask=False):
 
         b, h, l, d_k = Q.shape
         l_k = K.shape[2]

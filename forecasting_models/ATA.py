@@ -14,7 +14,7 @@ class ATA(nn.Module):
         set_seed(seed)
 
         self.d_k = d_k
-        self.filter_length = [1, 3, 7, 9]
+        self.filter_length = [3, 7, 9]
 
         self.conv_list_k = nn.ModuleList([
             nn.Sequential(nn.Conv1d(
@@ -35,7 +35,7 @@ class ATA(nn.Module):
 
         self.factor = 1
 
-    def forward(self, Q, K, V):
+    def forward(self, Q, K, V, attn_mask=False):
 
         b, h, l, d_k = Q.shape
 
@@ -59,6 +59,12 @@ class ATA(nn.Module):
         K, _ = torch.topk(K_proj, dim=-1, k=1)
 
         scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
+
+        if attn_mask:
+
+            mask = torch.tril(torch.ones(l, l_k)).to(torch.bool)
+            mask = mask.unsqueeze(0).repeat(b, 1, 1).unsqueeze(1).repeat(1, h, 1, 1)
+            scores.masked_fill_(mask, -torch.inf)
 
         attn = torch.softmax(scores, -1)
         context = torch.einsum('bhqk,bhkd->bhqd', attn, V)

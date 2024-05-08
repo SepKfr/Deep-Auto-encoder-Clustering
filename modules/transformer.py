@@ -134,6 +134,7 @@ class Transformer(nn.Module):
 
         self.encoder = Encoder(self.encoder_layer, num_layers=num_layers)
         self.decoder = Decoder(self.decoder_layer, num_layers=num_layers)
+        self.proj_down = nn.Linear(d_model, input_size)
         self.n_heads = nheads
         self.d_model = d_model
         self.device = device
@@ -142,7 +143,6 @@ class Transformer(nn.Module):
 
     def forward(self, inputs):
 
-        s_len = inputs.shape[1]
         x = torch.split(inputs, split_size_or_sections=int(inputs.shape[1] / 2), dim=1)
 
         enc_input = x[0]
@@ -157,7 +157,10 @@ class Transformer(nn.Module):
 
         memory = self.encoder(enc_input)
         output = self.decoder(dec_input, memory)
+
         final_output = torch.cat([memory, output], dim=1)
+        final_output = self.proj_down(final_output)
+
         return final_output
 
 

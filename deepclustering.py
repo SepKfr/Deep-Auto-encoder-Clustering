@@ -45,10 +45,9 @@ class Autoencoder(nn.Module):
 class DeepClustering(nn.Module):
 
     def __init__(self, input_size, knns,
-                 d_model, nheads, n_clusters,
-                 num_layers, attn_type, seed,
-                 device, pred_len, batch_size,
-                 var=1, gamma=0.1, gp=False, add_diff=True):
+                 d_model, n_clusters,
+                 seed, device, pred_len, batch_size,
+                 var=1, gamma=0.1, add_diff=True):
 
         super(DeepClustering, self).__init__()
 
@@ -57,15 +56,14 @@ class DeepClustering(nn.Module):
         self.device = device
         self.add_diff = add_diff
         self.enc_embedding = nn.Linear(input_size, d_model)
-
-        self.seq_model = Transformer(input_size=d_model, d_model=d_model,
-                                     nheads=nheads, num_layers=num_layers,
-                                     attn_type=attn_type, seed=seed, device=device)
-
+        self.enc_gen_embedding = nn.Linear(input_size, d_model)
+        self.ffn = nn.Sequential(nn.Linear(d_model, d_model*4),
+                                 nn.ReLU(),
+                                 nn.Linear(d_model*4, d_model))
         self.proj_down = nn.Linear(d_model, input_size)
+        self.layer_norm = nn.LayerNorm(d_model)
 
         self.pred_len = pred_len
-        self.nheads = nheads
         self.batch_size = batch_size
         self.d_model = d_model
         self.input_size = input_size
@@ -75,15 +73,15 @@ class DeepClustering(nn.Module):
         self.k = knns
         self.gamma = gamma
 
-    def forward(self, x, y=None):
+    def forward(self, x, x_gen, y=None):
 
         s_l = x.shape[1]
         if len(x.shape) > 3:
             x = x.reshape(self.batch_size, s_l, -1)
 
         x_enc = self.enc_embedding(x)
-
-        x_enc = self.seq_model(x_enc)
+        x_gen = self.enc_gen_embedding(x_gen)
+        x_enc = self.layer_norm(x_enc + self.ffn(x_gen))
 
         x_enc_re = x_enc.reshape(self.batch_size, -1)
         attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)

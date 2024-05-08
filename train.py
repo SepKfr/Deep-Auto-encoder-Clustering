@@ -22,6 +22,7 @@ from Kmeans import Kmeans
 from matplotlib.patches import Circle
 from matplotlib.colors import to_rgba
 
+from modules.transformer import Transformer
 from psycology_data_loader import PatientDataLoader
 from som_vae import SOMVAE
 from synthetic_data import SyntheticDataLoader
@@ -33,8 +34,8 @@ class Train:
 
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="patients_6")
-        parser.add_argument("--model_name", type=str, default="som_vae")
-        parser.add_argument("--num_epochs", type=int, default=10)
+        parser.add_argument("--model_name", type=str, default="basic_attn")
+        parser.add_argument("--num_epochs", type=int, default=5)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--seed", type=int, default=1234)
         parser.add_argument("--cuda", type=str, default='cuda:0')
@@ -59,8 +60,11 @@ class Train:
 
         if self.exp_name == "mnist":
             pass
+
         elif self.exp_name == "synthetic":
+
             pass
+
         elif self.exp_name == "User_id":
 
             data_path = "{}.csv".format(args.exp_name)
@@ -68,6 +72,7 @@ class Train:
             data.sort_values(by=["id", "time"], inplace=True)
 
         else:
+
             data_path = "{}.csv".format(args.exp_name)
             data = pd.read_csv(data_path)
 
@@ -79,6 +84,7 @@ class Train:
         self.max_encoder_length = args.max_encoder_length
 
         model_dir = "clustering_models_dir"
+
         if not os.path.exists(model_dir):
             os.makedirs(model_dir)
 
@@ -99,6 +105,7 @@ class Train:
                                                    seed=self.seed)
 
         elif self.exp_name == "User_id":
+
             self.data_loader = UserDataLoader(real_inputs=["time", "x", "y", "z"],
                                               max_encoder_length=args.max_encoder_length,
                                               max_train_sample=args.max_train_sample,
@@ -118,21 +125,33 @@ class Train:
         self.n_clusters = self.data_loader.n_clusters
         self.num_epochs = args.num_epochs
         self.batch_size = args.batch_size
-        self.best_overall_valid_loss = -1e10
-        self.list_explored_params = []
+
         if args.model_name == "kmeans":
             Kmeans(n_clusters=self.n_clusters, batch_size=self.batch_size,
                    data_loader=self.data_loader.hold_out_test, seed=self.seed)
         else:
+            self.list_explored_params = []
+            self.best_generative_model = None
+            self.best_overall_valid_loss = -1e10
+            self.run_optuna(args, "minimize")
+            self.list_explored_params = []
+            self.best_overall_valid_loss = -1e10
             self.best_clustering_model = nn.Module()
             self.run_optuna(args)
             self.evaluate()
 
-    def run_optuna(self, args):
+    def run_optuna(self, args, direction="maximize"):
 
         study = optuna.create_study(study_name=args.model_name,
-                                    direction="maximize")
-        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=1)
+                                    direction=direction)
+
+        def get_objective(trial):
+            if direction == "minimize":
+                return self.train_gen_model(trial)
+            else:
+                return self.train_clustering(trial)
+
+        study.optimize(get_objective, n_trials=args.n_trials, n_jobs=4)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
         complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -151,15 +170,77 @@ class Train:
         for key, value in trial.params.items():
             print("    {}: {}".format(key, value))
 
-    def train_clustering(self, trial):
+    def train_gen_model(self, trial):
 
         d_model = trial.suggest_categorical("d_model", [32, 64])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
+        tmax = trial.suggest_categorical("tmax", [10, 20])
+
+        tup_params = [d_model, num_layers, tmax]
+
+        if tup_params in self.list_explored_params:
+            raise optuna.TrialPruned()
+        else:
+            self.list_explored_params.append(tup_params)
+
+        model = Transformer(input_size=self.data_loader.input_size,
+                            d_model=d_model,
+                            nheads=8,
+                            num_layers=num_layers,
+                            attn_type=self.attn_type,
+                            seed=self.seed,
+                            device=self.device).to(self.device)
+
+        gen_optimizer = Adam(model.parameters())
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(gen_optimizer, T_max=tmax)
+
+        best_trial_valid_loss = -1e10
+
+        for epoch in range(self.num_epochs):
+
+            model.train()
+            train_loss = 0
+            for x, y in self.data_loader.train_loader:
+
+                outputs = model(x.to(self.device))
+                loss = nn.MSELoss()(outputs, x.to(self.device))
+                train_loss += loss.item()
+                gen_optimizer.zero_grad()
+                loss.backward()
+
+                gen_optimizer.step()
+                scheduler.step()
+
+            model.eval()
+            valid_loss = 0
+
+            for x, y in self.data_loader.test_loader:
+                outputs = model(x.to(self.device))
+                loss = nn.MSELoss()(outputs, x.to(self.device))
+                valid_loss += loss.item()
+
+            if valid_loss > best_trial_valid_loss:
+                best_trial_valid_loss = valid_loss
+                if best_trial_valid_loss > self.best_overall_valid_loss:
+                    self.best_overall_valid_loss = best_trial_valid_loss
+                    self.best_generative_model = model
+                    torch.save(model.state_dict(),
+                               os.path.join(self.model_path,
+                                            "{}_generative.pth".format(self.model_name)))
+
+            if epoch % 5 == 0:
+                print(f"Epoch: {epoch}, train loss: {train_loss:.3f}")
+                print(f"Epoch: {epoch}, valid loss: {valid_loss:.3f}")
+            return best_trial_valid_loss
+
+    def train_clustering(self, trial):
+
+        d_model = trial.suggest_categorical("d_model", [32, 64])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [20, 10, 5])
         tmax = trial.suggest_categorical("tmax", [10, 20])
 
-        tup_params = [d_model, num_layers, gamma, knns, tmax]
+        tup_params = [d_model, gamma, knns, tmax]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -167,12 +248,15 @@ class Train:
             self.list_explored_params.append(tup_params)
 
         if "som_vae" in self.model_name:
+
             model = SOMVAE(d_input=self.max_encoder_length,
                            d_channel=self.data_loader.input_size,
                            n_clusters=self.n_clusters,
                            d_latent=d_model,
                            device=self.device).to(self.device)
+
         elif "gmm" in self.model_name:
+
             model = GmmDiagonal(num_feat=self.data_loader.input_size,
                                 num_components=self.n_clusters,
                                 num_dims=d_model,
@@ -182,9 +266,6 @@ class Train:
                                    n_clusters=self.n_clusters,
                                    knns=knns,
                                    d_model=d_model,
-                                   nheads=8,
-                                   num_layers=num_layers,
-                                   attn_type=self.attn_type,
                                    seed=self.seed,
                                    device=self.device,
                                    pred_len=self.pred_len,
@@ -211,16 +292,22 @@ class Train:
             list_of_train_p = []
             list_of_valid_p = []
 
-            model.train()
             train_knn_loss = 0
             train_adj_loss = 0
             train_nmi_loss = 0
             train_acc_loss = 0
             train_p_loss = 0
 
+            model.train()
             for x, y in self.data_loader.train_loader:
 
-                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
+                if self.best_generative_model:
+                    with torch.no_grad():
+                        x_gen = self.best_generative_model(x.to(self.device))
+
+                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x, x_gen, y.to(self.device))
+                else:
+                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x, y.to(self.device))
 
                 cluster_optimizer.zero_grad()
                 loss.backward()
@@ -253,7 +340,13 @@ class Train:
 
             for x, y in self.data_loader.test_loader:
 
-                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
+                if self.best_generative_model:
+                    with torch.no_grad():
+                        x_gen = self.best_generative_model(x.to(self.device))
+                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), x_gen, y.to(self.device))
+                else:
+                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
+
                 valid_knn_loss += loss.item()
                 valid_adj_loss += adj_rand_index.item()
                 valid_nmi_loss += nmi.item()
@@ -300,10 +393,6 @@ class Train:
 
         return best_trial_valid_loss
 
-    def objective(self, trial):
-
-        return self.train_clustering(trial)
-
     def evaluate(self):
         """
         Evaluate the performance of the best ForecastDenoising model on the test set.
@@ -341,9 +430,6 @@ class Train:
                                 model = DeepClustering(input_size=self.data_loader.input_size,
                                                        n_clusters=self.n_clusters,
                                                        d_model=d_model,
-                                                       nheads=8,
-                                                       num_layers=num_layers,
-                                                       attn_type=self.attn_type,
                                                        seed=self.seed,
                                                        device=self.device,
                                                        pred_len=self.pred_len,
@@ -364,7 +450,13 @@ class Train:
 
                             for x, labels in self.data_loader.hold_out_test:
 
-                                _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device), labels.to(self.device))
+                                if "gmm" not in self.model_name and "som_vae" not in self.model_name:
+                                    with torch.no_grad():
+                                        x_gen = self.best_generative_model(x.to(self.device))
+                                    _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device), x_gen, labels.to(self.device))
+                                else:
+                                    _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device),
+                                                                                    labels.to(self.device))
                                 x_reconstructs.append(outputs[1].detach().cpu())
                                 knns.append(outputs[0].detach().cpu())
                                 tot_adj_loss.append(adj_loss.item())
