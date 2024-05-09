@@ -306,9 +306,9 @@ class Train:
                     with torch.no_grad():
                         x_gen = self.best_generative_model(x.to(self.device))
 
-                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x, x_gen, y.to(self.device))
+                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), x_gen, y.to(self.device))
                 else:
-                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x, y.to(self.device))
+                    loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
 
                 cluster_optimizer.zero_grad()
                 loss.backward()
@@ -451,7 +451,7 @@ class Train:
 
                             for x, labels in self.data_loader.hold_out_test:
 
-                                if "gmm" not in self.model_name and "som_vae" not in self.model_name:
+                                if self.best_generative_model:
                                     with torch.no_grad():
                                         x_gen = self.best_generative_model(x.to(self.device))
                                     _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device), x_gen, labels.to(self.device))
