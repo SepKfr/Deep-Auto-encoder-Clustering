@@ -132,7 +132,7 @@ class Train:
         else:
             self.list_explored_params = []
             self.best_generative_model = None
-            self.best_overall_valid_loss = -1e10
+            self.best_overall_valid_loss = 1e10
             self.run_optuna(args, "minimize")
             self.list_explored_params = []
             self.best_overall_valid_loss = -1e10
@@ -194,7 +194,7 @@ class Train:
         gen_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(gen_optimizer, T_max=tmax)
 
-        best_trial_valid_loss = -1e10
+        best_trial_valid_loss = 1e10
 
         for epoch in range(self.num_epochs):
 
@@ -219,9 +219,9 @@ class Train:
                 loss = nn.MSELoss()(outputs, x.to(self.device))
                 valid_loss += loss.item()
 
-            if valid_loss > best_trial_valid_loss:
+            if valid_loss < best_trial_valid_loss:
                 best_trial_valid_loss = valid_loss
-                if best_trial_valid_loss > self.best_overall_valid_loss:
+                if best_trial_valid_loss < self.best_overall_valid_loss:
                     self.best_overall_valid_loss = best_trial_valid_loss
                     self.best_generative_model = model
                     torch.save(model.state_dict(),
