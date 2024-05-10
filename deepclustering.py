@@ -183,10 +183,6 @@ class DeepClustering(nn.Module):
         x_rec_cluster = x_rec_cluster[permuted_indexes]
         y_en = y_en[permuted_indexes]
 
-        picks = int(np.log2(len(y_en)))
-        x_rec_cluster = x_rec_cluster[picks]
-        y_en = y_en[picks]
-
         cross_loss = nn.CrossEntropyLoss()(x_rec_cluster, y_en)
 
         tot_loss = loss + cross_loss
