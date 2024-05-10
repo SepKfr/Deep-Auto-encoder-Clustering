@@ -61,7 +61,7 @@ class ATA(nn.Module):
 
         scores = torch.einsum('bhqd,bhkd->bhqk', Q, K) / np.sqrt(self.d_k)
 
-        if attn_mask:
+        if mask:
 
             mask = torch.tril(torch.ones(l, l_k)).to(torch.bool)
             mask = mask.unsqueeze(0).repeat(b, 1, 1).unsqueeze(1).repeat(1, h, 1, 1).to(self.device)
