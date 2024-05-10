@@ -79,7 +79,7 @@ class MultiHeadAttention(nn.Module):
             context, attn = ProbAttention(mask_flag=False, seed=self.seed)(q_s, k_s, v_s)
 
         else:
-            context, attn = BasicAttn(d_k=self.d_k)(Q=q_s, K=k_s, V=v_s, mask=mask)
+            context, attn = BasicAttn(d_k=self.d_k, device=self.device)(Q=q_s, K=k_s, V=v_s, mask=mask)
 
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         outputs = self.fc(context)
