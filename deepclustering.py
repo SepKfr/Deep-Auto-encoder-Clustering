@@ -107,7 +107,7 @@ class DeepClustering(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x[:, -96:, :]).mean()
+        loss = loss(x_rec_proj, x[:, -50:, :]).mean()
 
         #x_rec = self.proj_down(output_seq)
 

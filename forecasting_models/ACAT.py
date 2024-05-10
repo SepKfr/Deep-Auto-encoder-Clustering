@@ -52,10 +52,15 @@ class ACAT(nn.Module):
 
         scores = torch.einsum('bhpqd,bhpkd->bhpqk', Q_p, K_p) / np.sqrt(self.d_k)
 
+        if mask:
+
+            mask = torch.tril(torch.ones(l, l_k)).to(torch.bool)
+            mask = mask.unsqueeze(0).repeat(b, 1, 1).unsqueeze(1).\
+                repeat(1, h, 1, 1).unsqueeze(2).repeat(1, 1, len_n_k, 1, 1).to(self.device)
+            scores.masked_fill_(mask, -1e10)
+
         attn = torch.softmax(scores, -1)
         attn, _ = torch.max(attn, dim=2)
-        attn_f = torch.zeros(b, h, l, l_k).to(self.device)
-        attn_f[:, :, :, 0::m_f] = attn
-        attn_f = torch.softmax(attn_f, -1)
-        context = torch.einsum('bhqk,bhkd->bhqd', attn_f, V)
-        return context, attn_f
+
+        context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
+        return context, attn
