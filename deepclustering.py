@@ -183,7 +183,7 @@ class DeepClustering(nn.Module):
         x_rec_cluster = x_rec_cluster[permuted_indexes]
         y_en = y_en[permuted_indexes]
 
-        picks = np.log2(len(y_en))
+        picks = int(np.log2(len(y_en)))
         x_rec_cluster = x_rec_cluster[picks]
         y_en = y_en[picks]
 
