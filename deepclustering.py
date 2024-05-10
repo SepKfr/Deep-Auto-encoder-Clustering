@@ -179,5 +179,15 @@ class DeepClustering(nn.Module):
         y_en = y_en.reshape(-1).to(torch.long)
         x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
 
-        tot_loss = loss + nn.CrossEntropyLoss()(x_rec_cluster, y_en)
+        permuted_indexes = torch.randperm(len(y_en))
+        x_rec_cluster = x_rec_cluster[permuted_indexes]
+        y_en = y_en[permuted_indexes]
+
+        picks = np.log2(len(y_en))
+        x_rec_cluster = x_rec_cluster[picks]
+        y_en = y_en[picks]
+
+        cross_loss = nn.CrossEntropyLoss()(x_rec_cluster, y_en)
+
+        tot_loss = loss + cross_loss
         return tot_loss, adj_rand_index, nmi, f1, p_score, x_rec_proj
