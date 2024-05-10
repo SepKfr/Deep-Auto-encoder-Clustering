@@ -156,7 +156,7 @@ class Train:
         d_model = trial.suggest_categorical("d_model", [32, 64])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
-        knns = trial.suggest_categorical("knns", [5, 10])
+        knns = trial.suggest_categorical("knns", [5, 10, 50])
         lr = trial.suggest_categorical("lr", [0.001, 0.0001])
 
         tup_params = [d_model, num_layers, gamma, knns, lr]
@@ -224,9 +224,9 @@ class Train:
                 cluster_optimizer.zero_grad()
                 loss.backward()
 
-                for param in model.parameters():
-                    if param.grad is not None:
-                        param.grad.data.clamp_(min=0.5)
+                # for param in model.parameters():
+                #     if param.grad is not None:
+                #         param.grad.data.clamp_(min=0.1)
 
                 cluster_optimizer.step()
                 train_knn_loss += loss.item()
@@ -316,7 +316,7 @@ class Train:
 
         d_model_list = [32, 64]
         num_layers_list = [1, 3]
-        knn_list = [20, 10, 5]
+        knn_list = [50, 10, 5]
         gamma = [0.1, 0.01]
 
         for knn in knn_list:
