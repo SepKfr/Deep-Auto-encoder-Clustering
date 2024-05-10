@@ -88,11 +88,7 @@ class DeepClustering(nn.Module):
         attn_score = attn_score.masked_fill(mask, value=-torch.inf)
         scores = torch.softmax(attn_score, dim=-1)
 
-        top_ones, top_scores_id = torch.topk(scores, k=self.k, dim=-1)
-        top_scores = torch.zeros_like(scores)
-        top_scores[torch.arange(self.batch_size)[:, None], top_scores_id] = top_ones
-
-        x_rec = torch.einsum('bd, bc-> bd', x_enc_re, top_scores)
+        x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
         x_rec = x_rec.reshape(x_enc.shape)
         # x_rec_cluster = self.proj_to_cluster(x_rec)
         x_rec_proj = self.proj_down(x_rec)
