@@ -56,21 +56,19 @@ class DeepClustering(nn.Module):
 
         self.device = device
         self.add_diff = add_diff
-        self.enc_embedding = nn.Linear(input_size, d_model)
 
-        self.seq_model = Transformer(input_size=d_model, d_model=d_model,
+        self.seq_model = Transformer(input_size=input_size, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
                                      attn_type=attn_type, seed=seed, device=device)
 
         self.proj_down = nn.Linear(d_model, input_size)
-        self.proj_to_cluster = nn.Linear(d_model, n_clusters)
+        # self.proj_to_cluster = nn.Linear(d_model, n_clusters)
 
         self.pred_len = pred_len
         self.nheads = nheads
         self.batch_size = batch_size
         self.d_model = d_model
         self.input_size = input_size
-        self.time_proj = 100
         self.n_clusters = n_clusters
         self.var = var
         self.k = knns
@@ -82,9 +80,7 @@ class DeepClustering(nn.Module):
         if len(x.shape) > 3:
             x = x.reshape(self.batch_size, s_l, -1)
 
-        x_enc = self.enc_embedding(x)
-
-        x_enc = self.seq_model(x_enc)
+        x_enc = self.seq_model(x)
 
         x_enc_re = x_enc.reshape(self.batch_size, -1)
         attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)
@@ -94,7 +90,7 @@ class DeepClustering(nn.Module):
 
         x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
         x_rec = x_rec.reshape(x_enc.shape)
-        x_rec_cluster = self.proj_to_cluster(x_rec)
+        # x_rec_cluster = self.proj_to_cluster(x_rec)
         x_rec_proj = self.proj_down(x_rec)
 
         # _, top_scores = torch.topk(scores, k=self.k, dim=-1)
@@ -162,7 +158,7 @@ class DeepClustering(nn.Module):
 
         #loss = loss_rec + diff_steps + diff_knns if self.var == 2 else loss_rec
 
-        y_en = y
+        # y_en = y
         y = y[:, 0, :].reshape(-1)
         y_c = y.unsqueeze(0).expand(self.batch_size, -1)
 
@@ -176,14 +172,14 @@ class DeepClustering(nn.Module):
         f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
         p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
 
-        y_en = y_en.reshape(-1).to(torch.long)
-        x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
+        # y_en = y_en.reshape(-1).to(torch.long)
+        # x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
 
-        permuted_indexes = torch.randperm(len(y_en))
-        x_rec_cluster = x_rec_cluster[permuted_indexes]
-        y_en = y_en[permuted_indexes]
+        # permuted_indexes = torch.randperm(len(y_en))
+        # x_rec_cluster = x_rec_cluster[permuted_indexes]
+        # y_en = y_en[permuted_indexes]
 
-        cross_loss = nn.CrossEntropyLoss()(x_rec_cluster, y_en)
+        # cross_loss = nn.CrossEntropyLoss()(x_rec_cluster, y_en)
 
-        tot_loss = loss + cross_loss
+        tot_loss = loss
         return tot_loss, adj_rand_index, nmi, f1, p_score, x_rec_proj
