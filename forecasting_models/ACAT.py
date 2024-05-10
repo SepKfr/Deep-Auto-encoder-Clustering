@@ -10,7 +10,7 @@ random.seed(1234)
 
 class ACAT(nn.Module):
 
-    def __init__(self, d_k, h, seed):
+    def __init__(self, d_k, h, seed, device):
 
         super(ACAT, self).__init__()
 
@@ -18,18 +18,20 @@ class ACAT(nn.Module):
         random.seed(seed)
         np.random.seed(seed)
 
+        self.device = device
+
         self.d_k = d_k
         self.filter_length = [1, 3, 7, 9]
         self.conv_list_q = nn.ModuleList(
             [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
                        kernel_size=f,
                        padding=int(f/2),
-                       bias=False) for f in self.filter_length])
+                       bias=False) for f in self.filter_length]).to(device)
         self.conv_list_k = nn.ModuleList(
             [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
                        kernel_size=f,
                        padding=int(f/2),
-                       bias=False) for f in self.filter_length])
+                       bias=False) for f in self.filter_length]).to(device)
         self.norm = nn.BatchNorm1d(h * d_k)
         self.activation = nn.ELU()
 
