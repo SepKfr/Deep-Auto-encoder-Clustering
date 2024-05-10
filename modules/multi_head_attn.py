@@ -42,7 +42,7 @@ class MultiHeadAttention(nn.Module):
         self.attn_type = attn_type
         self.seed = seed
 
-    def forward(self, Q, K, V):
+    def forward(self, Q, K, V, mask=False):
 
         batch_size = Q.shape[0]
 
@@ -54,7 +54,7 @@ class MultiHeadAttention(nn.Module):
 
         if self.attn_type == "ATA":
             context, attn = ATA(d_k=self.d_k, h=self.n_heads, seed=self.seed, device=self.device)(
-            Q=q_s, K=k_s, V=v_s)
+            Q=q_s, K=k_s, V=v_s, mask=mask)
 
         elif self.attn_type == "ACAT":
             context, attn = ACAT(d_k=self.d_k, h=self.n_heads, seed=self.seed)(
@@ -79,7 +79,7 @@ class MultiHeadAttention(nn.Module):
             context, attn = ProbAttention(mask_flag=False, seed=self.seed)(q_s, k_s, v_s)
 
         else:
-            context, attn = BasicAttn(d_k=self.d_k)(Q=q_s, K=k_s, V=v_s)
+            context, attn = BasicAttn(d_k=self.d_k)(Q=q_s, K=k_s, V=v_s, mask=mask)
 
         context = context.transpose(1, 2).contiguous().view(batch_size, -1, self.n_heads * self.d_v)
         outputs = self.fc(context)
