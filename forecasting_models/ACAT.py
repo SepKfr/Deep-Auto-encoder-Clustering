@@ -3,10 +3,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-torch.manual_seed(1234)
-np.random.seed(1234)
-random.seed(1234)
-
 
 class ACAT(nn.Module):
 
@@ -21,18 +17,18 @@ class ACAT(nn.Module):
         self.device = device
 
         self.d_k = d_k
-        self.filter_length = [1, 3, 7, 9]
+        self.filter_length = [3, 7, 9]
         self.conv_list_q = nn.ModuleList(
             [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
                        kernel_size=f,
                        padding=int(f/2),
-                       bias=False) for f in self.filter_length]).to(device)
+                       device=device) for f in self.filter_length])
         self.conv_list_k = nn.ModuleList(
             [nn.Conv1d(in_channels=d_k*h, out_channels=d_k*h,
                        kernel_size=f,
                        padding=int(f/2),
-                       bias=False) for f in self.filter_length]).to(device)
-        self.norm = nn.BatchNorm1d(h * d_k)
+                       device=device) for f in self.filter_length])
+        self.norm = nn.BatchNorm1d(h * d_k).to(device)
         self.activation = nn.ELU()
 
     def forward(self, Q, K, V, mask=False):
