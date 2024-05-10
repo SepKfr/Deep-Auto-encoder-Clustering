@@ -5,11 +5,12 @@ import torch.nn as nn
 
 class BasicAttn(nn.Module):
 
-    def __init__(self, d_k):
+    def __init__(self, d_k, device):
 
         super(BasicAttn, self).__init__()
 
         self.d_k = d_k
+        self.device = device
 
     def forward(self, Q, K, V, mask=False):
 
@@ -21,7 +22,7 @@ class BasicAttn(nn.Module):
         if mask:
 
             mask = torch.tril(torch.ones(l, l_k)).to(torch.bool)
-            mask = mask.unsqueeze(0).repeat(b, 1, 1).unsqueeze(1).repeat(1, h, 1, 1)
+            mask = mask.unsqueeze(0).repeat(b, 1, 1).unsqueeze(1).repeat(1, h, 1, 1).to(self.device)
             scores.masked_fill_(mask, -1e10)
 
         attn = torch.softmax(scores, -1)

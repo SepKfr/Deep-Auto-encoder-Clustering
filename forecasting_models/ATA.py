@@ -14,7 +14,8 @@ class ATA(nn.Module):
         set_seed(seed)
 
         self.d_k = d_k
-        self.filter_length = [3, 7, 9]
+        self.filter_length = [1, 3, 7, 9]
+        self.device = device
 
         self.conv_list_k = nn.ModuleList([
             nn.Sequential(nn.Conv1d(
@@ -63,8 +64,8 @@ class ATA(nn.Module):
         if attn_mask:
 
             mask = torch.tril(torch.ones(l, l_k)).to(torch.bool)
-            mask = mask.unsqueeze(0).repeat(b, 1, 1).unsqueeze(1).repeat(1, h, 1, 1)
-            scores.masked_fill_(mask, -torch.inf)
+            mask = mask.unsqueeze(0).repeat(b, 1, 1).unsqueeze(1).repeat(1, h, 1, 1).to(self.device)
+            scores.masked_fill_(mask, -1e10)
 
         attn = torch.softmax(scores, -1)
         context = torch.einsum('bhqk,bhkd->bhqd', attn, V)
