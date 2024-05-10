@@ -36,7 +36,7 @@ class ATA(nn.Module):
 
         self.factor = 1
 
-    def forward(self, Q, K, V, attn_mask=False):
+    def forward(self, Q, K, V, mask=False):
 
         b, h, l, d_k = Q.shape
 
