@@ -224,9 +224,9 @@ class Train:
                 cluster_optimizer.zero_grad()
                 loss.backward()
 
-                # for param in model.parameters():
-                #     if param.grad is not None:
-                #         param.grad.data.clamp_(min=min_grad_value)
+                for param in model.parameters():
+                    if param.grad is not None:
+                        param.grad.data.clamp_(min=0.5)
 
                 cluster_optimizer.step()
                 train_knn_loss += loss.item()
