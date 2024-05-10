@@ -46,9 +46,8 @@ class ACAT(nn.Module):
         K_tmp = torch.cat(K_l, dim=0).reshape(b, h, len_n_k, l_k, d_k)
 
         m_f = max(self.filter_length)
-        K_p = K_tmp[:, :, :, 0::m_f, :]
 
-        scores = torch.einsum('bhpqd,bhpkd->bhpqk', Q_p, K_p) / np.sqrt(self.d_k)
+        scores = torch.einsum('bhpqd,bhpkd->bhpqk', Q_p, K_tmp) / np.sqrt(self.d_k)
 
         if mask:
 
