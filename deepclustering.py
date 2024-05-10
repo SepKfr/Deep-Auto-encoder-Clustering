@@ -62,7 +62,7 @@ class DeepClustering(nn.Module):
                                      attn_type=attn_type, seed=seed, device=device)
 
         self.proj_down = nn.Linear(d_model, input_size)
-        # self.proj_to_cluster = nn.Linear(d_model, n_clusters)
+        self.proj_down_seq = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -92,6 +92,7 @@ class DeepClustering(nn.Module):
         x_rec = x_rec.reshape(x_enc.shape)
         # x_rec_cluster = self.proj_to_cluster(x_rec)
         x_rec_proj = self.proj_down(x_rec)
+        x_seq_proj = self.proj_down_seq(x_enc)
 
         # _, top_scores = torch.topk(scores, k=self.k, dim=-1)
         # x_rec_proj_exp = x_rec_proj.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
@@ -107,7 +108,7 @@ class DeepClustering(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x[:, -50:, :]).mean() + loss(x_enc, x[:, -50:, :])
+        loss = loss(x_rec_proj, x[:, -50:, :]).mean() + loss(x_seq_proj, x[:, -50:, :])
 
         #x_rec = self.proj_down(output_seq)
 
