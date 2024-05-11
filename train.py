@@ -45,7 +45,7 @@ class Train:
         parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=512)
         parser.add_argument("--var", type=int, default=1)
-        parser.add_argument("--add_diff", type=lambda x: str(x).lower() == "true", default=False)
+        parser.add_argument("--add_entropy", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -55,7 +55,7 @@ class Train:
         set_seed(self.seed)
         self.exp_name = args.exp_name
         self.var = args.var
-        self.add_diff = args.add_diff
+        self.add_entropy = args.add_entropy
 
         if self.exp_name == "mnist":
             pass
@@ -132,7 +132,7 @@ class Train:
 
         study = optuna.create_study(study_name=args.model_name,
                                     direction="maximize")
-        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=1)
+        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=4)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
         complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -191,7 +191,7 @@ class Train:
                                    batch_size=self.batch_size,
                                    var=self.var,
                                    gamma=gamma,
-                                   add_diff=self.add_diff).to(self.device)
+                                   add_entropy=self.add_entropy).to(self.device)
 
         cluster_optimizer = Adam(model.parameters(), lr=lr)
 
@@ -349,7 +349,7 @@ class Train:
                                                        var=self.var,
                                                        knns=knn,
                                                        gamma=gm,
-                                                       add_diff=self.add_diff).to(self.device)
+                                                       add_entropy=self.add_entropy).to(self.device)
 
                             checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
                                                     map_location=self.device)
