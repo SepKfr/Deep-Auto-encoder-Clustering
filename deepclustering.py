@@ -174,13 +174,13 @@ class DeepClustering(nn.Module):
         f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
         p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
 
-        y_en = y_en.reshape(-1).to(torch.long)
+        y_en = y_en[:, -96:, :].reshape(-1).to(torch.long)
         x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
 
         permuted_indexes = torch.randperm(len(y_en))
         x_rec_cluster = x_rec_cluster[permuted_indexes]
         y_en = y_en[permuted_indexes]
-        picks = np.log2(len(y_en))
+        picks = int(np.log2(len(y_en)))
         x_rec_cluster = x_rec_cluster[picks]
         y_en = y_en[picks]
 
