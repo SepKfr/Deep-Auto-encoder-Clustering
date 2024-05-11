@@ -28,6 +28,38 @@ from synthetic_data import SyntheticDataLoader
 from seed_manager import set_seed
 
 
+class NoamOpt:
+
+    def __init__(self, optimizer, lr_mul, d_model, n_warmup_steps):
+        self._optimizer = optimizer
+        self.lr_mul = lr_mul
+        self.d_model = d_model
+        self.n_warmup_steps = n_warmup_steps
+        self.n_steps = 0
+
+    def step_and_update_lr(self):
+        "Step with the inner optimizer"
+        self._update_learning_rate()
+        self._optimizer.step()
+
+    def zero_grad(self):
+        "Zero out the gradients with the inner optimizer"
+        self._optimizer.zero_grad()
+
+    def _get_lr_scale(self):
+        d_model = self.d_model
+        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
+        return (d_model ** -0.5) * min(n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5))
+
+    def _update_learning_rate(self):
+        ''' Learning rate scheduling per step '''
+
+        self.n_steps += 1
+        lr = self.lr_mul * self._get_lr_scale()
+
+        for param_group in self._optimizer.param_groups:
+            param_group['lr'] = lr
+
 class Train:
     def __init__(self):
 
@@ -157,9 +189,9 @@ class Train:
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [5, 10, 50])
-        lr = trial.suggest_categorical("lr", [0.001, 0.0001])
+        wsteps = trial.suggest_categorical("wsteps", [1000, 4000])
 
-        tup_params = [d_model, num_layers, gamma, knns, lr]
+        tup_params = [d_model, num_layers, gamma, knns, wsteps]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -193,7 +225,7 @@ class Train:
                                    gamma=gamma,
                                    add_entropy=self.add_entropy).to(self.device)
 
-        cluster_optimizer = Adam(model.parameters(), lr=lr)
+        optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, wsteps)
 
         best_trial_valid_loss = -1e10
 
@@ -221,14 +253,14 @@ class Train:
 
                 loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
 
-                cluster_optimizer.zero_grad()
+                optimizer.zero_grad()
                 loss.backward()
 
                 # for param in model.parameters():
                 #     if param.grad is not None:
                 #         param.grad.data.clamp_(min=0.1)
 
-                cluster_optimizer.step()
+                optimizer.step_and_update_lr()
                 train_knn_loss += loss.item()
                 train_adj_loss += adj_rand_index.item()
                 train_nmi_loss += nmi.item()
