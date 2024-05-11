@@ -143,7 +143,7 @@ class Transformer(nn.Module):
     def forward(self, inputs):
 
         s_len = inputs.shape[1]
-        x = torch.split(inputs, split_size_or_sections=int(inputs.shape[1] / 2), dim=1)
+        x = torch.split(inputs, split_size_or_sections=[int(s_len/4), int(s_len/4)*3], dim=1)
 
         enc_input = x[0]
 

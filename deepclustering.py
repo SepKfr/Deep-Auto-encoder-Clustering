@@ -78,6 +78,7 @@ class DeepClustering(nn.Module):
     def forward(self, x, y=None):
 
         s_l = x.shape[1]
+        dec_len = int(s_l/4)*3
         if len(x.shape) > 3:
             x = x.reshape(self.batch_size, s_l, -1)
 
@@ -91,7 +92,7 @@ class DeepClustering(nn.Module):
 
         x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
         x_rec = x_rec.reshape(x_enc.shape)
-        x_rec_cluster = self.proj_to_cluster(x_rec)
+        # x_rec_cluster = self.proj_to_cluster(x_rec)
         x_rec_proj = self.proj_down(x_rec)
         # x_seq_proj = self.proj_down_seq(x_enc)
 
@@ -109,7 +110,7 @@ class DeepClustering(nn.Module):
         else:
             loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-        loss = loss(x_rec_proj, x[:, -96:, :]).mean()
+        loss = loss(x_rec_proj, x[:, -dec_len:, :]).mean()
 
         #x_rec = self.proj_down(output_seq)
 
@@ -160,7 +161,7 @@ class DeepClustering(nn.Module):
 
         #loss = loss_rec + diff_steps + diff_knns if self.var == 2 else loss_rec
 
-        y_en = y
+        # y_en = y
         y = y[:, 0, :].reshape(-1)
         y_c = y.unsqueeze(0).expand(self.batch_size, -1)
 
@@ -174,20 +175,21 @@ class DeepClustering(nn.Module):
         f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
         p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
 
-        y_en = y_en[:, -96:, :].reshape(-1).to(torch.long)
-        x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
+        # y_en = y_en[:, -:, :].reshape(-1).to(torch.long)
+        # x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
+        #
+        # permuted_indexes = torch.randperm(len(y_en))
+        # x_rec_cluster = x_rec_cluster[permuted_indexes]
+        # y_en = y_en[permuted_indexes]
+        # picks = int(np.log2(len(y_en)))
+        # x_rec_cluster = x_rec_cluster[picks]
+        # y_en = y_en[picks]
+        #
+        # cross_loss = nn.CrossEntropyLoss()(x_rec_cluster, y_en)
 
-        permuted_indexes = torch.randperm(len(y_en))
-        x_rec_cluster = x_rec_cluster[permuted_indexes]
-        y_en = y_en[permuted_indexes]
-        picks = int(np.log2(len(y_en)))
-        x_rec_cluster = x_rec_cluster[picks]
-        y_en = y_en[picks]
-
-        cross_loss = nn.CrossEntropyLoss()(x_rec_cluster, y_en)
-
-        if self.add_entropy:
-            tot_loss = loss + cross_loss
-        else:
-            tot_loss = loss
+        # if self.add_entropy:
+        #     tot_loss = loss + cross_loss
+        # else:
+        #
+        tot_loss = loss
         return tot_loss, adj_rand_index, nmi, f1, p_score, x_rec_proj
