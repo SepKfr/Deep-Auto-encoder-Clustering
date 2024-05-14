@@ -28,38 +28,6 @@ from synthetic_data import SyntheticDataLoader
 from seed_manager import set_seed
 
 
-class NoamOpt:
-
-    def __init__(self, optimizer, lr_mul, d_model, n_warmup_steps):
-        self._optimizer = optimizer
-        self.lr_mul = lr_mul
-        self.d_model = d_model
-        self.n_warmup_steps = n_warmup_steps
-        self.n_steps = 0
-
-    def step_and_update_lr(self):
-        "Step with the inner optimizer"
-        self._update_learning_rate()
-        self._optimizer.step()
-
-    def zero_grad(self):
-        "Zero out the gradients with the inner optimizer"
-        self._optimizer.zero_grad()
-
-    def _get_lr_scale(self):
-        d_model = self.d_model
-        n_steps, n_warmup_steps = self.n_steps, self.n_warmup_steps
-        return (d_model ** -0.5) * min(n_steps ** (-0.5), n_steps * n_warmup_steps ** (-1.5))
-
-    def _update_learning_rate(self):
-        ''' Learning rate scheduling per step '''
-
-        self.n_steps += 1
-        lr = self.lr_mul * self._get_lr_scale()
-
-        for param_group in self._optimizer.param_groups:
-            param_group['lr'] = lr
-
 class Train:
     def __init__(self):
 
@@ -185,13 +153,13 @@ class Train:
 
     def train_clustering(self, trial):
 
-        d_model = trial.suggest_categorical("d_model", [512])
+        d_model = trial.suggest_categorical("d_model", [32, 64])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
-        knns = trial.suggest_categorical("knns", [5, 10, 50])
-        wsteps = trial.suggest_categorical("wsteps", [1000, 4000])
+        knns = trial.suggest_categorical("knns", [20, 10, 5])
+        tmax = trial.suggest_categorical("tmax", [10, 20])
 
-        tup_params = [d_model, num_layers, gamma, knns, wsteps]
+        tup_params = [d_model, num_layers, gamma, knns, tmax]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
@@ -225,7 +193,8 @@ class Train:
                                    gamma=gamma,
                                    add_entropy=self.add_entropy).to(self.device)
 
-        optimizer = NoamOpt(Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9), 2, d_model, wsteps)
+        cluster_optimizer = Adam(model.parameters())
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
 
         best_trial_valid_loss = -1e10
 
@@ -253,14 +222,15 @@ class Train:
 
                 loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
 
-                optimizer.zero_grad()
+                cluster_optimizer.zero_grad()
                 loss.backward()
 
                 # for param in model.parameters():
                 #     if param.grad is not None:
                 #         param.grad.data.clamp_(min=0.1)
 
-                optimizer.step_and_update_lr()
+                cluster_optimizer.step()
+                scheduler.step()
                 train_knn_loss += loss.item()
                 train_adj_loss += adj_rand_index.item()
                 train_nmi_loss += nmi.item()
@@ -346,9 +316,9 @@ class Train:
         tot_nmi_loss = []
         tot_p_loss = []
 
-        d_model_list = [512]
+        d_model_list = [32, 64]
         num_layers_list = [1, 3]
-        knn_list = [50, 10, 5]
+        knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
 
         for knn in knn_list:
