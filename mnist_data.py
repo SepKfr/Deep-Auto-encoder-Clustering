@@ -35,7 +35,7 @@ class MnistDataLoader:
 
 
     @staticmethod
-    def interpolate_arrays(arr1, arr2, num_steps=100, interpolation_length=0.3):
+    def interpolate_arrays(arr1, arr2, num_steps=96, interpolation_length=0.3):
         """Interpolates linearly between two arrays over a given number of steps.
         The actual interpolation happens only across a fraction of those steps.
 
@@ -71,7 +71,7 @@ class MnistDataLoader:
         Returns:
             generator: Data generator for the batches."""
 
-        def batch_generator(mode="train", time_steps=100):
+        def batch_generator(mode="train", time_steps=96):
             """Generator for the data batches.
 
             Args:
@@ -114,7 +114,7 @@ class MnistDataLoader:
         train_gen = data_generator("train")
         val_gen = data_generator("val")
 
-        time_steps = 100
+        time_steps = 96
 
         num_iter = 1000
 
