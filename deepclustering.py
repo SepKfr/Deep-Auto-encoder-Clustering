@@ -78,7 +78,7 @@ class DeepClustering(nn.Module):
     def forward(self, x, y=None):
 
         s_l = x.shape[1]
-        dec_len = int(s_l/4)*3
+        dec_len = s_l
         if len(x.shape) > 3:
             x = x.reshape(self.batch_size, s_l, -1)
 

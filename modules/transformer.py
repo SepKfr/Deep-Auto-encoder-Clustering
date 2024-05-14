@@ -157,6 +157,7 @@ class Transformer(nn.Module):
 
         memory = self.encoder(enc_input)
         output = self.decoder(dec_input, memory)
+        output = torch.cat([memory, output], dim=1)
         return output
 
 
