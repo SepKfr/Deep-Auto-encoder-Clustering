@@ -43,16 +43,13 @@ class SyntheticDataLoader:
 
         train_data = TensorDataset(train_set_s, train_set_l)
 
-        self.list_of_train_loader.append(DataLoader(train_data, batch_size=batch_size, drop_last=True))
-        self.list_of_test_loader.append(DataLoader(TensorDataset(valid_set_s,
-                                                                 valid_set_l),
-                                                                 batch_size=batch_size,
-                                                                 drop_last=True))
-        self.n_folds = 1
+        self.train_loader = DataLoader(train_data, batch_size=batch_size, drop_last=True)
+        self.test_loader = DataLoader(TensorDataset(valid_set_s, valid_set_l), batch_size=batch_size, drop_last=True)
         self.input_size = 1
         self.output_size = 1
-        self.len_train = len(self.list_of_train_loader[0])
-        self.len_test = len(self.list_of_test_loader[0])
+        self.len_train = len(self.train_loader)
+        self.len_test = len(self.test_loader)
+        self.n_clusters = 4
 
     def get_synthetic_samples(self):
 
