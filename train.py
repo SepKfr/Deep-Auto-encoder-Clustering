@@ -132,7 +132,7 @@ class Train:
 
         study = optuna.create_study(study_name=args.model_name,
                                     direction="maximize")
-        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=2)
+        study.optimize(self.objective, n_trials=args.n_trials, n_jobs=4)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
         complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -153,7 +153,7 @@ class Train:
 
     def train_clustering(self, trial):
 
-        d_model = trial.suggest_categorical("d_model", [512])
+        d_model = trial.suggest_categorical("d_model", [128])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
         knns = trial.suggest_categorical("knns", [20, 10, 5])
@@ -316,7 +316,7 @@ class Train:
         tot_nmi_loss = []
         tot_p_loss = []
 
-        d_model_list = [512]
+        d_model_list = [128]
         num_layers_list = [1, 3]
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
