@@ -241,7 +241,7 @@ class GmmDiagonal(MixtureModel):
         b, s_l = x.shape[0], x.shape[1]
 
         if len(x.shape) > 3:
-            x = x.reshape(self.batch_size, s_l, -1)
+            x = x.reshape(b, s_l, -1)
 
         x = self.embed(x)
         mixture = Categorical(logits=self.logits)
