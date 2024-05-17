@@ -238,8 +238,11 @@ class GmmDiagonal(MixtureModel):
         self.device = device
 
     def forward(self, x: torch.Tensor, y: torch.Tensor):
+        b, s_l = x.shape[0], x.shape[1]
 
-        b, _, _ = x.shape
+        if len(x.shape) > 3:
+            x = x.reshape(self.batch_size, s_l, -1)
+
         x = self.embed(x)
         mixture = Categorical(logits=self.logits)
         components = Independent(Normal(self.mus, self.sigmas_diag), 1)
