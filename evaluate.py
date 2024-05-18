@@ -358,6 +358,9 @@ class DimRec:
         x_reconstructs = torch.cat(list_2d)
         label = torch.cat(list_y)
 
+        x_reconstructs = x_reconstructs.cpu().detach().numpy()
+        label = label.cpu().detach().numpy()
+
         colors = plt.cm.tab20.colors
 
         if not os.path.exists("two_d_plots"):
