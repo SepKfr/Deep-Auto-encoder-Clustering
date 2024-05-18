@@ -20,8 +20,9 @@ from synthetic_data import SyntheticDataLoader
 
 
 class Autoencoder(nn.Module):
-    def __init__(self, input_dim, hidden_dim, dim_rec=2):
+    def __init__(self, n_layers, input_dim, hidden_dim, dim_rec=2):
         super(Autoencoder, self).__init__()
+        self.n_layers = n_layers
         self.encoder = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
@@ -34,9 +35,10 @@ class Autoencoder(nn.Module):
         )
 
     def forward(self, x):
-        x_encoded = self.encoder(x)
-        x_decoded = self.decoder(x_encoded)
-        return x_decoded
+        for i in range(self.n_layers):
+            x = self.encoder(x)
+            x = self.decoder(x)
+        return x
 
 
 class DimRec:
@@ -175,16 +177,17 @@ class DimRec:
         Evaluate the performance of the best ForecastDenoising model on the test set.
         """
         tmax = trial.suggest_categorical("tmax", [100])
+        n_layers = trial.suggest_categorical("n_layers", [1, 3])
         d_model_rec = trial.suggest_categorical("d_model_rec", [128, 256])
 
-        tup_params = [tmax, d_model_rec]
+        tup_params = [tmax, d_model_rec, n_layers]
 
         if tup_params in self.list_explored_params:
             raise optuna.TrialPruned()
         else:
             self.list_explored_params.append(tup_params)
 
-        dim_rec_model = Autoencoder(input_dim=self.data_loader.input_size * 96, hidden_dim=d_model_rec).to(self.device)
+        dim_rec_model = Autoencoder(input_dim=self.data_loader.input_size * 96, hidden_dim=d_model_rec, n_layers=n_layers).to(self.device)
 
         d_model_list = [16, 32, 64, 128, 512]
         num_layers_list = [1, 3]
