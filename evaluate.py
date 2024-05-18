@@ -148,6 +148,7 @@ class DimRec:
         else:
             self.best_dim_rec_model = nn.Module()
             self.run_optuna(args)
+            self.dim_rec_rep()
 
     def run_optuna(self, args):
 
