@@ -108,7 +108,7 @@ class SOMVAE(nn.Module):
 
         adj_rand_index, nmi, f1, p_score = get_scores(y, k, self.n_clusters, device=self.device)
 
-        return loss, adj_rand_index, nmi, f1, p_score, x
+        return loss, adj_rand_index, nmi, f1, p_score, x_q + x_e
 
     def _get_coordinates_from_idx(self, k):
         k_1 = torch.div(k, self.d_som[1], rounding_mode='floor')

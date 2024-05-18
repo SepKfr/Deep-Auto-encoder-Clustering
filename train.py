@@ -316,7 +316,7 @@ class Train:
         tot_nmi_loss = []
         tot_p_loss = []
 
-        d_model_list = [512]
+        d_model_list = [32, 64]
         num_layers_list = [1, 3]
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
