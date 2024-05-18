@@ -127,7 +127,6 @@ class DimRec:
                                                  data=data,
                                                  seed=self.seed)
 
-
         self.best_overall_valid_loss = 1e10
         self.best_dim_rec_model = nn.Module()
 
