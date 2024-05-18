@@ -142,6 +142,7 @@ class DimRec:
         else:
             self.best_overall_valid_loss = 1e10
             self.best_dim_rec_model = nn.Module()
+            self.run_optuna(args)
 
     def run_optuna(self, args):
 
@@ -265,7 +266,7 @@ class DimRec:
                                     print(f"epoch {epoch}, train_loss: {tot_train_loss :.3f}")
                                     print(f"epoch {epoch}, train_loss: {tot_test_loss :.3f}")
                         except RuntimeError as e:
-                            print(e)
+                            pass
 
     def objective(self, trial):
 
