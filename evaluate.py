@@ -19,6 +19,9 @@ from som_vae import SOMVAE
 from synthetic_data import SyntheticDataLoader
 
 
+set_seed(9800)
+
+
 class Autoencoder(nn.Module):
     def __init__(self, n_layers, input_dim, hidden_dim, dim_rec=2):
         super(Autoencoder, self).__init__()
