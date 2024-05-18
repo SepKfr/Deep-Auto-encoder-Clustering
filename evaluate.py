@@ -396,3 +396,4 @@ class DimRec:
     #     plt.tight_layout()
     #     plt.savefig("{}/synthetic_{}_{}.pdf".format(path_to_pdfs, i, self.exp_name))
     #     plt.clf()
+DimRec()
