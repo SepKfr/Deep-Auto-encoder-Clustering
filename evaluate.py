@@ -177,6 +177,13 @@ class DimRec:
         tmax = trial.suggest_categorical("tmax", [100])
         d_model_rec = trial.suggest_categorical("d_model_rec", [128, 256])
 
+        tup_params = [tmax, d_model_rec]
+
+        if tup_params in self.list_explored_params:
+            raise optuna.TrialPruned()
+        else:
+            self.list_explored_params.append(tup_params)
+
         dim_rec_model = Autoencoder(input_dim=self.data_loader.input_size * 96, hidden_dim=d_model_rec).to(self.device)
 
         d_model_list = [16, 32, 64, 128, 512]
