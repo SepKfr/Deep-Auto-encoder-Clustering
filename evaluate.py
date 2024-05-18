@@ -172,7 +172,7 @@ class DimRec:
         tmax = trial.suggest_categorical("tmax", [10, 20])
         d_model_rec = trial.suggest_categorical("d_model_rec", [256, 512, 1024])
 
-        dim_rec_model = Autoencoder(input_dim=self.data_loader.input_size, hidden_dim=d_model_rec).to(self.device)
+        dim_rec_model = Autoencoder(input_dim=self.data_loader.input_size * 96, hidden_dim=d_model_rec).to(self.device)
 
         d_model_list = [16, 32, 64, 128, 512]
         num_layers_list = [1, 3]
@@ -249,6 +249,7 @@ class DimRec:
                                     with torch.no_grad():
                                         _, _, _, _, _, x_rec_cluster = clustering_model(x.to(self.device), y.to(self.device))
 
+                                    x_rec_cluster = x_rec_cluster.reshape(self.batch_size, -1)
                                     x_dim_rec = dim_rec_model(x_rec_cluster)
                                     loss = nn.MSELoss()(x_rec_cluster, x_dim_rec)
                                     tot_test_loss += loss.item()
