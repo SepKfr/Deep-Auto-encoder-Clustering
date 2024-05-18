@@ -223,8 +223,6 @@ class DimRec:
 
                             clustering_model.eval()
 
-                            print("Successful...")
-
                             optimizer = Adam(dim_rec_model.parameters())
                             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=tmax)
 
@@ -238,6 +236,7 @@ class DimRec:
 
                                     optimizer.zero_grad()
                                     x_rec_cluster = x_rec_cluster.reshape(self.batch_size, -1)
+                                    print(x_rec_cluster.shape)
                                     x_dim_rec = dim_rec_model(x_rec_cluster)
                                     loss = nn.MSELoss()(x_rec_cluster, x_dim_rec)
                                     loss.backward()
