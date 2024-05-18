@@ -262,7 +262,7 @@ class DimRec:
                                     print(f"epoch {epoch}, train_loss: {tot_train_loss :.3f}")
                                     print(f"epoch {epoch}, train_loss: {tot_test_loss :.3f}")
                         except RuntimeError as e:
-                            print(e)
+                            pass
 
         return best_trial_valid_loss
 
