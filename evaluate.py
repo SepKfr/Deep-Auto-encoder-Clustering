@@ -236,11 +236,9 @@ class DimRec:
 
                                     optimizer.zero_grad()
                                     x_rec_cluster = x_rec_cluster.reshape(self.batch_size, -1)
-                                    try:
-                                        x_dim_rec = dim_rec_model(x_rec_cluster)
-                                        loss = nn.MSELoss()(x_rec_cluster, x_dim_rec)
-                                    except RuntimeError as e:
-                                        print(e)
+                                    x_dim_rec = dim_rec_model(x_rec_cluster)
+                                    loss = nn.MSELoss()(x_rec_cluster, x_dim_rec)
+                                    print(loss)
                                     loss.backward()
                                     tot_train_loss += loss.item()
                                     optimizer.step()
