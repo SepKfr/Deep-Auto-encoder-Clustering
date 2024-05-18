@@ -262,8 +262,8 @@ class DimRec:
                                 if epoch % 5 == 0:
                                     print(f"epoch {epoch}, train_loss: {tot_train_loss :.3f}")
                                     print(f"epoch {epoch}, train_loss: {tot_test_loss :.3f}")
-                        except RuntimeError:
-                            pass
+                        except RuntimeError as e:
+                            print(e)
 
     def objective(self, trial):
 
