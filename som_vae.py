@@ -89,6 +89,11 @@ class SOMVAE(nn.Module):
     def forward(self, x, y):
 
         # encoding
+        b, s_l = x.shape[0], x.shape[1]
+
+        if len(x.shape) > 3:
+            x = x.reshape(b, s_l, -1)
+
         z_e = self.encoder(x)
         # embedding
         z_q, z_dist, k = self._find_closest_embedding(z_e, batch_size=x.shape[0])
