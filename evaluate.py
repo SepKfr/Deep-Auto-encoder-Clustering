@@ -174,8 +174,8 @@ class DimRec:
         """
         Evaluate the performance of the best ForecastDenoising model on the test set.
         """
-        tmax = trial.suggest_categorical("tmax", [10, 20])
-        d_model_rec = trial.suggest_categorical("d_model_rec", [64, 128])
+        tmax = trial.suggest_categorical("tmax", [100])
+        d_model_rec = trial.suggest_categorical("d_model_rec", [128, 256])
 
         dim_rec_model = Autoencoder(input_dim=self.data_loader.input_size * 96, hidden_dim=d_model_rec).to(self.device)
 
@@ -229,7 +229,7 @@ class DimRec:
                             clustering_model.eval()
 
                             optimizer = Adam(dim_rec_model.parameters())
-                            #scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=tmax)
+                            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=tmax)
 
                             for epoch in range(self.num_epochs):
 
@@ -246,7 +246,7 @@ class DimRec:
                                     loss.backward()
                                     tot_train_loss += loss.item()
                                     optimizer.step()
-                                    #scheduler.step()
+                                    scheduler.step()
 
                                 tot_test_loss = 0
                                 dim_rec_model.eval()
