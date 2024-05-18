@@ -257,7 +257,7 @@ class DimRec:
                                     tot_test_loss += loss.item()
                                     if loss < best_trial_valid_loss:
                                         best_trial_valid_loss = loss
-                                        if best_trial_valid_loss > self.best_overall_valid_loss:
+                                        if best_trial_valid_loss < self.best_overall_valid_loss:
                                             self.best_overall_valid_loss = best_trial_valid_loss
                                             self.best_dim_rec_model = dim_rec_model
 
