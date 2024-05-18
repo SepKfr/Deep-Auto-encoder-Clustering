@@ -133,13 +133,12 @@ class DimRec:
         self.n_clusters = self.data_loader.n_clusters
         self.num_epochs = args.num_epochs
         self.batch_size = args.batch_size
-        self.best_overall_valid_loss = -1e10
+        self.best_overall_valid_loss = 1e10
         self.list_explored_params = []
         if args.model_name == "kmeans":
             Kmeans(n_clusters=self.n_clusters, batch_size=self.batch_size,
                    data_loader=self.data_loader.hold_out_test, seed=self.seed)
         else:
-            self.best_overall_valid_loss = 1e10
             self.best_dim_rec_model = nn.Module()
             self.run_optuna(args)
 
