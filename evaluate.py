@@ -359,8 +359,8 @@ class DimRec:
 
         colors = plt.cm.tab20.colors
 
-        if not os.path.exists("2d_plots"):
-            os.makedirs("2d_plots")
+        if not os.path.exists("two_d_plots"):
+            os.makedirs("two_d_plots")
 
         for i in range(len(label)):
 
@@ -368,7 +368,7 @@ class DimRec:
 
         plt.legend(labels=[f"class {i+1}" for i in range(self.n_clusters)])
         plt.tight_layout()
-        plt.savefig("2d_plots/{}.pdf".format(self.model_name))
+        plt.savefig("two_d_plots/{}.pdf".format(self.model_name))
 
     # knns = np.vstack(knns)
     # x_reconstructs = np.vstack(x_reconstructs)
