@@ -359,7 +359,7 @@ class DimRec:
                             pass
 
         x_reconstructs = torch.cat(list_2d)
-        label = torch.cat(list_y)
+        label = torch.cat(list_y).to(torch.int)
 
         x_reconstructs = x_reconstructs.cpu().detach().numpy()
         label = label.cpu().detach().numpy()
