@@ -179,6 +179,8 @@ class DimRec:
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
 
+        best_trial_valid_loss = 1e10
+
         print("working on combos...")
 
         for knn in knn_list:
@@ -226,8 +228,6 @@ class DimRec:
                             optimizer = Adam(dim_rec_model.parameters())
                             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=tmax)
 
-                            best_trial_valid_loss = 1e10
-
                             for epoch in range(self.num_epochs):
 
                                 tot_train_loss = 0
@@ -265,6 +265,8 @@ class DimRec:
                                     print(f"epoch {epoch}, train_loss: {tot_test_loss :.3f}")
                         except RuntimeError as e:
                             pass
+
+        return best_trial_valid_loss
 
     def objective(self, trial):
 
