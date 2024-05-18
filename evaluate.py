@@ -238,7 +238,6 @@ class DimRec:
                                     x_rec_cluster = x_rec_cluster.reshape(self.batch_size, -1)
                                     x_dim_rec = dim_rec_model(x_rec_cluster)
                                     loss = nn.MSELoss()(x_rec_cluster, x_dim_rec)
-                                    print(loss)
                                     loss.backward()
                                     tot_train_loss += loss.item()
                                     optimizer.step()
@@ -263,7 +262,7 @@ class DimRec:
                                     print(f"epoch {epoch}, train_loss: {tot_train_loss :.3f}")
                                     print(f"epoch {epoch}, train_loss: {tot_test_loss :.3f}")
                         except RuntimeError as e:
-                            pass
+                            print(e)
 
         return best_trial_valid_loss
 
