@@ -178,7 +178,7 @@ class DimRec:
         """
         tmax = trial.suggest_categorical("tmax", [100])
         n_layers = trial.suggest_categorical("n_layers", [1, 3])
-        d_model_rec = trial.suggest_categorical("d_model_rec", [128, 256])
+        d_model_rec = trial.suggest_categorical("d_model_rec", [32, 64])
 
         tup_params = [tmax, d_model_rec, n_layers]
 
