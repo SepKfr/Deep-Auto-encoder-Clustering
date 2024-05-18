@@ -180,6 +180,8 @@ class DimRec:
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
 
+        print("working on combos...")
+
         for knn in knn_list:
             for d_model in d_model_list:
                 for num_layers in num_layers_list:
