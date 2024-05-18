@@ -175,7 +175,7 @@ class DimRec:
         Evaluate the performance of the best ForecastDenoising model on the test set.
         """
         tmax = trial.suggest_categorical("tmax", [10, 20])
-        d_model_rec = trial.suggest_categorical("d_model_rec", [256, 512, 1024])
+        d_model_rec = trial.suggest_categorical("d_model_rec", [64, 128])
 
         dim_rec_model = Autoencoder(input_dim=self.data_loader.input_size * 96, hidden_dim=d_model_rec).to(self.device)
 
