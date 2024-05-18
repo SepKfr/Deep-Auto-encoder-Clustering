@@ -135,6 +135,11 @@ class DimRec:
         self.batch_size = args.batch_size
         self.best_overall_valid_loss = 1e10
         self.list_explored_params = []
+
+        self.red_path = "red_models"
+        if not os.path.exists(self.red_path):
+            os.makedirs(self.red_path)
+
         if args.model_name == "kmeans":
             Kmeans(n_clusters=self.n_clusters, batch_size=self.batch_size,
                    data_loader=self.data_loader.hold_out_test, seed=self.seed)
@@ -178,10 +183,6 @@ class DimRec:
         num_layers_list = [1, 3]
         knn_list = [20, 10, 5]
         gamma = [0.1, 0.01]
-
-        path = "red_models"
-        if not os.path.exists(path):
-            os.makedirs(path)
 
         best_trial_valid_loss = 1e10
 
@@ -264,7 +265,7 @@ class DimRec:
                                             self.best_dim_rec_model = dim_rec_model
 
                                             torch.save(self.best_dim_rec_model.state_dict(),
-                                                       os.path.join(path,
+                                                       os.path.join(self.red_path,
                                                                     "{}_red.pth".format(self.model_name)))
 
                                 if epoch % 5 == 0:
