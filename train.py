@@ -231,7 +231,7 @@ class Train:
 
             for x, y in self.data_loader.train_loader:
 
-                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
+                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device))
 
                 cluster_optimizer.zero_grad()
                 loss.backward()
@@ -264,7 +264,7 @@ class Train:
 
             for x, y in self.data_loader.test_loader:
 
-                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
+                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device))
                 valid_knn_loss += loss.item()
                 valid_adj_loss += adj_rand_index.item()
                 valid_nmi_loss += nmi.item()
