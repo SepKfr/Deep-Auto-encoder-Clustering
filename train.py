@@ -119,7 +119,7 @@ class Train:
         self.n_clusters = self.data_loader.n_clusters
         self.num_epochs = args.num_epochs
         self.batch_size = args.batch_size
-        self.best_overall_valid_loss = -1e10
+        self.best_overall_valid_loss = 1e10
         self.list_explored_params = []
         if args.model_name == "kmeans":
             Kmeans(n_clusters=self.n_clusters, batch_size=self.batch_size,
@@ -207,7 +207,7 @@ class Train:
         cluster_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
 
-        best_trial_valid_loss = -1e10
+        best_trial_valid_loss = 1e10
 
         for epoch in range(self.num_epochs):
 
@@ -280,9 +280,9 @@ class Train:
                 raise optuna.TrialPruned()
 
             valid_tmp = statistics.mean(list_of_valid_adj)
-            if valid_tmp > best_trial_valid_loss:
+            if valid_tmp < best_trial_valid_loss:
                 best_trial_valid_loss = valid_tmp
-                if best_trial_valid_loss > self.best_overall_valid_loss:
+                if best_trial_valid_loss < self.best_overall_valid_loss:
                     self.best_overall_valid_loss = best_trial_valid_loss
                     self.best_clustering_model = model
                     torch.save(model.state_dict(),
