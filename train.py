@@ -238,7 +238,7 @@ class Train:
 
                 for param in model.parameters():
                     if param.grad is not None:
-                        param.grad.data.clamp_(min=0.05)
+                        param.grad.data.clamp_(min=0.05, max=1.0)
 
                 cluster_optimizer.step()
                 scheduler.step()
