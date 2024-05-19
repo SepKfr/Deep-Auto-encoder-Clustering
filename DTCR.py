@@ -106,7 +106,7 @@ class DTCR(nn.Module):
 
         adj_rand_index = AdjustedRandScore()(assigned_labels, y)
         nmi = NormalizedMutualInfoScore()(assigned_labels, y)
-        f1 = F1Score(task='multiclass', num_classes=self.n_clusters)(assigned_labels, y)
+        f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels, y)
         p_score = purity_score(y.detach().numpy(), assigned_labels.detach().numpy())
 
         return tot_loss, adj_rand_index, nmi, f1, p_score, x_enc
