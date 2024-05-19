@@ -14,6 +14,7 @@ import torch
 import numpy as np
 from optuna.trial import TrialState
 
+from DTCR import DTCR
 from GMM import GmmDiagonal
 from deepclustering import DeepClustering
 from mnist_data import MnistDataLoader
@@ -32,8 +33,8 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="synthetic")
-        parser.add_argument("--model_name", type=str, default="ACAT")
+        parser.add_argument("--exp_name", type=str, default="patients_6")
+        parser.add_argument("--model_name", type=str, default="DTCR")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--seed", type=int, default=1234)
@@ -41,9 +42,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_train_sample", type=int, default=32)
         parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=512)
+        parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--add_entropy", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
@@ -177,6 +178,16 @@ class Train:
                                 num_components=self.n_clusters,
                                 num_dims=d_model,
                                 device=self.device).to(self.device)
+        elif "DTCR" in self.model_name:
+
+            model = DTCR(input_size=self.data_loader.input_size,
+                         d_model=d_model,
+                         n_clusters=self.n_clusters,
+                         num_layers=num_layers,
+                         seed=self.seed,
+                         device=self.device,
+                         batch_size=self.batch_size).to(self.device)
+
         else:
             model = DeepClustering(input_size=self.data_loader.input_size,
                                    n_clusters=self.n_clusters,
@@ -326,17 +337,31 @@ class Train:
                 for num_layers in num_layers_list:
                     for gm in gamma:
                         try:
+
                             if "som_vae" in self.model_name:
+
                                 model = SOMVAE(d_input=self.max_encoder_length,
                                                d_channel=self.data_loader.input_size,
                                                n_clusters=self.n_clusters,
                                                d_latent=d_model,
                                                device=self.device).to(self.device)
+
                             elif "gmm" in self.model_name:
+
                                 model = GmmDiagonal(num_feat=self.data_loader.input_size,
                                                     num_dims=d_model,
                                                     num_components=self.n_clusters,
                                                     device=self.device).to(self.device)
+
+                            elif "DTCR" in self.model_name:
+
+                                model = DTCR(input_size=self.data_loader.input_size,
+                                             d_model=d_model,
+                                             n_clusters=self.n_clusters,
+                                             num_layers=num_layers,
+                                             seed=self.seed,
+                                             device=self.device,
+                                             batch_size=self.batch_size).to(self.device)
                             else:
                                 model = DeepClustering(input_size=self.data_loader.input_size,
                                                        n_clusters=self.n_clusters,
