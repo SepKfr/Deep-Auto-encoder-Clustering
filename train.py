@@ -236,9 +236,9 @@ class Train:
                 cluster_optimizer.zero_grad()
                 loss.backward()
 
-                # for param in model.parameters():
-                #     if param.grad is not None:
-                #         param.grad.data.clamp_(min=0.1)
+                for param in model.parameters():
+                    if param.grad is not None:
+                        param.grad.data.clamp_(min=0.05)
 
                 cluster_optimizer.step()
                 scheduler.step()
