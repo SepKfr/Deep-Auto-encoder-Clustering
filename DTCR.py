@@ -109,9 +109,9 @@ class DTCR(nn.Module):
         # f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels, y)
         # p_score = purity_score(y.cpu().detach().numpy(), assigned_labels.cpu().detach().numpy())
 
-        adj_rand_index = torch.zeros(0)
-        nmi = torch.zeros(0)
-        f1 = torch.zeros(0)
-        p_score = torch.zeros(0)
+        adj_rand_index = tot_loss
+        nmi = tot_loss
+        f1 = tot_loss
+        p_score = tot_loss
 
         return tot_loss, adj_rand_index, nmi, f1, p_score, x_enc
