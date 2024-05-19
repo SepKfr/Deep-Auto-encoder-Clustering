@@ -97,16 +97,21 @@ class DTCR(nn.Module):
 
         tot_loss = rec_loss + class_loss + kmeans_loss
 
-        x_enc = x_enc.reshape(self.batch_size, -1)
-        x_enc_kmeans_2 = x_enc.cpu().detach().numpy()
-        kmeans = KMeans(n_clusters=self.n_clusters, random_state=0, n_init="auto").fit(x_enc_kmeans_2)
-        labels = kmeans.labels_
-        assigned_labels = torch.from_numpy(labels).to(torch.long).to(self.device)
-        y = y[:, 0, :].reshape(-1).to(torch.long)
+        # x_enc = x_enc.reshape(self.batch_size, -1)
+        # x_enc_kmeans_2 = x_enc.cpu().detach().numpy()
+        # kmeans = KMeans(n_clusters=self.n_clusters, random_state=0, n_init="auto").fit(x_enc_kmeans_2)
+        # labels = kmeans.labels_
+        # assigned_labels = torch.from_numpy(labels).to(torch.long).to(self.device)
+        # y = y[:, 0, :].reshape(-1).to(torch.long)
+        #
+        # adj_rand_index = AdjustedRandScore()(assigned_labels, y)
+        # nmi = NormalizedMutualInfoScore()(assigned_labels, y)
+        # f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels, y)
+        # p_score = purity_score(y.cpu().detach().numpy(), assigned_labels.cpu().detach().numpy())
 
-        adj_rand_index = AdjustedRandScore()(assigned_labels, y)
-        nmi = NormalizedMutualInfoScore()(assigned_labels, y)
-        f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels, y)
-        p_score = purity_score(y.cpu().detach().numpy(), assigned_labels.cpu().detach().numpy())
+        adj_rand_index = torch.zeros(0)
+        nmi = torch.zeros(0)
+        f1 = torch.zeros(0)
+        p_score = torch.zeros(0)
 
         return tot_loss, adj_rand_index, nmi, f1, p_score, x_enc
