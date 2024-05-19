@@ -26,8 +26,11 @@ def kmeans_regularization_loss(H, k):
       """
       U, _, _ = torch.svd(H)  # Perform SVD on H
       F = U[:, :k]  # Get the first k singular vectors as F (closed-form solution)
-      trace_term = torch.trace(torch.matmul(H.transpose(1, 0), H))
-      F_t_HF = torch.matmul(torch.transpose(F, 1, 0), torch.matmul(H.transpose(1, 0), H))
+
+      H_t_H = torch.einsum('bd, nd-> bn', H, H)
+      trace_term = torch.trace(H_t_H)
+      F_t_H = torch.einsum('bn, bc -> bc', H_t_H, F)
+      F_t_HF = torch.einsum('bn, bc -> nc', F_t_H, F)
       reg_term = torch.trace(F_t_HF)
 
       return trace_term + reg_term
@@ -47,11 +50,11 @@ class DTCR(nn.Module):
         self.device = device
 
         self.encoder = nn.LSTM(input_size=input_size, hidden_size=d_model,
-                               bidirectional=True, batch_first=True, num_layers=num_layers)
-        self.decoder = nn.LSTM(input_size=d_model, hidden_size=input_size,
-                               bidirectional=True, batch_first=True, num_layers=1)
+                               bidirectional=True, num_layers=num_layers)
+        self.decoder = nn.LSTM(input_size=d_model*2, hidden_size=input_size,
+                               bidirectional=False, num_layers=1)
 
-        self.proj_down = nn.Sequential(nn.Linear(d_model, 128),
+        self.proj_down = nn.Sequential(nn.Linear(d_model*2, 128),
                                        nn.Linear(128, 2))
         self.batch_size = batch_size
         self.d_model = d_model
@@ -80,23 +83,25 @@ class DTCR(nn.Module):
         x_enc, _ = self.encoder(combined_x)
 
         y_hat_class = self.proj_down(x_enc)
-        y_class = torch.cat([torch.zeros_like(self.batch_size), torch.ones_like(self.batch_size)], dim=0)
+        y_class = torch.cat([torch.zeros(self.batch_size, 2), torch.ones(self.batch_size, 2)], dim=0).to(self.device)
+        y_class = y_class.to(torch.long)
 
-        class_loss = nn.CrossEntropyLoss()(y_class, y_hat_class)
+        class_loss = nn.CrossEntropyLoss()(y_hat_class, y_class)
 
         x_rec, _ = self.decoder(x_enc)
 
         x_enc_kmeans = x_enc.reshape(self.batch_size, -1)
         kmeans_loss = kmeans_regularization_loss(x_enc_kmeans, self.n_clusters)
 
-        rec_loss = nn.MSELoss()(x_rec, x).mean()
+        rec_loss = nn.MSELoss()(x_rec, combined_x).mean()
 
         tot_loss = rec_loss + class_loss + kmeans_loss
 
         x_enc = x_enc.reshape(self.batch_size, -1)
-        kmeans = KMeans(n_clusters=self.n_clusters, random_state=0, n_init="auto").fit(x_enc)
+        x_enc_kmeans_2 = x_enc.cpu().detach().numpy()
+        kmeans = KMeans(n_clusters=self.n_clusters, random_state=0, n_init="auto").fit(x_enc_kmeans_2)
         labels = kmeans.labels_
-        assigned_labels = torch.from_numpy(labels).to(torch.long)
+        assigned_labels = torch.from_numpy(labels).to(torch.long).to(self.device)
         y = y[:, 0, :].reshape(-1).to(torch.long)
 
         adj_rand_index = AdjustedRandScore()(assigned_labels, y)
