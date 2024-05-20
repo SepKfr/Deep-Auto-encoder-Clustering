@@ -364,10 +364,7 @@ class DimRec:
         x_reconstructs = x_reconstructs.cpu().detach().numpy()
         label = label.cpu().detach().numpy()
 
-        print(x_reconstructs.shape)
-
         colors = plt.cm.tab20.colors
-
 
         if not os.path.exists("two_d_plots"):
             os.makedirs("two_d_plots")
