@@ -371,7 +371,7 @@ class DimRec:
 
         num_cluster = 9 if self.n_clusters > 10 else self.n_clusters
 
-        for i in range(300):
+        for i in range(1024):
 
             if label[i] <= 10:
                 plt.scatter(x_reconstructs[i][0], x_reconstructs[i][1], color=colors[label[i]])
