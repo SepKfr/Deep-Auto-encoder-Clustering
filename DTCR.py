@@ -31,9 +31,10 @@ def kmeans_regularization_loss(H, k):
       trace_term = torch.trace(H_t_H)
       F_t_H = torch.einsum('bn, bc -> bc', H_t_H, F)
       F_t_HF = torch.einsum('bn, bc -> nc', F_t_H, F)
+      clusters = torch.argmax(F_t_H, dim=-1)
       reg_term = torch.trace(F_t_HF)
 
-      return trace_term + reg_term
+      return trace_term + reg_term, clusters
 
 
 class DTCR(nn.Module):
@@ -61,7 +62,7 @@ class DTCR(nn.Module):
         self.input_size = input_size
         self.n_clusters = n_clusters
 
-    def forward(self, x, y=None):
+    def forward(self, x, y=None, compute_knn=False):
 
         s_l = x.shape[1]
 
@@ -91,28 +92,27 @@ class DTCR(nn.Module):
         x_rec, _ = self.decoder(x_enc)
 
         x_enc_kmeans = x_enc.reshape(self.batch_size, -1)
-        kmeans_loss = kmeans_regularization_loss(x_enc_kmeans, self.n_clusters)
+        kmeans_loss, labels = kmeans_regularization_loss(x_enc_kmeans, self.n_clusters)
 
         rec_loss = nn.MSELoss()(x_rec, combined_x).mean()
 
         tot_loss = rec_loss + class_loss + kmeans_loss
 
-        if y is not None:
+        if compute_knn:
+
             x_enc = x_enc.reshape(self.batch_size, -1)
             x_enc_kmeans_2 = x_enc.cpu().detach().numpy()
             kmeans = KMeans(n_clusters=self.n_clusters, random_state=0, n_init="auto").fit(x_enc_kmeans_2)
             labels = kmeans.labels_
-            assigned_labels = torch.from_numpy(labels).to(torch.long).to(self.device)
+            labels = torch.from_numpy(labels).to(self.device)
+
+        else:
+            labels = labels.reshape(-1)
             y = y[:, 0, :].reshape(-1).to(torch.long)
 
-            adj_rand_index = AdjustedRandScore()(assigned_labels, y)
-            nmi = NormalizedMutualInfoScore()(assigned_labels, y)
-            f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels, y)
-            p_score = purity_score(y.cpu().detach().numpy(), assigned_labels.cpu().detach().numpy())
-        else:
-            adj_rand_index = tot_loss
-            nmi = tot_loss
-            f1 = tot_loss
-            p_score = tot_loss
+        adj_rand_index = AdjustedRandScore()(labels, y)
+        nmi = NormalizedMutualInfoScore()(labels, y)
+        f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(labels, y)
+        p_score = purity_score(y.cpu().detach().numpy(), labels.cpu().detach().numpy())
 
         return tot_loss, adj_rand_index, nmi, f1, p_score, x_enc
