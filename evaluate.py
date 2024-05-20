@@ -368,16 +368,18 @@ class DimRec:
 
         colors = plt.cm.tab20.colors
 
-        print(len(colors))
 
         if not os.path.exists("two_d_plots"):
             os.makedirs("two_d_plots")
 
+        num_cluster = 9 if self.n_clusters > 10 else self.n_clusters
+
         for i in range(len(label)):
 
-            plt.scatter(x_reconstructs[i][0], x_reconstructs[i][1], color=colors[label[i]])
+            if label[i] <= 10:
+                plt.scatter(x_reconstructs[i][0], x_reconstructs[i][1], color=colors[label[i]])
 
-        plt.legend(labels=[f"class {i+1}" for i in range(self.n_clusters)])
+        plt.legend(labels=[f"class {i+1}" for i in range(num_cluster)])
         plt.tight_layout()
         plt.savefig("two_d_plots/{}.pdf".format(self.model_name))
 
