@@ -150,27 +150,28 @@ class DeepClustering(nn.Module):
 
         x_rec = self.seq_model(x)
 
-        x_rec = x_rec.reshape(-1, self.d_model)
         x_rec = self.proj_down(x_rec)
 
         diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
 
-        dist_2d = torch.einsum('lbd,lbd-> lb', diff, diff)
+        dist_2d = diff ** 2
 
-        dist_softmax = torch.softmax(-dist_2d, dim=-1)
-        _, k_nearest = torch.topk(dist_softmax, k=self.knns, dim=-1)
+        dist_softmax = torch.softmax(-dist_2d, dim=1)
+        _, k_nearest = torch.topk(dist_softmax, k=self.knns, dim=1)
 
-        dist_knn = dist_2d[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
-
-        loss = dist_knn.sum()
+        loss = dist_2d.sum()
 
         if y is not None:
 
-            y_c = y.reshape(-1)
+            y_c = y.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
+            y_c = y_c.unsqueeze(-1).repeat(1, 1, 1, 1, self.input_size)
+            y_c = y_c.squeeze(-2)
 
-            y_c = y_c.unsqueeze(0).expand(self.batch_size*s_l, -1)
+            labels = y_c[torch.arange(self.batch_size)[:, None, None, None],
+                         k_nearest,
+                         torch.arange(s_l)[None, None, :, None],
+                         torch.arange(self.input_size)[None, None, None, :]]
 
-            labels = y_c[torch.arange(self.batch_size*s_l)[:, None], k_nearest]
             labels = labels.reshape(self.batch_size, -1)
 
             assigned_labels = torch.mode(labels, dim=-1).values
