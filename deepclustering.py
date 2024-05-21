@@ -152,9 +152,7 @@ class DeepClustering(nn.Module):
 
         x_rec = self.proj_down(x_rec)
 
-        diff = x_rec.unsqueeze(1) - x_rec.unsqueeze(0)
-
-        dist_2d = diff ** 2
+        dist_2d = torch.cdist(x_rec.unsqueeze(1), x_rec.unsqueeze(0)) ** 2
 
         dist_softmax = torch.softmax(-dist_2d, dim=1)
         _, k_nearest = torch.topk(dist_softmax, k=self.knns, dim=1)
