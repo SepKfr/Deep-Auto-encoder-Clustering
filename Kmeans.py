@@ -18,7 +18,7 @@ def purity_score(y_true, y_pred):
 
 
 class Kmeans:
-    def __init__(self, n_clusters, batch_size, data_loader, seed):
+    def __init__(self, n_clusters, batch_size, data_loader, seed, exp_name):
 
         set_seed(seed)
         self.n_clusters = n_clusters
@@ -43,6 +43,24 @@ class Kmeans:
         p_score = statistics.mean(tot_p_loss)
 
         print("adj rand index {:.3f}, nmi {:.3f}, f1 {:.3f}, p_score {:.3f}".format(adj, nmi, f1, p_score))
+
+        # Specify the file path
+        file_path = "new_scores_{}_{}.csv".format(exp_name, seed)
+
+        scores = {"Kmeans": {'adj': f"{adj:.3f}",
+                                    'f1': f"{f1: .3f}",
+                                    'nmi': f"{nmi: .3f}",
+                                    'p_score': f"{p_score: .3f}"}}
+
+        df = pd.DataFrame.from_dict(scores, orient='index')
+
+        if os.path.exists(file_path):
+
+            df_old = pd.read_csv(file_path)
+            df_new = pd.concat([df_old, df], axis=0)
+            df_new.to_csv(file_path)
+        else:
+            df.to_csv(file_path)
 
     def predict(self, x, y):
 
