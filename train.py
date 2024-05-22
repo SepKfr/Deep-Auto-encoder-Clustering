@@ -234,7 +234,7 @@ class Train:
             #     train_acc_loss += acc.item()
             #     train_p_loss += p_score.item()
             #
-            # list_of_train_loss.append(train_knn_loss/self.data_loader.len_train)
+            list_of_train_loss.append(train_knn_loss/self.data_loader.len_train)
             # list_of_train_adj.append(train_adj_loss/self.data_loader.len_train)
             # list_of_train_nmi.append(train_nmi_loss/self.data_loader.len_train)
             # list_of_train_acc.append(train_acc_loss/self.data_loader.len_train)
@@ -252,7 +252,7 @@ class Train:
                 # valid_acc_loss += acc.item()
                 # valid_p_loss += p_score.item()
 
-            # list_of_valid_loss.append(valid_knn_loss/self.data_loader.len_test)
+            list_of_valid_loss.append(valid_knn_loss/self.data_loader.len_test)
             # list_of_valid_adj.append(valid_adj_loss/self.data_loader.len_test)
             # list_of_valid_nmi.append(valid_nmi_loss/self.data_loader.len_test)
             # list_of_valid_acc.append(valid_acc_loss/self.data_loader.len_test)
