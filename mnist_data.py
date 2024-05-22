@@ -8,7 +8,7 @@ from seed_manager import set_seed
 
 train = torchvision.datasets.MNIST('./', download=True)
 train_data = train.data.detach().numpy()
-n_uniques = int(torch.sum(train.targets.unique()).item())
+n_uniques = len(train.targets.unique())
 labels = train.targets.detach().numpy()
 train = train_data.reshape(-1, 28, 28, 1)
 
