@@ -46,7 +46,7 @@ class Train:
         parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=1024)
         parser.add_argument("--var", type=int, default=1)
-        parser.add_argument("--add_entropy", type=lambda x: str(x).lower() == "true", default=False)
+        parser.add_argument("--use_knns", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
         parser.add_argument('--cluster', choices=['yes', 'no'], default='no',
                             help='Enable or disable a feature (choices: yes, no)')
@@ -56,7 +56,7 @@ class Train:
         set_seed(self.seed)
         self.exp_name = args.exp_name
         self.var = args.var
-        self.add_entropy = args.add_entropy
+        self.use_knns = args.use_knns
 
         if self.exp_name == "mnist":
             pass
@@ -203,9 +203,9 @@ class Train:
                                    batch_size=self.batch_size,
                                    var=self.var,
                                    gamma=gamma,
-                                   add_entropy=self.add_entropy).to(self.device)
+                                   use_knns=self.use_knns).to(self.device)
 
-        cluster_optimizer = Adam(model.parameters(), lr=0.0001)
+        cluster_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
 
         best_trial_valid_loss = -1e10
@@ -373,7 +373,7 @@ class Train:
                                                        var=self.var,
                                                        knns=knn,
                                                        gamma=gm,
-                                                       add_entropy=self.add_entropy).to(self.device)
+                                                       use_knns=self.use_knns).to(self.device)
 
                             checkpoint = torch.load(os.path.join(self.model_path, "{}_forecast.pth".format(self.model_name)),
                                                     map_location=self.device)

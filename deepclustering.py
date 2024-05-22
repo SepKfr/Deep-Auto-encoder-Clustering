@@ -11,6 +11,7 @@ from torchmetrics import Accuracy, F1Score
 from tslearn.metrics import SoftDTWLossPyTorch
 
 from seed_manager import set_seed
+from util_scores import get_scores
 
 torch.autograd.set_detect_anomaly(True)
 
@@ -48,14 +49,13 @@ class DeepClustering(nn.Module):
                  d_model, nheads, n_clusters,
                  num_layers, attn_type, seed,
                  device, pred_len, batch_size,
-                 var=1, gamma=0.1, add_entropy=True):
+                 var=1, gamma=0.1, use_knns=False):
 
         super(DeepClustering, self).__init__()
 
         set_seed(seed)
 
         self.device = device
-        self.add_entropy = add_entropy
 
         self.seq_model = Transformer(input_size=input_size, d_model=d_model,
                                      nheads=nheads, num_layers=num_layers,
@@ -74,6 +74,7 @@ class DeepClustering(nn.Module):
         self.var = var
         self.k = knns
         self.gamma = gamma
+        self.use_knns = use_knns
 
     def forward(self, x, y=None):
 
@@ -84,17 +85,35 @@ class DeepClustering(nn.Module):
 
         x_enc = self.seq_model(x)
 
-        x_enc_re = x_enc.reshape(self.batch_size, -1)
-        attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)
-        mask = torch.zeros_like(attn_score).fill_diagonal_(1).to(torch.bool)
-        attn_score = attn_score.masked_fill(mask, value=-torch.inf)
-        scores = torch.softmax(attn_score, dim=-1)
+        if self.use_knns:
+            x_rec = self.proj_down(x_enc)
+            x_rec_proj = x_rec.reshape(self.batch_size, -1)
 
-        x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
-        x_rec = x_rec.reshape(x_enc.shape)
-        # x_rec_cluster = self.proj_to_cluster(x_rec)
-        x_rec_proj = self.proj_down(x_rec)
-        # x_seq_proj = self.proj_down_seq(x_enc)
+            dist_2d = torch.cdist(x_rec_proj.unsqueeze(1), x_rec_proj.unsqueeze(0)) ** 2
+            dist_2d = dist_2d.squeeze(1)
+
+            dist_softmax = torch.softmax(-dist_2d, dim=-1)
+            _, k_nearest = torch.topk(dist_softmax, k=self.knns, dim=-1)
+
+            loss = dist_2d.sum()
+        else:
+            x_enc_re = x_enc.reshape(self.batch_size, -1)
+            attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)
+            mask = torch.zeros_like(attn_score).fill_diagonal_(1).to(torch.bool)
+            attn_score = attn_score.masked_fill(mask, value=-torch.inf)
+            scores = torch.softmax(attn_score, dim=-1)
+
+            x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
+            x_rec = x_rec.reshape(x_enc.shape)
+            x_rec_proj = self.proj_down(x_rec)
+            _, k_nearest = torch.topk(scores, k=self.k, dim=-1)
+            if self.var == 1:
+
+                loss = nn.MSELoss(reduction="none")
+            else:
+                loss = SoftDTWLossPyTorch(gamma=self.gamma)
+
+            loss = loss(x_rec_proj, x[:, -dec_len:, :]).mean()
 
         # _, top_scores = torch.topk(scores, k=self.k, dim=-1)
         # x_rec_proj_exp = x_rec_proj.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
@@ -104,13 +123,7 @@ class DeepClustering(nn.Module):
         # diff_1 = (torch.diff(x_rec_proj_exp_se, dim=1)**2).mean()
         # diff_2 = (torch.diff(x_rec_proj_exp_se, dim=2)**2).mean()
 
-        if self.var == 1:
 
-            loss = nn.MSELoss(reduction="none")
-        else:
-            loss = SoftDTWLossPyTorch(gamma=self.gamma)
-
-        loss = loss(x_rec_proj, x[:, -dec_len:, :]).mean()
 
         #x_rec = self.proj_down(output_seq)
 
@@ -164,16 +177,10 @@ class DeepClustering(nn.Module):
         # y_en = y
         y = y[:, 0, :].reshape(-1)
         y_c = y.unsqueeze(0).expand(self.batch_size, -1)
-
-        _, k_nearest = torch.topk(scores, k=self.k, dim=-1)
         labels = y_c[torch.arange(self.batch_size)[:, None],
                      k_nearest]
 
-        assigned_labels = torch.mode(labels, dim=-1).values
-        adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-        nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
-        f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long), y.to(torch.long))
-        p_score = purity_score(y.to(torch.long).detach().cpu().numpy(), assigned_labels.to(torch.long).detach().cpu().numpy())
+        adj_rand_index, nmi, f1, p_score = get_scores(y, labels, self.n_clusters, device=self.device)
 
         # y_en = y_en[:, -:, :].reshape(-1).to(torch.long)
         # x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
@@ -191,5 +198,4 @@ class DeepClustering(nn.Module):
         #     tot_loss = loss + cross_loss
         # else:
         #
-        tot_loss = loss
-        return tot_loss, adj_rand_index, nmi, f1, p_score, x_rec_proj
+        return loss, adj_rand_index, nmi, f1, p_score, x_rec_proj
