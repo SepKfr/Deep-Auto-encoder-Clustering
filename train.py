@@ -33,9 +33,9 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="patients_6")
+        parser.add_argument("--exp_name", type=str, default="User_id")
         parser.add_argument("--model_name", type=str, default="ATA")
-        parser.add_argument("--num_epochs", type=int, default=5)
+        parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--seed", type=int, default=1234)
         parser.add_argument("--cuda", type=str, default='cuda:0')
@@ -133,7 +133,7 @@ class Train:
     def run_optuna(self, args):
 
         study = optuna.create_study(study_name=args.model_name,
-                                    direction="maximize")
+                                    direction="minimize")
         study.optimize(self.objective, n_trials=args.n_trials, n_jobs=4)
 
         pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
@@ -157,9 +157,9 @@ class Train:
 
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
-        gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
+        gamma = trial.suggest_categorical("gamma", [0.01])
         knns = trial.suggest_categorical("knns", [5])
-        tmax = trial.suggest_categorical("tmax", [10, 20])
+        tmax = trial.suggest_categorical("tmax", [100])
 
         tup_params = [d_model, num_layers, gamma, knns, tmax]
 
