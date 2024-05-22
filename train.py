@@ -158,7 +158,7 @@ class Train:
         d_model = trial.suggest_categorical("d_model", [16, 32])
         num_layers = trial.suggest_categorical("num_layers", [1, 3])
         gamma = trial.suggest_categorical("gamma", [0.1, 0.01])
-        knns = trial.suggest_categorical("knns", [20, 10, 5])
+        knns = trial.suggest_categorical("knns", [5])
         tmax = trial.suggest_categorical("tmax", [10, 20])
 
         tup_params = [d_model, num_layers, gamma, knns, tmax]
