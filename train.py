@@ -42,7 +42,7 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=10)
+        parser.add_argument("--max_train_sample", type=int, default=100)
         parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--var", type=int, default=1)
@@ -364,8 +364,6 @@ class Train:
                             for x, labels in self.data_loader.hold_out_test:
 
                                 _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device), labels.to(self.device))
-                                x_reconstructs.append(outputs[1].detach().cpu())
-                                knns.append(outputs[0].detach().cpu())
                                 tot_adj_loss.append(adj_loss.item())
                                 tot_nmi_loss.append(nmi.item())
                                 tot_acc_loss.append(acc.item())
@@ -373,9 +371,6 @@ class Train:
 
                         except RuntimeError:
                             pass
-
-        x_reconstructs = torch.cat(x_reconstructs)
-        knns = torch.cat(knns)
 
         adj = statistics.mean(tot_adj_loss)
         nmi = statistics.mean(tot_nmi_loss)
@@ -401,12 +396,6 @@ class Train:
             df_new.to_csv(file_path)
         else:
             df.to_csv(file_path)
-
-        tensor_path = f"{self.exp_name}"
-        if not os.path.exists(tensor_path):
-            os.makedirs(tensor_path)
-            torch.save({"outputs": x_reconstructs, "knns": knns},
-                   os.path.join(tensor_path, f"{self.model_name}_{self.seed}.pt"))
 
         # knns = np.vstack(knns)
         # x_reconstructs = np.vstack(x_reconstructs)
