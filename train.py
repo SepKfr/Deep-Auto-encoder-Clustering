@@ -42,7 +42,7 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=100)
+        parser.add_argument("--max_train_sample", type=int, default=10)
         parser.add_argument("--max_test_sample", type=int, default=-1)
         parser.add_argument("--batch_size", type=int, default=256)
         parser.add_argument("--var", type=int, default=1)
