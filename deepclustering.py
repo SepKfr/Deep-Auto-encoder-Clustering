@@ -62,8 +62,6 @@ class DeepClustering(nn.Module):
                                      attn_type=attn_type, seed=seed, device=device)
 
         self.proj_down = nn.Linear(d_model, input_size)
-        self.proj_to_cluster = nn.Linear(d_model, n_clusters)
-        self.proj_down_seq = nn.Linear(d_model, input_size)
 
         self.pred_len = pred_len
         self.nheads = nheads
@@ -93,7 +91,7 @@ class DeepClustering(nn.Module):
             dist_2d = dist_2d.squeeze(1)
 
             dist_softmax = torch.softmax(-dist_2d, dim=-1)
-            _, k_nearest = torch.topk(dist_softmax, k=self.knns, dim=-1)
+            _, k_nearest = torch.topk(dist_softmax, k=self.k, dim=-1)
 
             loss = dist_2d.sum()
         else:
@@ -108,7 +106,6 @@ class DeepClustering(nn.Module):
             x_rec_proj = self.proj_down(x_rec)
             _, k_nearest = torch.topk(scores, k=self.k, dim=-1)
             if self.var == 1:
-
                 loss = nn.MSELoss(reduction="none")
             else:
                 loss = SoftDTWLossPyTorch(gamma=self.gamma)
@@ -122,9 +119,6 @@ class DeepClustering(nn.Module):
         #
         # diff_1 = (torch.diff(x_rec_proj_exp_se, dim=1)**2).mean()
         # diff_2 = (torch.diff(x_rec_proj_exp_se, dim=2)**2).mean()
-
-
-
         #x_rec = self.proj_down(output_seq)
 
         # diffs = torch.diff(x_rec, dim=1)
@@ -179,6 +173,7 @@ class DeepClustering(nn.Module):
         y_c = y.unsqueeze(0).expand(self.batch_size, -1)
         labels = y_c[torch.arange(self.batch_size)[:, None],
                      k_nearest]
+        labels = labels.reshape(-1)
 
         adj_rand_index, nmi, f1, p_score = get_scores(y, labels, self.n_clusters, device=self.device)
 
