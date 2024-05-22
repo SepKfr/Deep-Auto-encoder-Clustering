@@ -205,7 +205,7 @@ class Train:
                                    gamma=gamma,
                                    add_entropy=self.add_entropy).to(self.device)
 
-        cluster_optimizer = Adam(model.parameters())
+        cluster_optimizer = Adam(model.parameters(), lr=0.0001)
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
 
         best_trial_valid_loss = -1e10
