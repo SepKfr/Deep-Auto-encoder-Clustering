@@ -171,11 +171,14 @@ class DeepClustering(nn.Module):
         # y_en = y
         y = y[:, 0, :].reshape(-1)
         y_c = y.unsqueeze(0).expand(self.batch_size, -1)
+
         labels = y_c[torch.arange(self.batch_size)[:, None],
                      k_nearest]
-        labels = labels.reshape(-1)
 
-        adj_rand_index, nmi, f1, p_score = get_scores(y, labels, self.n_clusters, device=self.device)
+        assigned_labels = torch.mode(labels, dim=-1).values
+        assigned_labels = assigned_labels.reshape(-1)
+
+        adj_rand_index, nmi, f1, p_score = get_scores(y, assigned_labels, self.n_clusters, device=self.device)
 
         # y_en = y_en[:, -:, :].reshape(-1).to(torch.long)
         # x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
