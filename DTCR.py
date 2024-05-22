@@ -6,6 +6,7 @@ from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import F1Score
 from seed_manager import set_seed
+from util_scores import get_scores
 
 
 def purity_score(y_true, y_pred):
@@ -98,21 +99,10 @@ class DTCR(nn.Module):
 
         tot_loss = rec_loss + class_loss + kmeans_loss
 
-        if compute_knn:
-
-            x_enc = x_enc.reshape(self.batch_size, -1)
-            x_enc_kmeans_2 = x_enc.cpu().detach().numpy()
-            kmeans = KMeans(n_clusters=self.n_clusters, random_state=0, n_init="auto").fit(x_enc_kmeans_2)
-            labels = kmeans.labels_
-            labels = torch.from_numpy(labels).to(self.device)
-
+        if y is not None:
+            y = y[:, 0, :].reshape(-1)
+            adj_rand_index, nmi, f1, p_score = get_scores(y, k, self.n_clusters, device=self.device)
         else:
-            labels = labels.reshape(-1)
-            y = y[:, 0, :].reshape(-1).to(torch.long)
-
-        adj_rand_index = AdjustedRandScore()(labels, y)
-        nmi = NormalizedMutualInfoScore()(labels, y)
-        f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(labels, y)
-        p_score = purity_score(y.cpu().detach().numpy(), labels.cpu().detach().numpy())
+            adj_rand_index, nmi, f1, p_score = 0, 0, 0, 0
 
         return tot_loss, adj_rand_index, nmi, f1, p_score, x_enc

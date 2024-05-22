@@ -104,9 +104,11 @@ class SOMVAE(nn.Module):
 
         loss = self.loss(x, x_e, x_q, z_e, z_q, z_q_neighbors)
 
-        y = y[:, 0, :].reshape(-1)
-
-        adj_rand_index, nmi, f1, p_score = get_scores(y, k, self.n_clusters, device=self.device)
+        if y is not None:
+            y = y[:, 0, :].reshape(-1)
+            adj_rand_index, nmi, f1, p_score = get_scores(y, k, self.n_clusters, device=self.device)
+        else:
+            adj_rand_index, nmi, f1, p_score = 0, 0, 0, 0
 
         return loss, adj_rand_index, nmi, f1, p_score, x_q + x_e
 

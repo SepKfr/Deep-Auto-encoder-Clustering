@@ -20,6 +20,9 @@ import torch
 import numpy
 from sklearn.datasets import make_spd_matrix
 
+from util_scores import get_scores
+
+
 def purity_score(y_true, y_pred):
     # compute contingency matrix (also called confusion matrix)
     contingency_matrix = metrics.cluster.contingency_matrix(y_true, y_pred)
@@ -253,14 +256,11 @@ class GmmDiagonal(MixtureModel):
         assigned_labels = self.get_cluster_assign(x)
         nll_loss = -1 * prob.mean()
 
-        y = y[:, 0, :].reshape(-1)
-
-        adj_rand_index = AdjustedRandScore()(assigned_labels.to(torch.long), y.to(torch.long))
-        nmi = NormalizedMutualInfoScore()(assigned_labels.to(torch.long), y.to(torch.long))
-        f1 = F1Score(task='multiclass', num_classes=self.n_clusters).to(self.device)(assigned_labels.to(torch.long),
-                                                                                     y.to(torch.long))
-        p_score = purity_score(y.to(torch.long).detach().cpu().numpy(),
-                               assigned_labels.to(torch.long).detach().cpu().numpy())
+        if y is not None:
+            y = y[:, 0, :].reshape(-1)
+            adj_rand_index, nmi, f1, p_score = get_scores(y, k, self.n_clusters, device=self.device)
+        else:
+            adj_rand_index, nmi, f1, p_score = 0, 0, 0, 0
 
         return nll_loss, adj_rand_index, nmi, f1, p_score, x
 

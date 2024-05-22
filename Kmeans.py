@@ -1,9 +1,9 @@
 import statistics
-
+import pandas as pd
 from sklearn.cluster import KMeans
 import torch
 import numpy as np
-import random
+import os
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
 from torchmetrics import F1Score
@@ -45,9 +45,9 @@ class Kmeans:
         print("adj rand index {:.3f}, nmi {:.3f}, f1 {:.3f}, p_score {:.3f}".format(adj, nmi, f1, p_score))
 
         # Specify the file path
-        file_path = "new_scores_{}_{}.csv".format(exp_name, self.seed)
+        file_path = "new_scores_{}_{}.csv".format(exp_name, seed)
 
-        scores = {self.model_name: {'adj': f"{adj:.3f}",
+        scores = {f"kmeans_{exp_name}": {'adj': f"{adj:.3f}",
                                     'f1': f"{f1: .3f}",
                                     'nmi': f"{nmi: .3f}",
                                     'p_score': f"{p_score: .3f}"}}
@@ -65,7 +65,6 @@ class Kmeans:
     def predict(self, x, y):
 
         x = x.reshape(self.batch_size, -1)
-        print(self.n_clusters)
         kmeans = KMeans(n_clusters=self.n_clusters, random_state=1234, n_init="auto").fit(x)
         labels = kmeans.labels_
         assigned_labels = torch.from_numpy(labels).to(torch.long)
