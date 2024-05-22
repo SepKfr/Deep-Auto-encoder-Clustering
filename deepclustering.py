@@ -2,8 +2,11 @@ import numpy as np
 import random
 import torch.nn as nn
 import torch
+from sklearn.cluster import KMeans
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel
+from sklearn.neighbors import NearestNeighbors
+
 from modules.transformer import Transformer
 from sklearn import metrics
 from torchmetrics.clustering import AdjustedRandScore, NormalizedMutualInfoScore
@@ -77,40 +80,26 @@ class DeepClustering(nn.Module):
     def forward(self, x, y=None):
 
         s_l = x.shape[1]
-        dec_len = s_l
         if len(x.shape) > 3:
             x = x.reshape(self.batch_size, s_l, -1)
 
         x_enc = self.seq_model(x)
 
-        if self.use_knns:
-            x_rec = self.proj_down(x_enc)
-            x_rec_proj = x_rec.reshape(self.batch_size, -1)
+        x_enc_re = x_enc.reshape(self.batch_size, -1)
+        attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)
+        mask = torch.zeros_like(attn_score).fill_diagonal_(1).to(torch.bool)
+        attn_score = attn_score.masked_fill(mask, value=-torch.inf)
+        scores = torch.softmax(attn_score, dim=-1)
 
-            dist_2d = torch.cdist(x_rec_proj.unsqueeze(1), x_rec_proj.unsqueeze(0)) ** 2
-            dist_2d = dist_2d.squeeze(1)
-
-            dist_softmax = torch.softmax(-dist_2d, dim=-1)
-            _, k_nearest = torch.topk(dist_softmax, k=self.k, dim=-1)
-
-            loss = dist_2d.sum()
+        x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
+        x_rec = x_rec.reshape(x_enc.shape)
+        x_rec_proj = self.proj_down(x_rec)
+        if self.var == 1:
+            loss = nn.MSELoss(reduction="none")
         else:
-            x_enc_re = x_enc.reshape(self.batch_size, -1)
-            attn_score = torch.einsum('bl, cl-> bc', x_enc_re, x_enc_re) / np.sqrt(self.d_model * s_l)
-            mask = torch.zeros_like(attn_score).fill_diagonal_(1).to(torch.bool)
-            attn_score = attn_score.masked_fill(mask, value=-torch.inf)
-            scores = torch.softmax(attn_score, dim=-1)
+            loss = SoftDTWLossPyTorch(gamma=self.gamma)
 
-            x_rec = torch.einsum('bd, bc-> bd', x_enc_re, scores)
-            x_rec = x_rec.reshape(x_enc.shape)
-            x_rec_proj = self.proj_down(x_rec)
-            _, k_nearest = torch.topk(scores, k=self.k, dim=-1)
-            if self.var == 1:
-                loss = nn.MSELoss(reduction="none")
-            else:
-                loss = SoftDTWLossPyTorch(gamma=self.gamma)
-
-            loss = loss(x_rec_proj, x[:, -dec_len:, :]).mean()
+        loss = loss(x_rec_proj, x).mean()
 
         # _, top_scores = torch.topk(scores, k=self.k, dim=-1)
         # x_rec_proj_exp = x_rec_proj.unsqueeze(0).expand(self.batch_size, -1, -1, -1)
@@ -169,16 +158,6 @@ class DeepClustering(nn.Module):
         #loss = loss_rec + diff_steps + diff_knns if self.var == 2 else loss_rec
 
         # y_en = y
-        y = y[:, 0, :].reshape(-1)
-        y_c = y.unsqueeze(0).expand(self.batch_size, -1)
-
-        labels = y_c[torch.arange(self.batch_size)[:, None],
-                     k_nearest]
-
-        assigned_labels = torch.mode(labels, dim=-1).values
-        assigned_labels = assigned_labels.reshape(-1)
-
-        adj_rand_index, nmi, f1, p_score = get_scores(y, assigned_labels, self.n_clusters, device=self.device)
 
         # y_en = y_en[:, -:, :].reshape(-1).to(torch.long)
         # x_rec_cluster = x_rec_cluster.reshape(-1, self.n_clusters)
@@ -196,4 +175,18 @@ class DeepClustering(nn.Module):
         #     tot_loss = loss + cross_loss
         # else:
         #
+        if y is not None:
+
+            x_rec_proj = x_rec_proj.cpu().detach().numpy()
+            x_rec_proj = x_rec_proj.reshape(self.batch_size, -1)
+            kmeans = KMeans(n_clusters=self.n_clusters, random_state=1234, n_init="auto").fit(x_rec_proj)
+            labels = kmeans.labels_
+            assigned_labels = torch.from_numpy(labels).to(torch.long)
+            y = y[:, 0, :].reshape(-1).to(torch.long)
+            adj_rand_index, nmi, f1, p_score, x_rec_proj = get_scores(y, assigned_labels,
+                                                                      n_clusters=self.n_clusters,
+                                                                      device=self.device)
+
+        else:
+            adj_rand_index, nmi, f1, p_score = 0, 0, 0, 0
         return loss, adj_rand_index, nmi, f1, p_score, x_rec_proj

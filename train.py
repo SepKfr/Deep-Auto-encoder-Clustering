@@ -33,7 +33,7 @@ class Train:
     def __init__(self):
 
         parser = argparse.ArgumentParser(description="train args")
-        parser.add_argument("--exp_name", type=str, default="patients_6")
+        parser.add_argument("--exp_name", type=str, default="mnist")
         parser.add_argument("--model_name", type=str, default="ATA")
         parser.add_argument("--num_epochs", type=int, default=10)
         parser.add_argument("--n_trials", type=int, default=10)
@@ -119,7 +119,7 @@ class Train:
         self.n_clusters = self.data_loader.n_clusters
         self.num_epochs = args.num_epochs
         self.batch_size = args.batch_size
-        self.best_overall_valid_loss = -1e10
+        self.best_overall_valid_loss = 1e10
         self.list_explored_params = []
         if args.model_name == "kmeans":
             Kmeans(n_clusters=self.n_clusters, batch_size=self.batch_size,
@@ -208,7 +208,7 @@ class Train:
         cluster_optimizer = Adam(model.parameters())
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(cluster_optimizer, T_max=tmax)
 
-        best_trial_valid_loss = -1e10
+        best_trial_valid_loss = 1e10
 
         for epoch in range(self.num_epochs):
 
@@ -232,7 +232,7 @@ class Train:
 
             for x, y in self.data_loader.train_loader:
 
-                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
+                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device))
 
                 cluster_optimizer.zero_grad()
                 loss.backward()
@@ -240,17 +240,17 @@ class Train:
                 cluster_optimizer.step()
                 scheduler.step()
                 train_knn_loss += loss.item()
-                train_adj_loss += adj_rand_index.item()
-                train_nmi_loss += nmi.item()
-                train_acc_loss += acc.item()
-                train_acc_loss += acc.item()
-                train_p_loss += p_score.item()
-
-            list_of_train_loss.append(train_knn_loss/self.data_loader.len_train)
-            list_of_train_adj.append(train_adj_loss/self.data_loader.len_train)
-            list_of_train_nmi.append(train_nmi_loss/self.data_loader.len_train)
-            list_of_train_acc.append(train_acc_loss/self.data_loader.len_train)
-            list_of_train_p.append(train_p_loss/self.data_loader.len_train)
+            #     train_adj_loss += adj_rand_index.item()
+            #     train_nmi_loss += nmi.item()
+            #     train_acc_loss += acc.item()
+            #     train_acc_loss += acc.item()
+            #     train_p_loss += p_score.item()
+            #
+            # list_of_train_loss.append(train_knn_loss/self.data_loader.len_train)
+            # list_of_train_adj.append(train_adj_loss/self.data_loader.len_train)
+            # list_of_train_nmi.append(train_nmi_loss/self.data_loader.len_train)
+            # list_of_train_acc.append(train_acc_loss/self.data_loader.len_train)
+            # list_of_train_p.append(train_p_loss/self.data_loader.len_train)
 
             model.eval()
             valid_knn_loss = 0
@@ -261,29 +261,29 @@ class Train:
 
             for x, y in self.data_loader.test_loader:
 
-                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device), y.to(self.device))
+                loss, adj_rand_index, nmi, acc, p_score, _ = model(x.to(self.device))
                 valid_knn_loss += loss.item()
-                valid_adj_loss += adj_rand_index.item()
-                valid_nmi_loss += nmi.item()
-                valid_acc_loss += acc.item()
-                valid_p_loss += p_score.item()
+                # valid_adj_loss += adj_rand_index.item()
+                # valid_nmi_loss += nmi.item()
+                # valid_acc_loss += acc.item()
+                # valid_p_loss += p_score.item()
 
-            list_of_valid_loss.append(valid_knn_loss/self.data_loader.len_test)
-            list_of_valid_adj.append(valid_adj_loss/self.data_loader.len_test)
-            list_of_valid_nmi.append(valid_nmi_loss/self.data_loader.len_test)
-            list_of_valid_acc.append(valid_acc_loss/self.data_loader.len_test)
-            list_of_valid_p.append(valid_p_loss/self.data_loader.len_test)
-
-            trial.report(statistics.mean(list_of_valid_adj), step=epoch)
+            # list_of_valid_loss.append(valid_knn_loss/self.data_loader.len_test)
+            # list_of_valid_adj.append(valid_adj_loss/self.data_loader.len_test)
+            # list_of_valid_nmi.append(valid_nmi_loss/self.data_loader.len_test)
+            # list_of_valid_acc.append(valid_acc_loss/self.data_loader.len_test)
+            # list_of_valid_p.append(valid_p_loss/self.data_loader.len_test)
+            #
+            # trial.report(statistics.mean(list_of_valid_adj), step=epoch)
 
             # Prune trial if necessary
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
             valid_tmp = statistics.mean(list_of_valid_adj)
-            if valid_tmp > best_trial_valid_loss:
+            if valid_tmp < best_trial_valid_loss:
                 best_trial_valid_loss = valid_tmp
-                if best_trial_valid_loss > self.best_overall_valid_loss:
+                if best_trial_valid_loss < self.best_overall_valid_loss:
                     self.best_overall_valid_loss = best_trial_valid_loss
                     self.best_clustering_model = model
                     torch.save(model.state_dict(),
