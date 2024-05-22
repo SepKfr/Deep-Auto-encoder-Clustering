@@ -214,21 +214,9 @@ class Train:
 
             list_of_valid_loss = []
             list_of_train_loss = []
-            list_of_valid_adj = []
-            list_of_valid_nmi = []
-            list_of_valid_acc = []
-            list_of_train_adj = []
-            list_of_train_nmi = []
-            list_of_train_acc = []
-            list_of_train_p = []
-            list_of_valid_p = []
 
             model.train()
             train_knn_loss = 0
-            train_adj_loss = 0
-            train_nmi_loss = 0
-            train_acc_loss = 0
-            train_p_loss = 0
 
             for x, y in self.data_loader.train_loader:
 
@@ -254,10 +242,6 @@ class Train:
 
             model.eval()
             valid_knn_loss = 0
-            valid_adj_loss = 0
-            valid_nmi_loss = 0
-            valid_acc_loss = 0
-            valid_p_loss = 0
 
             for x, y in self.data_loader.test_loader:
 
@@ -280,9 +264,8 @@ class Train:
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
-            valid_tmp = statistics.mean(list_of_valid_adj)
-            if valid_tmp < best_trial_valid_loss:
-                best_trial_valid_loss = valid_tmp
+            if valid_knn_loss < best_trial_valid_loss:
+                best_trial_valid_loss = valid_knn_loss
                 if best_trial_valid_loss < self.best_overall_valid_loss:
                     self.best_overall_valid_loss = best_trial_valid_loss
                     self.best_clustering_model = model
@@ -291,19 +274,13 @@ class Train:
                                             "{}_forecast.pth".format(self.model_name)))
 
             if epoch % 5 == 0:
-                print("train KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, p_score: {:.3f}, epoch: {}"
+                print("train KNN loss: {:.3f}, epoch: {}"
                       .format(statistics.mean(list_of_train_loss),
-                              statistics.mean(list_of_train_adj),
-                              statistics.mean(list_of_train_nmi),
-                              statistics.mean(list_of_train_acc),
-                              statistics.mean(list_of_train_p),
+
                               epoch))
-                print("valid KNN loss: {:.3f}, adj: {:.3f}, nmi: {:.3f}, acc: {:.3f}, p_score: {:.3f}, epoch: {}"
+                print("valid KNN loss: {:.3f}, epoch: {}"
                       .format(statistics.mean(list_of_valid_loss),
-                              statistics.mean(list_of_valid_adj),
-                              statistics.mean(list_of_valid_nmi),
-                              statistics.mean(list_of_valid_acc),
-                              statistics.mean(list_of_valid_p),
+
                               epoch))
 
         return best_trial_valid_loss
