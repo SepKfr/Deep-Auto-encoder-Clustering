@@ -45,7 +45,7 @@ class Kmeans:
         print("adj rand index {:.3f}, nmi {:.3f}, f1 {:.3f}, p_score {:.3f}".format(adj, nmi, f1, p_score))
 
         # Specify the file path
-        file_path = "new_scores_{}_{}.csv".format(exp_name, seed)
+        file_path = "final_scores_{}_{}.csv".format(exp_name, seed)
 
         scores = {f"kmeans_{exp_name}": {'adj': f"{adj:.3f}",
                                     'f1': f"{f1: .3f}",
