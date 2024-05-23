@@ -34,7 +34,7 @@ class Train:
 
         parser = argparse.ArgumentParser(description="train args")
         parser.add_argument("--exp_name", type=str, default="User_id")
-        parser.add_argument("--model_name", type=str, default="ATA")
+        parser.add_argument("--model_name", type=str, default="kmeans")
         parser.add_argument("--num_epochs", type=int, default=1)
         parser.add_argument("--n_trials", type=int, default=10)
         parser.add_argument("--seed", type=int, default=1234)
@@ -42,9 +42,9 @@ class Train:
         parser.add_argument("--attn_type", type=str, default='basic')
         parser.add_argument("--max_encoder_length", type=int, default=96)
         parser.add_argument("--pred_len", type=int, default=24)
-        parser.add_argument("--max_train_sample", type=int, default=-1)
+        parser.add_argument("--max_train_sample", type=int, default=10)
         parser.add_argument("--max_test_sample", type=int, default=-1)
-        parser.add_argument("--batch_size", type=int, default=1024)
+        parser.add_argument("--batch_size", type=int, default=32)
         parser.add_argument("--var", type=int, default=1)
         parser.add_argument("--use_knns", type=lambda x: str(x).lower() == "true", default=False)
         parser.add_argument("--data_path", type=str, default='watershed.csv')
@@ -361,7 +361,7 @@ class Train:
 
                             print("Successful...")
 
-                            for x, labels in self.data_loader.hold_out_test:
+                            for x, labels in self.data_loader.test_loader:
 
                                 _, adj_loss, nmi, acc, p_score, outputs = model(x.to(self.device), labels.to(self.device))
                                 tot_adj_loss.append(adj_loss.item())
