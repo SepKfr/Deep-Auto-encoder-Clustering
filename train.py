@@ -369,8 +369,8 @@ class Train:
                                 tot_acc_loss.append(acc.item())
                                 tot_p_loss.append(p_score.item())
 
-                        except RuntimeError as e:
-                            print(e)
+                        except RuntimeError:
+                            pass
 
         adj = statistics.mean(tot_adj_loss)
         nmi = statistics.mean(tot_nmi_loss)
