@@ -181,7 +181,7 @@ class DeepClustering(nn.Module):
             x_rec_knn = x_rec_knn.reshape(self.batch_size, -1)
             kmeans = KMeans(n_clusters=self.n_clusters, random_state=1234, n_init="auto").fit(x_rec_knn)
             labels = kmeans.labels_
-            assigned_labels = torch.from_numpy(labels).to(torch.long)
+            assigned_labels = torch.from_numpy(labels).to(torch.long).to(self.device)
             y = y[:, 0, :].reshape(-1).to(torch.long)
             adj_rand_index, nmi, f1, p_score = get_scores(y, assigned_labels,
                                                                       n_clusters=self.n_clusters,
