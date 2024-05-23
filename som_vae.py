@@ -86,7 +86,7 @@ class SOMVAE(nn.Module):
                                                              std=0.05, a=-0.1, b=0.1))
         self.mse_loss = nn.MSELoss()
 
-    def forward(self, x, y):
+    def forward(self, x, y=None):
 
         # encoding
         b, s_l = x.shape[0], x.shape[1]
