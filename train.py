@@ -123,7 +123,7 @@ class Train:
         self.list_explored_params = []
         if args.model_name == "kmeans":
             Kmeans(n_clusters=self.n_clusters, batch_size=self.batch_size,
-                   data_loader=self.data_loader.hold_out_test, seed=self.seed,
+                   data_loader=self.data_loader.test_loader, seed=self.seed,
                    exp_name=self.exp_name)
         else:
             self.best_clustering_model = nn.Module()
